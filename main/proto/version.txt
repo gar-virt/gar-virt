@@ -1,0 +1,2 @@
+Repository: https://gitea.com/gitea/actions-proto-def.git
+Commit: 42c85b5f798f673f330ac2bf754a6e57dd26de09

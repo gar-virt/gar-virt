@@ -250,8 +250,7 @@ struct runner_options {
 
 google::protobuf::Timestamp current_timestamp() {
     using namespace std::literals;
-    // No idea why act_runner's clock is off by nearly 30 seconds
-    const auto time{std::chrono::utc_clock::now().time_since_epoch()}; // - 27s
+    const auto time{std::chrono::system_clock::now().time_since_epoch()};
     const auto s{std::chrono::duration_cast<std::chrono::seconds>(time)};
     const auto ns{std::chrono::duration_cast<std::chrono::nanoseconds>(time - s)};
     google::protobuf::Timestamp timestamp;

@@ -380,153 +380,156 @@ auto cmd_daemon() -> int {
     return 1;
   }
 
-  auto fetch_task_response{
-      std::expected<::runner::v1::FetchTaskResponse, gitea::error_code>{}};
   while (true) {
-    auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
-    fetch_task_response = gitea::runner::fetch_task(client, fetch_task_request);
-    if (!fetch_task_response) {
-      std::println(std::cerr, "Error");
-      return 1;
-    }
-    std::println("tasks_version={}", fetch_task_response->tasks_version());
-
-    if (!fetch_task_response->has_task()) {
-      std::this_thread::sleep_for(1s);
-      continue;
-    }
-
-    break;
-  }
-
-  auto const &task{fetch_task_response->task()};
-  std::println("task id={}", task.id());
-  auto const &secrets{task.secrets()};
-  auto const &needs{task.needs()};
-  auto const &vars{task.vars()};
-  auto const &context{task.context()};
-  auto const &workflow_payload{task.workflow_payload()};
-
-  auto const workflow{[&]() -> std::expected<YAML::Node, gitea::error_code> {
-    try {
-      return YAML::Load(workflow_payload);
-    } catch (YAML::ParserException const &) {
-      return std::unexpected{gitea::error_code::workflow_parse_failed};
-    }
-  }()};
-  if (!workflow) {
-    std::println(std::cerr, "Error");
-    return 1;
-  }
-
-  auto const &job_name{context.fields().at("job").string_value()};
-
-  auto const &wf_jobs{workflow.value()["jobs"]};
-  if (!wf_jobs) {
-    std::println(std::cerr, "Error");
-    return 1;
-  }
-
-  auto const &ws_job{wf_jobs[job_name]};
-
-  auto const &wf_steps{ws_job["steps"]};
-  if (!wf_steps) {
-    std::println(std::cerr, "Error");
-    return 1;
-  }
-
-  // Initial task state
-  auto update_task_request{::runner::v1::UpdateTaskRequest{}};
-  auto *task_state{update_task_request.mutable_state()};
-  {
-    task_state->set_id(task.id());
-    task_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
-
-    auto update_task_response{
-        gitea::runner::update_task(client, update_task_request)};
-    if (!update_task_response) {
-      std::println(std::cerr, "Error");
-      return 1;
-    }
-  }
-
-  // Set initial step state
-  {
-    auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::utc_clock::now().time_since_epoch())};
-    task_state->mutable_started_at()->set_seconds(current_time.count());
-    task_state->mutable_started_at()->set_nanos(0);
-
-    int i{};
-    for (auto const &wf_step : wf_steps) {
-      auto *step{task_state->add_steps()};
-      step->set_id(i);
-      step->set_result(::runner::v1::RESULT_UNSPECIFIED);
-      step->set_log_index(0);
-      step->set_log_length(0);
-      ++i;
-    }
-
-    auto update_task_response{
-        gitea::runner::update_task(client, update_task_request)};
-    if (!update_task_response) {
-      std::println(std::cerr, "Error");
-      return 1;
-    }
-  }
-
-  // Simulate work and completion of steps
-  {
-    for (auto &step : *task_state->mutable_steps()) {
-      // Started
-      {
-        auto const current_time{
-            std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::utc_clock::now().time_since_epoch())};
-        step.mutable_started_at()->set_seconds(current_time.count());
-        step.mutable_started_at()->set_nanos(0);
-
-        auto update_task_response{
-            gitea::runner::update_task(client, update_task_request)};
-        if (!update_task_response) {
-          std::println(std::cerr, "Error");
-          return 1;
-        }
+    auto fetch_task_response{
+        std::expected<::runner::v1::FetchTaskResponse, gitea::error_code>{}};
+    while (true) {
+      auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
+      fetch_task_response =
+          gitea::runner::fetch_task(client, fetch_task_request);
+      if (!fetch_task_response) {
+        std::println(std::cerr, "Error");
+        return 1;
       }
-      // "Work"
-      std::this_thread::sleep_for(250ms);
-      // Completed
-      {
-        auto const current_time{
-            std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::utc_clock::now().time_since_epoch())};
-        step.set_result(::runner::v1::RESULT_SUCCESS);
-        step.mutable_stopped_at()->set_seconds(current_time.count());
-        step.mutable_stopped_at()->set_nanos(0);
+      std::println("tasks_version={}", fetch_task_response->tasks_version());
 
-        auto update_task_response{
-            gitea::runner::update_task(client, update_task_request)};
-        if (!update_task_response) {
-          std::println(std::cerr, "Error");
-          return 1;
-        }
+      if (!fetch_task_response->has_task()) {
+        std::this_thread::sleep_for(1s);
+        continue;
+      }
+
+      break;
+    }
+
+    auto const &task{fetch_task_response->task()};
+    std::println("task id={}", task.id());
+    auto const &secrets{task.secrets()};
+    auto const &needs{task.needs()};
+    auto const &vars{task.vars()};
+    auto const &context{task.context()};
+    auto const &workflow_payload{task.workflow_payload()};
+
+    auto const workflow{[&]() -> std::expected<YAML::Node, gitea::error_code> {
+      try {
+        return YAML::Load(workflow_payload);
+      } catch (YAML::ParserException const &) {
+        return std::unexpected{gitea::error_code::workflow_parse_failed};
+      }
+    }()};
+    if (!workflow) {
+      std::println(std::cerr, "Error");
+      return 1;
+    }
+
+    auto const &job_name{context.fields().at("job").string_value()};
+
+    auto const &wf_jobs{workflow.value()["jobs"]};
+    if (!wf_jobs) {
+      std::println(std::cerr, "Error");
+      return 1;
+    }
+
+    auto const &ws_job{wf_jobs[job_name]};
+
+    auto const &wf_steps{ws_job["steps"]};
+    if (!wf_steps) {
+      std::println(std::cerr, "Error");
+      return 1;
+    }
+
+    // Initial task state
+    auto update_task_request{::runner::v1::UpdateTaskRequest{}};
+    auto *task_state{update_task_request.mutable_state()};
+    {
+      task_state->set_id(task.id());
+      task_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
+
+      auto update_task_response{
+          gitea::runner::update_task(client, update_task_request)};
+      if (!update_task_response) {
+        std::println(std::cerr, "Error");
+        return 1;
       }
     }
-  }
 
-  // Completion
-  {
-    auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::utc_clock::now().time_since_epoch())};
-    task_state->set_result(::runner::v1::RESULT_SUCCESS);
-    task_state->mutable_stopped_at()->set_seconds(current_time.count());
-    task_state->mutable_stopped_at()->set_nanos(0);
+    // Set initial step state
+    {
+      auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
+          std::chrono::utc_clock::now().time_since_epoch())};
+      task_state->mutable_started_at()->set_seconds(current_time.count());
+      task_state->mutable_started_at()->set_nanos(0);
 
-    auto update_task_response{
-        gitea::runner::update_task(client, update_task_request)};
-    if (!update_task_response) {
-      std::println(std::cerr, "Error");
-      return 1;
+      int i{};
+      for (auto const &wf_step : wf_steps) {
+        auto *step{task_state->add_steps()};
+        step->set_id(i);
+        step->set_result(::runner::v1::RESULT_UNSPECIFIED);
+        step->set_log_index(0);
+        step->set_log_length(0);
+        ++i;
+      }
+
+      auto update_task_response{
+          gitea::runner::update_task(client, update_task_request)};
+      if (!update_task_response) {
+        std::println(std::cerr, "Error");
+        return 1;
+      }
+    }
+
+    // Simulate work and completion of steps
+    {
+      for (auto &step : *task_state->mutable_steps()) {
+        // Started
+        {
+          auto const current_time{
+              std::chrono::duration_cast<std::chrono::seconds>(
+                  std::chrono::utc_clock::now().time_since_epoch())};
+          step.mutable_started_at()->set_seconds(current_time.count());
+          step.mutable_started_at()->set_nanos(0);
+
+          auto update_task_response{
+              gitea::runner::update_task(client, update_task_request)};
+          if (!update_task_response) {
+            std::println(std::cerr, "Error");
+            return 1;
+          }
+        }
+        // "Work"
+        std::this_thread::sleep_for(250ms);
+        // Completed
+        {
+          auto const current_time{
+              std::chrono::duration_cast<std::chrono::seconds>(
+                  std::chrono::utc_clock::now().time_since_epoch())};
+          step.set_result(::runner::v1::RESULT_SUCCESS);
+          step.mutable_stopped_at()->set_seconds(current_time.count());
+          step.mutable_stopped_at()->set_nanos(0);
+
+          auto update_task_response{
+              gitea::runner::update_task(client, update_task_request)};
+          if (!update_task_response) {
+            std::println(std::cerr, "Error");
+            return 1;
+          }
+        }
+      }
+    }
+
+    // Completion
+    {
+      auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
+          std::chrono::utc_clock::now().time_since_epoch())};
+      task_state->set_result(::runner::v1::RESULT_SUCCESS);
+      task_state->mutable_stopped_at()->set_seconds(current_time.count());
+      task_state->mutable_stopped_at()->set_nanos(0);
+
+      auto update_task_response{
+          gitea::runner::update_task(client, update_task_request)};
+      if (!update_task_response) {
+        std::println(std::cerr, "Error");
+        return 1;
+      }
     }
   }
 

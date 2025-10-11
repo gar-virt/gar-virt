@@ -3,7 +3,7 @@
 ## Debian/Ubuntu
 
 ```
-sudo apt install libgrpc++-dev protobuf-compiler protobuf-compiler-grpc libprotobuf-dev libcurl4-openssl-dev libboost-json-dev
+sudo apt install libgrpc++-dev protobuf-compiler protobuf-compiler-grpc libprotobuf-dev libcurl4-openssl-dev libboost-json-dev libyaml-cpp-dev
 ```
 
 

@@ -271,6 +271,18 @@ struct runner_options {
   }
 };
 
+google::protobuf::Timestamp current_timestamp() {
+  using namespace std::literals;
+  // No idea why act_runner's clock is off by nearly 30 seconds
+  auto const time{std::chrono::utc_clock::now().time_since_epoch()}; // - 27s
+  auto const s{std::chrono::duration_cast<std::chrono::seconds>(time)};
+  auto const ns{std::chrono::duration_cast<std::chrono::nanoseconds>(time - s)};
+  google::protobuf::Timestamp timestamp;
+  timestamp.set_seconds(s.count());
+  timestamp.set_nanos(ns.count());
+  return timestamp;
+}
+
 } // namespace gitea
 
 constexpr auto runner_version{std::string_view{"v0.1.0"}};
@@ -454,10 +466,9 @@ auto cmd_daemon() -> int {
 
     // Set initial step state
     {
-      auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
-          std::chrono::utc_clock::now().time_since_epoch())};
-      task_state->mutable_started_at()->set_seconds(current_time.count());
-      task_state->mutable_started_at()->set_nanos(0);
+      auto const ts{gitea::current_timestamp()};
+      task_state->mutable_started_at()->set_seconds(ts.seconds());
+      task_state->mutable_started_at()->set_nanos(ts.nanos());
 
       int i{};
       for (auto const &wf_step : wf_steps) {
@@ -482,11 +493,9 @@ auto cmd_daemon() -> int {
       for (auto &step : *task_state->mutable_steps()) {
         // Started
         {
-          auto const current_time{
-              std::chrono::duration_cast<std::chrono::seconds>(
-                  std::chrono::utc_clock::now().time_since_epoch())};
-          step.mutable_started_at()->set_seconds(current_time.count());
-          step.mutable_started_at()->set_nanos(0);
+          auto const ts{gitea::current_timestamp()};
+          step.mutable_started_at()->set_seconds(ts.seconds());
+          step.mutable_started_at()->set_nanos(ts.nanos());
 
           auto update_task_response{
               gitea::runner::update_task(client, update_task_request)};
@@ -496,15 +505,13 @@ auto cmd_daemon() -> int {
           }
         }
         // "Work"
-        std::this_thread::sleep_for(250ms);
+        // std::this_thread::sleep_for(250ms);
         // Completed
         {
-          auto const current_time{
-              std::chrono::duration_cast<std::chrono::seconds>(
-                  std::chrono::utc_clock::now().time_since_epoch())};
+          auto const ts{gitea::current_timestamp()};
+          step.mutable_stopped_at()->set_seconds(ts.seconds());
+          step.mutable_stopped_at()->set_nanos(ts.nanos());
           step.set_result(::runner::v1::RESULT_SUCCESS);
-          step.mutable_stopped_at()->set_seconds(current_time.count());
-          step.mutable_stopped_at()->set_nanos(0);
 
           auto update_task_response{
               gitea::runner::update_task(client, update_task_request)};
@@ -518,11 +525,10 @@ auto cmd_daemon() -> int {
 
     // Completion
     {
-      auto const current_time{std::chrono::duration_cast<std::chrono::seconds>(
-          std::chrono::utc_clock::now().time_since_epoch())};
+      auto const ts{gitea::current_timestamp()};
+      task_state->mutable_stopped_at()->set_seconds(ts.seconds());
+      task_state->mutable_stopped_at()->set_nanos(ts.nanos());
       task_state->set_result(::runner::v1::RESULT_SUCCESS);
-      task_state->mutable_stopped_at()->set_seconds(current_time.count());
-      task_state->mutable_stopped_at()->set_nanos(0);
 
       auto update_task_response{
           gitea::runner::update_task(client, update_task_request)};

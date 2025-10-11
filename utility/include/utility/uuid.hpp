@@ -4,6 +4,6 @@
 
 namespace utility {
 
-auto uuid() -> std::string;
+std::string uuid();
 
 }

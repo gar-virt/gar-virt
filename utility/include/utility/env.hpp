@@ -5,7 +5,7 @@
 
 namespace utility {
 
-auto getenv(const std::string &name) -> std::optional<std::string>;
-auto setenv(const std::string &name, const std::string &value) -> void;
+std::optional<std::string> getenv(const std::string& name);
+void setenv(const std::string& name, const std::string& value);
 
 } // namespace utility

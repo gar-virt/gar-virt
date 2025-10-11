@@ -2,8 +2,8 @@
 
 #ifdef _WIN32
     #define NOMINMAX
-    #include <windows.h>
     #include <stdexcept>
+    #include <windows.h>
 #endif
 
 #include <algorithm>
@@ -13,14 +13,15 @@ namespace utility {
 
 #ifdef _WIN32
 std::wstring widen(const std::string& narrowString) {
-    auto cp{CP_UTF8};
-    auto flags{MB_ERR_INVALID_CHARS};
-    auto narrowStringC{narrowString.c_str()};
-    auto narrowStringLength{narrowString.size()};
-    auto requiredLength{::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, nullptr, 0)};
+    const auto cp{CP_UTF8};
+    const auto flags{MB_ERR_INVALID_CHARS};
+    const auto narrowStringC{narrowString.c_str()};
+    const auto narrowStringLength{narrowString.size()};
+    const auto requiredLength{::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, nullptr, 0)};
     if (requiredLength > 0) {
         std::wstring wideString(requiredLength, '\0');
-        if (::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, wideString.data(), wideString.size()) > 0) {
+        if (::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, wideString.data(), wideString.size()) >
+            0) {
             return wideString;
         }
     }
@@ -28,14 +29,16 @@ std::wstring widen(const std::string& narrowString) {
 }
 
 std::string narrow(const std::wstring& wideString) {
-    auto cp{CP_UTF8};
-    auto flags{WC_ERR_INVALID_CHARS};
-    auto wideStringC{wideString.c_str()};
-    auto wideStringLength{wideString.size()};
-    auto requiredLength{::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, nullptr, 0, nullptr, nullptr)};
+    const auto cp{CP_UTF8};
+    const auto flags{WC_ERR_INVALID_CHARS};
+    const auto wideStringC{wideString.c_str()};
+    const auto wideStringLength{wideString.size()};
+    const auto requiredLength{
+            ::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, nullptr, 0, nullptr, nullptr)};
     if (requiredLength > 0) {
         std::string narrowString(requiredLength, '\0');
-        if (::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, narrowString.data(), narrowString.size(), nullptr, nullptr) > 0) {
+        if (::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, narrowString.data(), narrowString.size(),
+                                  nullptr, nullptr) > 0) {
             return narrowString;
         }
     }
@@ -43,7 +46,7 @@ std::string narrow(const std::wstring& wideString) {
 }
 #endif
 
-std::string charStringFromChar8String(const std::u8string_view from) {
+std::string string_from_u8string(const std::u8string_view from) {
     std::string result;
     result.reserve(from.size());
     for (auto c : from) {
@@ -52,7 +55,7 @@ std::string charStringFromChar8String(const std::u8string_view from) {
     return result;
 }
 
-void trimRight(std::string& s, char c) {
+void string_trim_right(std::string& s, char c) {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
         if (*it == c) {
@@ -64,20 +67,19 @@ void trimRight(std::string& s, char c) {
     }
 }
 
-bool ciStringContains(const std::string_view needle, const std::string_view haystack) {
+bool string_contains_ci(const std::string_view needle, const std::string_view haystack) {
     if (needle.empty() && haystack.empty()) {
         return true;
     }
     if (haystack.empty()) {
         return false;
     }
-    auto match{std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), [](auto a, auto b) {
-        return std::toupper(a) == std::toupper(b);
-    })};
+    const auto match{std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
+                                 [](auto a, auto b) { return std::toupper(a) == std::toupper(b); })};
     return match != haystack.end();
 }
 
-int ciStringCompare(const std::string_view first, const std::string_view second) {
+int string_compare_ci(const std::string_view first, const std::string_view second) {
     const auto length{std::min(first.size(), second.size())};
     for (size_t i{}; i < length; ++i) {
         const auto a{std::toupper(first[i])};
@@ -98,19 +100,17 @@ int ciStringCompare(const std::string_view first, const std::string_view second)
     return 0;
 }
 
-bool ciStringCompareLess(const std::string_view first, const std::string_view second) {
-    return std::lexicographical_compare(first.begin(), first.end(), second.begin(), second.end(), [](auto a, auto b) {
-        return std::toupper(a) < std::toupper(b);
-    });
+bool string_compare_less_ci(const std::string_view first, const std::string_view second) {
+    return std::lexicographical_compare(first.begin(), first.end(), second.begin(), second.end(),
+                                        [](auto a, auto b) { return std::toupper(a) < std::toupper(b); });
 }
 
-bool ciStringEquals(const std::string_view first, const std::string_view second) {
-    return std::equal(first.begin(), first.end(), second.begin(), second.end(), [](auto a, auto b) {
-        return std::toupper(a) == std::toupper(b);
-    });
+bool string_equals_ci(const std::string_view first, const std::string_view second) {
+    return std::equal(first.begin(), first.end(), second.begin(), second.end(),
+                      [](auto a, auto b) { return std::toupper(a) == std::toupper(b); });
 }
 
-bool ciStringStartsWith(const std::string_view haystack, const std::string_view needle) {
+bool string_starts_with(const std::string_view haystack, const std::string_view needle) {
     if (haystack.size() < needle.size()) {
         return false;
     }
@@ -125,7 +125,7 @@ bool ciStringStartsWith(const std::string_view haystack, const std::string_view 
     return true;
 }
 
-bool ciStringEndsWith(const std::string_view haystack, const std::string_view needle) {
+bool string_ends_with(const std::string_view haystack, const std::string_view needle) {
     if (haystack.size() < needle.size()) {
         return false;
     }
@@ -140,4 +140,4 @@ bool ciStringEndsWith(const std::string_view haystack, const std::string_view ne
     return true;
 }
 
-}
+} // namespace utility

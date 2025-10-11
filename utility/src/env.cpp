@@ -9,7 +9,7 @@
 
 namespace utility {
 
-auto getenv(const std::string& name) -> std::optional<std::string>{
+auto getenv(const std::string& name) -> std::optional<std::string> {
     if (auto value = std::getenv(name.c_str())) {
         return value;
     } else {
@@ -17,7 +17,7 @@ auto getenv(const std::string& name) -> std::optional<std::string>{
     }
 }
 
-auto setenv(const std::string& name, const std::string& value) -> void{
+auto setenv(const std::string& name, const std::string& value) -> void {
 #ifdef _WIN32
     SetEnvironmentVariableW(widen(name).c_str(), widen(value).c_str());
 #else
@@ -25,4 +25,4 @@ auto setenv(const std::string& name, const std::string& value) -> void{
 #endif
 }
 
-}
+} // namespace utility

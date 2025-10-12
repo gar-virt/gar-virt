@@ -1,5 +1,5 @@
-#include "ping/v1/messages.grpc.pb.h"
-#include "runner/v1/messages.grpc.pb.h"
+#include "ping/v1/messages.pb.h"
+#include "runner/v1/messages.pb.h"
 #include <utility/env.hpp>
 
 #include <boost/json.hpp>
@@ -30,17 +30,25 @@ enum class error_code {
 };
 
 namespace {
-size_t write_header_fn(const char* buffer, size_t size, size_t count, std::string* output) {
-    output->append(buffer, size * count);
-    return size * count;
+size_t write_header_fn(const char* buffer, size_t size, size_t count, std::string* output) noexcept {
+    try {
+        output->append(buffer, size * count);
+        return size * count;
+    } catch (const std::exception&) {
+        return 0;
+    }
 }
 
-size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<std::byte>* output) {
-    const auto old_size{output->size()};
-    output->resize(output->size() + size * count);
-    auto* output_offset{output->data() + old_size};
-    std::memcpy(output_offset, buffer, size * count);
-    return size * count;
+size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<std::byte>* output) noexcept {
+    try {
+        const auto old_size{output->size()};
+        output->resize(output->size() + size * count);
+        auto* output_offset{output->data() + old_size};
+        std::memcpy(output_offset, buffer, size * count);
+        return size * count;
+    } catch (const std::exception&) {
+        return 0;
+    }
 }
 } // namespace
 
@@ -65,7 +73,7 @@ public:
     }
 
     std::expected<http_response, error_code> post(const std::string& path,
-                                                  const std::vector<std::byte>& payload) const {
+                                                  const std::vector<std::byte>& payload) const noexcept {
         const auto url{m_base_url + path};
 
         std::string response_headers;
@@ -120,7 +128,7 @@ private:
     std::shared_ptr<http_header_source> m_header_source;
 };
 
-template <typename T> std::expected<std::vector<std::byte>, error_code> encode_payload(const T& msg) {
+template <typename T> std::expected<std::vector<std::byte>, error_code> encode_payload(const T& msg) noexcept {
     const auto byte_size{msg.ByteSizeLong()};
     std::vector<std::byte> data;
     data.resize(static_cast<std::size_t>(byte_size));
@@ -130,7 +138,7 @@ template <typename T> std::expected<std::vector<std::byte>, error_code> encode_p
     return data;
 }
 
-template <typename T> std::expected<T, error_code> decode_payload(const std::vector<std::byte>& payload) {
+template <typename T> std::expected<T, error_code> decode_payload(const std::vector<std::byte>& payload) noexcept {
     T msg;
     if (!msg.ParseFromArray(payload.data(), static_cast<int>(payload.size()))) {
         return std::unexpected{error_code::payload_decode_failed};
@@ -140,7 +148,7 @@ template <typename T> std::expected<T, error_code> decode_payload(const std::vec
 
 template <typename Request, typename Response>
 std::expected<Response, error_code> send_post_request(const http_client& client, const std::string& path,
-                                                      const Request& req) {
+                                                      const Request& req) noexcept {
     return encode_payload(req)
             .and_then([&](auto payload) { return client.post(path, payload); })
             .and_then([](auto res) { return decode_payload<Response>(res.body); });
@@ -148,7 +156,8 @@ std::expected<Response, error_code> send_post_request(const http_client& client,
 
 namespace ping {
 
-std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& client, ::ping::v1::PingRequest req) {
+std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& client,
+                                                         ::ping::v1::PingRequest req) noexcept {
     return send_post_request<::ping::v1::PingRequest, ::ping::v1::PingResponse>(client, "/ping.v1.PingService/Ping",
                                                                                 req);
 }
@@ -158,31 +167,31 @@ std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& clie
 namespace runner {
 
 std::expected<::runner::v1::RegisterResponse, error_code> register_(const http_client& client,
-                                                                    ::runner::v1::RegisterRequest req) {
+                                                                    ::runner::v1::RegisterRequest req) noexcept {
     return send_post_request<::runner::v1::RegisterRequest, ::runner::v1::RegisterResponse>(
             client, "/runner.v1.RunnerService/Register", req);
 }
 
 std::expected<::runner::v1::DeclareResponse, error_code> declare(const http_client& client,
-                                                                 ::runner::v1::DeclareRequest req) {
+                                                                 ::runner::v1::DeclareRequest req) noexcept {
     return send_post_request<::runner::v1::DeclareRequest, ::runner::v1::DeclareResponse>(
             client, "/runner.v1.RunnerService/Declare", req);
 }
 
 std::expected<::runner::v1::FetchTaskResponse, error_code> fetch_task(const http_client& client,
-                                                                      ::runner::v1::FetchTaskRequest req) {
+                                                                      ::runner::v1::FetchTaskRequest req) noexcept {
     return send_post_request<::runner::v1::FetchTaskRequest, ::runner::v1::FetchTaskResponse>(
             client, "/runner.v1.RunnerService/FetchTask", req);
 }
 
 std::expected<::runner::v1::UpdateTaskResponse, error_code> update_task(const http_client& client,
-                                                                        ::runner::v1::UpdateTaskRequest req) {
+                                                                        ::runner::v1::UpdateTaskRequest req) noexcept {
     return send_post_request<::runner::v1::UpdateTaskRequest, ::runner::v1::UpdateTaskResponse>(
             client, "/runner.v1.RunnerService/UpdateTask", req);
 }
 
 std::expected<::runner::v1::UpdateLogResponse, error_code> update_log(const http_client& client,
-                                                                      ::runner::v1::UpdateLogRequest req) {
+                                                                      ::runner::v1::UpdateLogRequest req) noexcept {
     return send_post_request<::runner::v1::UpdateLogRequest, ::runner::v1::UpdateLogResponse>(
             client, "/runner.v1.RunnerService/UpdateLog", req);
 }
@@ -259,8 +268,61 @@ google::protobuf::Timestamp current_timestamp() {
     return timestamp;
 }
 
-std::expected<void, error_code> process_task_response(const http_client& client,
-                                                      const ::runner::v1::FetchTaskResponse& fetch_task_response) {
+namespace workflow {
+struct wf_step {
+    std::optional<std::string> name;
+    std::optional<std::string> run;
+    std::optional<std::string> shell;
+    std::optional<std::string> uses;
+};
+
+struct wf_job {
+    std::vector<wf_step> steps;
+};
+
+std::vector<wf_step> load_steps(const YAML::Node& yaml_steps) {
+    std::vector<wf_step> steps;
+    for (auto& yaml_step : yaml_steps) {
+        steps.push_back([&] {
+            wf_step s;
+            if (auto name{yaml_step["name"]}) {
+                s.name = std::move(name.as<std::string>());
+            }
+            if (auto run{yaml_step["run"]}) {
+                s.run = std::move(run.as<std::string>());
+            }
+            if (auto shell{yaml_step["shell"]}) {
+                s.shell = std::move(shell.as<std::string>());
+            }
+            if (auto uses{yaml_step["uses"]}) {
+                s.uses = std::move(uses.as<std::string>());
+            }
+            if (!s.run && !s.uses) {
+                throw std::runtime_error{"Missing run/uses in workflow step"};
+            }
+            return s;
+        }());
+    }
+    return steps;
+}
+
+std::expected<wf_job, error_code> load_job_with_name(const std::string& yaml_str, const std::string& name) noexcept {
+    try {
+        const auto yaml{YAML::Load(yaml_str)};
+        const auto& yaml_jobs{yaml["jobs"]};
+        const auto& yaml_job{yaml_jobs[name]};
+        const auto& yaml_steps{yaml_job["steps"]};
+        wf_job job{.steps = load_steps(yaml_steps)};
+        return job;
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::workflow_parse_failed};
+    }
+}
+
+} // namespace workflow
+
+std::expected<void, error_code>
+process_task_response(const http_client& client, const ::runner::v1::FetchTaskResponse& fetch_task_response) noexcept {
     using namespace std::literals;
     const auto& task{fetch_task_response.task()};
     const auto& secrets{task.secrets()};
@@ -268,30 +330,11 @@ std::expected<void, error_code> process_task_response(const http_client& client,
     const auto& vars{task.vars()};
     const auto& context{task.context()};
     const auto& workflow_payload{task.workflow_payload()};
-
-    const auto workflow{[&]() -> std::expected<YAML::Node, error_code> {
-        try {
-            return YAML::Load(workflow_payload);
-        } catch (const YAML::ParserException&) {
-            return std::unexpected{error_code::workflow_parse_failed};
-        }
-    }()};
-    if (!workflow) {
-        return std::unexpected{workflow.error()};
-    }
-
     const auto& job_name{context.fields().at("job").string_value()};
 
-    const auto& wf_jobs{workflow.value()["jobs"]};
-    if (!wf_jobs) {
-        return std::unexpected{error_code::workflow_parse_failed};
-    }
-
-    const auto& ws_job{wf_jobs[job_name]};
-
-    const auto& wf_steps{ws_job["steps"]};
-    if (!wf_steps) {
-        return std::unexpected{error_code::workflow_parse_failed};
+    const auto job{workflow::load_job_with_name(workflow_payload, job_name)};
+    if (!job) {
+        return std::unexpected{job.error()};
     }
 
     // Initial task state
@@ -314,7 +357,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
         task_state->mutable_started_at()->set_nanos(ts.nanos());
 
         int i{};
-        for (const auto& wf_step : wf_steps) {
+        for (const auto& wf_step : job->steps) {
             auto* step{task_state->add_steps()};
             step->set_id(i);
             step->set_result(::runner::v1::RESULT_UNSPECIFIED);
@@ -376,7 +419,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
     return {};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(const http_client& client) {
+std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(const http_client& client) noexcept {
     using namespace std::literals;
     auto fetch_task_response{std::expected<::runner::v1::FetchTaskResponse, error_code>{}};
     while (true) {
@@ -396,7 +439,7 @@ std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(con
     return fetch_task_response;
 }
 
-void run_task_loop(const http_client& client) {
+void run_task_loop(const http_client& client) noexcept {
     using namespace std::literals;
     while (true) {
         if (!wait_for_new_task(client).and_then(
@@ -411,7 +454,7 @@ void run_task_loop(const http_client& client) {
 
 constexpr auto runner_version{std::string_view{"v0.1.0"}};
 
-int cmd_register() {
+int cmd_register() noexcept {
     // GITEA_RUNNER_REGISTRATION_TOKEN_FILE
 
     const auto options{gitea::runner_options::from_env()};
@@ -469,7 +512,7 @@ int cmd_register() {
     return 0;
 }
 
-int cmd_daemon() {
+int cmd_daemon() noexcept {
     using namespace std::literals;
 
     const auto options{gitea::runner_options::from_env()};
@@ -516,7 +559,7 @@ int cmd_daemon() {
         return 1;
     }
 
-    run_task_loop(client);
+    gitea::run_task_loop(client);
 
     return 0;
 }

@@ -18,7 +18,7 @@
 #include <thread>
 #include <vector>
 
-namespace gitea {
+namespace ls_gitea_runner {
 
 enum class error_code {
     curl_error,
@@ -332,9 +332,9 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
     const auto& workflow_payload{task.workflow_payload()};
     const auto& job_name{context.fields().at("job").string_value()};
 
-    const auto job{workflow::load_job_with_name(workflow_payload, job_name)};
-    if (!job) {
-        return std::unexpected{job.error()};
+    const auto wf_job{workflow::load_job_with_name(workflow_payload, job_name)};
+    if (!wf_job) {
+        return std::unexpected{wf_job.error()};
     }
 
     // Initial task state
@@ -357,12 +357,12 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         task_state->mutable_started_at()->set_nanos(ts.nanos());
 
         int i{};
-        for (const auto& wf_step : job->steps) {
-            auto* step{task_state->add_steps()};
-            step->set_id(i);
-            step->set_result(::runner::v1::RESULT_UNSPECIFIED);
-            step->set_log_index(0);
-            step->set_log_length(0);
+        for (const auto& wf_step : wf_job->steps) {
+            auto* step_state{task_state->add_steps()};
+            step_state->set_id(i);
+            step_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
+            step_state->set_log_index(0);
+            step_state->set_log_length(0);
             ++i;
         }
 
@@ -374,12 +374,12 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
 
     // Simulate work and completion of steps
     {
-        for (auto& step : *task_state->mutable_steps()) {
+        for (auto& step_state : *task_state->mutable_steps()) {
             // Started
             {
                 const auto ts{current_timestamp()};
-                step.mutable_started_at()->set_seconds(ts.seconds());
-                step.mutable_started_at()->set_nanos(ts.nanos());
+                step_state.mutable_started_at()->set_seconds(ts.seconds());
+                step_state.mutable_started_at()->set_nanos(ts.nanos());
 
                 auto update_task_response{runner::update_task(client, update_task_request)};
                 if (!update_task_response) {
@@ -391,9 +391,9 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             // Completed
             {
                 const auto ts{current_timestamp()};
-                step.mutable_stopped_at()->set_seconds(ts.seconds());
-                step.mutable_stopped_at()->set_nanos(ts.nanos());
-                step.set_result(::runner::v1::RESULT_SUCCESS);
+                step_state.mutable_stopped_at()->set_seconds(ts.seconds());
+                step_state.mutable_stopped_at()->set_nanos(ts.nanos());
+                step_state.set_result(::runner::v1::RESULT_SUCCESS);
 
                 auto update_task_response{runner::update_task(client, update_task_request)};
                 if (!update_task_response) {
@@ -450,14 +450,12 @@ void run_task_loop(const http_client& client) noexcept {
     }
 }
 
-} // namespace gitea
-
 constexpr auto runner_version{std::string_view{"v0.1.0"}};
 
 int cmd_register() noexcept {
     // GITEA_RUNNER_REGISTRATION_TOKEN_FILE
 
-    const auto options{gitea::runner_options::from_env()};
+    const auto options{runner_options::from_env()};
 
     if (!options.instance) {
         std::println(std::cerr, "Missing instance URL");
@@ -479,12 +477,12 @@ int cmd_register() noexcept {
         return 1;
     }
 
-    auto header_source{std::make_shared<gitea::header_source>()};
-    gitea::http_client client{*options.instance, header_source};
+    auto header_source{std::make_shared<class header_source>()};
+    http_client client{*options.instance, header_source};
 
     auto ping_request{::ping::v1::PingRequest{}};
     ping_request.set_data(*options.runner_name);
-    auto ping_response{gitea::ping::ping(client, ping_request)};
+    auto ping_response{ping::ping(client, ping_request)};
     if (!ping_response) {
         std::println(std::cerr, "Error");
         return 1;
@@ -500,7 +498,7 @@ int cmd_register() noexcept {
     if (options.ephemeral) {
         reqister_request.set_ephemeral(*options.ephemeral);
     }
-    auto register_response{gitea::runner::register_(client, reqister_request)};
+    auto register_response{runner::register_(client, reqister_request)};
     if (!register_response) {
         std::println(std::cerr, "Error");
         return 1;
@@ -515,7 +513,7 @@ int cmd_register() noexcept {
 int cmd_daemon() noexcept {
     using namespace std::literals;
 
-    const auto options{gitea::runner_options::from_env()};
+    const auto options{runner_options::from_env()};
 
     if (!options.instance) {
         std::println(std::cerr, "Missing instance URL");
@@ -542,8 +540,8 @@ int cmd_daemon() noexcept {
         return 1;
     }
 
-    auto header_source{std::make_shared<gitea::header_source>()};
-    gitea::http_client client{*options.instance, header_source};
+    auto header_source{std::make_shared<class header_source>()};
+    http_client client{*options.instance, header_source};
 
     header_source->set_uuid(*options.runner_uuid);
     header_source->set_token(*options.runner_token);
@@ -553,13 +551,13 @@ int cmd_daemon() noexcept {
     for (auto& label : options.runner_labels) {
         declare_request.add_labels(std::move(label));
     }
-    auto declare_response{gitea::runner::declare(client, declare_request)};
+    auto declare_response{runner::declare(client, declare_request)};
     if (!declare_response) {
         std::println(std::cerr, "Error");
         return 1;
     }
 
-    gitea::run_task_loop(client);
+    run_task_loop(client);
 
     return 0;
 }
@@ -584,3 +582,7 @@ int main(int argc, char* const argv[]) {
 
     return 0;
 }
+
+} // namespace ls_gitea_runner
+
+int main(int argc, char* const argv[]) { return ls_gitea_runner::main(argc, argv); }

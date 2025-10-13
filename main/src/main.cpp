@@ -425,18 +425,9 @@ bool is_execution_result_ok(::runner::v1::Result result) noexcept {
     return result == RESULT_SKIPPED || result == RESULT_SUCCESS;
 }
 
-bool execute_shell_script(const wf_step_run& input) {
-    auto shell_name{input.shell.value_or("")};
-
-    const auto script_str{input.script};
-
-    fs::temporary_file real_script_file;
-    {
-        auto script_file{real_script_file.create_output_stream()};
-        script_file->write(script_str.data(), script_str.size());
-    }
-    const auto real_script_path{utility::string_from_u8string(real_script_file.get_path().u8string())};
-    const auto intermediate_script{std::format(R"script(
+std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
+                                                         const std::string& real_script_path) {
+    static constexpr auto format_string{R"script(
 set -e
 shell=${{1}}
 script_file=${{2}}
@@ -472,8 +463,21 @@ case "${{shell}}" in
         exit 1
         ;;
 esac
-)script",
-                                               shell_name, real_script_path)};
+)script"};
+    const auto script{std::format(format_string, shell_name, real_script_path)};
+    return script;
+}
+
+bool execute_shell_script(const wf_step_run& input) {
+    auto shell_name{input.shell.value_or("")};
+    const auto script_str{input.script};
+    fs::temporary_file real_script_file;
+    {
+        auto script_file{real_script_file.create_output_stream()};
+        script_file->write(script_str.data(), script_str.size());
+    }
+    const auto real_script_path{utility::string_from_u8string(real_script_file.get_path().u8string())};
+    const auto intermediate_script{generate_shell_execution_intermediate_script(shell_name, real_script_path)};
     fs::temporary_file intermeriate_script_file;
     {
         auto script_file{intermeriate_script_file.create_output_stream()};
@@ -611,6 +615,7 @@ public:
         } else {
             eval_result = std::unexpected{error_code::expression_evaluation_failed};
         }
+
         // TODO: object, array, null, NaN?
 
         // Pop result
@@ -707,7 +712,6 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             }
             auto step_result{::runner::v1::RESULT_UNSPECIFIED};
             // "Work"
-            bool should_exec{true};
             if (step->condition) {
                 const auto eval_result{expr.eval_true(*step->condition)};
                 if (!eval_result) {
@@ -717,11 +721,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
                 }
             }
             if (step_result == ::runner::v1::RESULT_UNSPECIFIED) {
-                if (should_exec) {
-                    step_result = execute_job_step(step_execution);
-                } else {
-                    step_result = ::runner::v1::RESULT_SKIPPED;
-                }
+                step_result = execute_job_step(step_execution);
             }
             // Completed
             {

@@ -382,20 +382,6 @@ std::string regex_replace_callable(const std::string& text, const std::regex& pa
     return result;
 }
 
-#if 0
-std::string get_command_for_script_execution(const std::string& shell_name, const std::string& script_path) {
-    if (shell_name == "bash") {
-
-    } else if (shell_name == "pwsh") {
-
-    } else if (shell_name == "powershell") {
-
-    } else if (shell_name == "cmd") {
-    }
-    throw std::runtime_error{"Invalid shell name"};
-}
-#endif
-
 enum class operating_system_id { windows, linux, macos };
 
 std::string apply_string_substritutions(std::string script_str, const step_execution_dependencies& deps) {

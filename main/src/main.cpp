@@ -579,6 +579,8 @@ void register_startsWith(js_State* jss) {
 
 class expression_evaluator final {
 public:
+    using value_t = std::variant<std::string, bool, double, std::nullptr_t>;
+
     expression_evaluator(const workflow::workflow_contexts& wf_contexts)
             : m_jss{js_newstate(nullptr, nullptr, JS_STRICT)} {
         js_setreport(
@@ -586,11 +588,12 @@ public:
         builtin_fn::register_contains(m_jss);
         builtin_fn::register_endsWith(m_jss);
         builtin_fn::register_startsWith(m_jss);
+        add_contexts(wf_contexts);
     }
 
     ~expression_evaluator() { js_freestate(m_jss); }
 
-    std::expected<std::variant<std::string, bool, double>, error_code> eval(const std::string& expr) {
+    std::expected<value_t, error_code> eval(const std::string& expr) {
         if (js_ploadstring(m_jss, "[script]", expr.c_str())) {
             return std::unexpected{error_code::expression_evaluation_failed};
         }
@@ -604,7 +607,7 @@ public:
             return std::unexpected{error_code::expression_evaluation_failed};
         }
 
-        std::expected<std::variant<std::string, bool, double>, error_code> eval_result;
+        std::expected<value_t, error_code> eval_result;
 
         if (js_isboolean(m_jss, -1)) {
             eval_result = js_toboolean(m_jss, -1) != 0;
@@ -612,11 +615,13 @@ public:
             eval_result = std::string{js_tostring(m_jss, -1)};
         } else if (js_isnumber(m_jss, -1)) {
             eval_result = js_tonumber(m_jss, -1);
+        } else if (js_isnull(m_jss, -1)) {
+            eval_result = nullptr;
         } else {
             eval_result = std::unexpected{error_code::expression_evaluation_failed};
         }
 
-        // TODO: object, array, null, NaN?
+        // TODO: object, array, NaN?
 
         // Pop result
         js_pop(m_jss, 1);

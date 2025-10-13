@@ -534,6 +534,7 @@ struct workflow_contexts {
     std::string main;    // main context as a JSON object
     std::string vars;    // configuration variables  as a JSON object
     std::string secrets; // secrets  as a JSON object
+    std::string runner;  // info about current runner
 
     std::vector<std::pair<std::string, std::string>> to_list() const {
         std::vector<std::pair<std::string, std::string>> result;
@@ -541,6 +542,7 @@ struct workflow_contexts {
         result.emplace_back("github", "gitea");
         result.emplace_back("vars", vars);
         result.emplace_back("secrets", secrets);
+        result.emplace_back("runner", runner);
         return result;
     }
 };
@@ -722,7 +724,7 @@ bool execute_shell_script(const wf_step_run& input, const workflow::workflow_env
 }
 
 bool execute_action(const wf_step_uses& input, const workflow::workflow_env& env) {
-    std::println("execute_action:\nurl: {}\n", input.url);
+    std::println("execute_action(url: {})", input.url);
     return true;
 }
 
@@ -755,6 +757,20 @@ bool execute_action(const wf_step_uses& input, const workflow::workflow_env& env
 }
 
 } // namespace workflow
+
+std::string create_runner_context() {
+    std::string script;
+    script += "{";
+    script += R"(name:"fake-name",)";
+    script += R"(os:"fake-os",)";
+    script += R"(arch:"fake-arch",)";
+    script += R"(temp:"fake-temp",)";
+    script += R"(tool_cache:"fake-tool-cache",)";
+    script += R"(debug:"fake-debug",)";
+    script += R"(environment:"fake-environment",)";
+    script += "}";
+    return script;
+}
 
 workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, workflow::workflow_env env = {}) {
     if (!env) {
@@ -792,10 +808,12 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         return std::unexpected{workflow_payload.error()};
     }
 
-    const auto wf_contexts{workflow::load_contexts_from_task(task)};
+    auto wf_contexts{workflow::load_contexts_from_task(task)};
     if (!wf_contexts) {
         return std::unexpected{wf_contexts.error()};
     }
+
+    wf_contexts->runner = create_runner_context();
 
     const auto wf_job{workflow::load_job_with_name(*workflow_payload, job_name, *wf_contexts)};
     if (!wf_job) {

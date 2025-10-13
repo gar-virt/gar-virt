@@ -23,7 +23,10 @@
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <variant>
 #include <vector>
+
+#include <setjmp.h>
 
 namespace ls_gitea_runner {
 
@@ -33,7 +36,9 @@ enum class error_code {
     payload_encode_failed,
     payload_decode_failed,
     service_failure,
+    task_parse_failed,
     workflow_parse_failed,
+    expression_evaluation_failed,
 };
 
 namespace {
@@ -346,18 +351,35 @@ std::expected<wf_job, error_code> load_job_with_name(const std::string& yaml_str
     }
 }
 
-struct step_execution_dependencies {
-    using context_value = ::google::protobuf::Value;
+struct workflow_contexts {
     std::unordered_map<std::string, std::string> secrets;
-    std::unordered_map<std::string, std::string> needs;
     std::unordered_map<std::string, std::string> vars;
-    std::unordered_map<std::string, context_value> context;
+    ::google::protobuf::Struct main;
 };
+
+std::expected<workflow_contexts, error_code> load_contexts_from_task(const ::runner::v1::Task& task) noexcept {
+    try {
+        const auto& task_context{task.context()};
+        workflow_contexts contexts;
+
+        for (auto& item : task.secrets()) {
+            contexts.secrets.emplace(item.first, item.second);
+        }
+        // TODO: needs
+        for (auto& item : task.vars()) {
+            contexts.vars.emplace(item.first, item.second);
+        }
+
+        return contexts;
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::task_parse_failed};
+    }
+}
 
 struct step_execution_context {
     const workflow::wf_step* step{};
     ::runner::v1::StepState* state{};
-    step_execution_dependencies dependencies;
+    workflow_contexts wf_contexts;
 
     bool is_ok() noexcept {
         using namespace ::runner::v1;
@@ -384,11 +406,11 @@ std::string regex_replace_callable(const std::string& text, const std::regex& pa
 
 enum class operating_system_id { windows, linux, macos };
 
-std::string apply_string_substritutions(std::string script_str, const step_execution_dependencies& deps) {
-    static const std::regex pattern{R"re(\$\{\{(.*?)}})re"};
-    script_str = regex_replace_callable(script_str, pattern, [&](const std::smatch& m) -> std::string { return ""; });
-    return script_str;
-}
+// std::string apply_string_substritutions(std::string script_str, const step_execution_dependencies& deps) {
+//     static const std::regex pattern{R"re(\$\{\{(.*?)}})re"};
+//     script_str = regex_replace_callable(script_str, pattern, [&](const std::smatch& m) -> std::string { return "";
+//     }); return script_str;
+// }
 
 std::string get_default_shell(operating_system_id target_os) noexcept {
     using osid = operating_system_id;
@@ -498,6 +520,116 @@ bool execute_action(const wf_step_uses& input) {
 
 } // namespace workflow
 
+namespace builtin_fn {
+
+bool contains(const std::string_view search, const std::string_view item) noexcept { return search.contains(item); }
+
+void register_contains(js_State* jss) {
+    js_newcfunction(
+        jss,
+        +[](js_State* jss_) {
+            const auto* arg1{js_tostring(jss_, 1)};
+            const auto* arg2{js_tostring(jss_, 2)};
+            const auto result{builtin_fn::contains(arg1, arg2)};
+            js_pushboolean(jss_, result);
+        },
+        "contains", 2);
+    js_setglobal(jss, "contains");
+}
+
+bool endsWith(const std::string_view searchString, const std::string_view searchValue) noexcept {
+    return searchString.ends_with(searchValue);
+}
+
+void register_endsWith(js_State* jss) {
+    js_newcfunction(
+        jss,
+        +[](js_State* jss_) {
+            const auto* arg1{js_tostring(jss_, 1)};
+            const auto* arg2{js_tostring(jss_, 2)};
+            const auto result{builtin_fn::endsWith(arg1, arg2)};
+            js_pushboolean(jss_, result);
+        },
+        "endsWith", 2);
+    js_setglobal(jss, "endsWith");
+}
+
+bool startsWith(const std::string_view searchString, const std::string_view searchValue) noexcept {
+    return searchString.starts_with(searchValue);
+}
+
+void register_startsWith(js_State* jss) {
+    js_newcfunction(
+        jss,
+        +[](js_State* jss_) {
+            const auto* arg1{js_tostring(jss_, 1)};
+            const auto* arg2{js_tostring(jss_, 2)};
+            const auto result{builtin_fn::startsWith(arg1, arg2)};
+            js_pushboolean(jss_, result);
+        },
+        "startsWith", 2);
+    js_setglobal(jss, "startsWith");
+}
+
+} // namespace builtin_fn
+
+class expression_evaluator final {
+public:
+    expression_evaluator(const workflow::workflow_contexts& wf_contexts)
+            : m_jss{js_newstate(nullptr, nullptr, JS_STRICT)} {
+        js_setreport(
+            m_jss, +[](js_State* jss_, const char* message) { std::println("Evaluation error: {}", message); });
+        builtin_fn::register_contains(m_jss);
+        builtin_fn::register_endsWith(m_jss);
+        builtin_fn::register_startsWith(m_jss);
+    }
+
+    ~expression_evaluator() { js_freestate(m_jss); }
+
+    std::expected<std::variant<std::string, bool, double>, error_code> eval(const std::string& expr) {
+        if (js_ploadstring(m_jss, "[script]", expr.c_str())) {
+            return std::unexpected{error_code::expression_evaluation_failed};
+        }
+
+        // Push the "this" value
+        js_pushglobal(m_jss);
+
+        if (js_pcall(m_jss, 0)) {
+            // Pop the "this" value?
+            js_pop(m_jss, 1);
+            return std::unexpected{error_code::expression_evaluation_failed};
+        }
+
+        std::expected<std::variant<std::string, bool, double>, error_code> eval_result;
+
+        if (js_isboolean(m_jss, -1)) {
+            eval_result = js_toboolean(m_jss, -1) != 0;
+        } else if (js_isstring(m_jss, -1)) {
+            eval_result = std::string{js_tostring(m_jss, -1)};
+        } else if (js_isnumber(m_jss, -1)) {
+            eval_result = js_tonumber(m_jss, -1);
+        } else {
+            eval_result = std::unexpected{error_code::expression_evaluation_failed};
+        }
+        // TODO: object, array, null, NaN?
+
+        // Pop result
+        js_pop(m_jss, 1);
+        return eval_result;
+    }
+
+    std::expected<bool, error_code> eval_true(const std::string& expr) {
+        const auto expr_{std::format("!!({})", expr)};
+        return eval(expr_).transform([](auto res) {
+            auto bool_res{std::get<bool>(res)};
+            return bool_res;
+        });
+    }
+
+private:
+    js_State* m_jss{};
+};
+
 std::expected<void, error_code>
 process_task_response(const http_client& client, const ::runner::v1::FetchTaskResponse& fetch_task_response) noexcept {
     using namespace std::literals;
@@ -509,6 +641,11 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
     const auto wf_job{workflow::load_job_with_name(workflow_payload, job_name)};
     if (!wf_job) {
         return std::unexpected{wf_job.error()};
+    }
+
+    const auto wf_contexts{workflow::load_contexts_from_task(task)};
+    if (!wf_contexts) {
+        return std::unexpected{wf_contexts.error()};
     }
 
     // Initial task state
@@ -526,17 +663,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
 
     std::vector<workflow::step_execution_context> step_executions;
 
-    workflow::step_execution_dependencies dependencies;
-    for (auto& item : task.secrets()) {
-        dependencies.secrets.emplace(std::move(item.first), std::move(item.second));
-    }
-    // TODO: needs
-    for (auto& item : task.vars()) {
-        dependencies.vars.emplace(std::move(item.first), std::move(item.second));
-    }
-    for (auto& item : task_context.fields()) {
-        dependencies.context.emplace(std::move(item.first), std::move(item.second));
-    }
+    std::string run_contexts_script_object;
 
     // Set initial step state
     {
@@ -551,7 +678,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             step_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
             step_state->set_log_index(0);
             step_state->set_log_length(0);
-            step_executions.push_back({.step = &wf_step, .state = step_state, .dependencies{dependencies}});
+            step_executions.push_back({.step = &wf_step, .state = step_state, .wf_contexts = *wf_contexts});
             ++i;
         }
 
@@ -566,6 +693,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         for (auto& step_execution : step_executions) {
             auto* step{step_execution.step};
             auto* step_state{step_execution.state};
+            expression_evaluator expr{step_execution.wf_contexts};
             // Started
             {
                 const auto ts{current_timestamp()};
@@ -581,20 +709,12 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             // "Work"
             bool should_exec{true};
             if (step->condition) {
-                js_State* jss{js_newstate(nullptr, nullptr, JS_STRICT)};
-                js_newcfunction(
-                    jss,
-                    +[](js_State* jss_) {
-                        const std::string_view a{js_tostring(jss_, 1)};
-                        const std::string_view b{js_tostring(jss_, 2)};
-                        js_pushboolean(jss_, a.starts_with(b));
-                    },
-                    "startsWith", 2);
-                    js_setglobal(jss, "startsWith");
-                if (js_dostring(jss, step->condition->c_str()) != 0) {
+                const auto eval_result{expr.eval_true(*step->condition)};
+                if (!eval_result) {
                     step_result = ::runner::v1::RESULT_FAILURE;
+                } else if (!*eval_result) {
+                    step_result = ::runner::v1::RESULT_SKIPPED;
                 }
-                js_freestate(jss);
             }
             if (step_result == ::runner::v1::RESULT_UNSPECIFIED) {
                 if (should_exec) {

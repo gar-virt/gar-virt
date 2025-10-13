@@ -166,6 +166,56 @@ std::expected<Response, error_code> send_post_request(const http_client& client,
         .and_then([](auto res) { return decode_payload<Response>(res.body); });
 }
 
+boost::json::value protobuf_to_json(const ::google::protobuf::Value& from);
+boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from);
+boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from);
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Value& from) {
+    if (from.has_bool_value()) {
+        return from.bool_value();
+    }
+    if (from.has_string_value()) {
+        return boost::json::string{from.string_value()};
+    }
+    if (from.has_number_value()) {
+        return from.number_value();
+    }
+    if (from.has_null_value()) {
+        return nullptr;
+    }
+    if (from.has_struct_value()) {
+        return protobuf_to_json(from.struct_value());
+    }
+    if (from.has_list_value()) {
+        return protobuf_to_json(from.list_value());
+    }
+    throw std::runtime_error{"Unknown protobuf value type"};
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from) {
+    boost::json::object result;
+    for (auto& entry : from.fields()) {
+        result[entry.first] = protobuf_to_json(entry.second);
+    }
+    return result;
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from) {
+    boost::json::array result;
+    for (auto& entry : from.values()) {
+        result.push_back(protobuf_to_json(entry));
+    }
+    return result;
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Map<std::string, std::string>& from) {
+    boost::json::object result;
+    for (auto& entry : from) {
+        result[entry.first] = entry.second;
+    }
+    return result;
+}
+
 namespace ping {
 
 std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& client,
@@ -367,56 +417,6 @@ struct workflow_contexts {
 };
 
 using workflow_env = std::shared_ptr<std::unordered_map<std::string, std::string>>;
-
-boost::json::value protobuf_to_json(const ::google::protobuf::Value& from);
-boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from);
-boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from);
-
-boost::json::value protobuf_to_json(const ::google::protobuf::Value& from) {
-    if (from.has_bool_value()) {
-        return from.bool_value();
-    }
-    if (from.has_string_value()) {
-        return boost::json::string{from.string_value()};
-    }
-    if (from.has_number_value()) {
-        return from.number_value();
-    }
-    if (from.has_null_value()) {
-        return nullptr;
-    }
-    if (from.has_struct_value()) {
-        return protobuf_to_json(from.struct_value());
-    }
-    if (from.has_list_value()) {
-        return protobuf_to_json(from.list_value());
-    }
-    throw std::runtime_error{"Unknown protobuf value type"};
-}
-
-boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from) {
-    boost::json::object result;
-    for (auto& entry : from.fields()) {
-        result[entry.first] = protobuf_to_json(entry.second);
-    }
-    return result;
-}
-
-boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from) {
-    boost::json::array result;
-    for (auto& entry : from.values()) {
-        result.push_back(protobuf_to_json(entry));
-    }
-    return result;
-}
-
-boost::json::value protobuf_to_json(const ::google::protobuf::Map<std::string, std::string>& from) {
-    boost::json::object result;
-    for (auto& entry : from) {
-        result[entry.first] = entry.second;
-    }
-    return result;
-}
 
 std::expected<workflow_contexts, error_code> load_contexts_from_task(const ::runner::v1::Task& task) noexcept {
     try {
@@ -716,7 +716,15 @@ public:
 
 private:
     void add_contexts(const workflow::workflow_contexts& wf_contexts) {
-        // TODO
+        using namespace std::literals;
+        static constexpr auto prolog_format{R"js(
+var gitea = {};
+var github = gitea;
+var secrets = {};
+var vars = {};
+)js"sv};
+        const auto prolog{std::format(prolog_format, wf_contexts.main, wf_contexts.secrets, wf_contexts.vars)};
+        js_dostring(m_jss, prolog.c_str());
     }
 
     js_State* m_jss{};

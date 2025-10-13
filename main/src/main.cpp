@@ -296,6 +296,7 @@ struct wf_step {
     std::optional<wf_step_run> run;
     std::optional<wf_step_uses> uses;
     std::optional<std::string> condition;
+    YAML::Node yaml;
 };
 
 struct wf_job {
@@ -332,15 +333,23 @@ std::vector<wf_step> load_steps(const YAML::Node& yaml_steps) {
             if (!s.run && !s.uses) {
                 throw std::runtime_error{"Missing run/uses in workflow step"};
             }
+            s.yaml = yaml_step.as<YAML::Node>();
             return s;
         }());
     }
     return steps;
 }
 
-std::expected<wf_job, error_code> load_job_with_name(const std::string& yaml_str, const std::string& name) noexcept {
+std::expected<YAML::Node, error_code> load_workflow_yaml(const std::string& yaml_str) noexcept {
     try {
-        const auto yaml{YAML::Load(yaml_str)};
+        return YAML::Load(yaml_str);
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::workflow_parse_failed};
+    }
+}
+
+std::expected<wf_job, error_code> load_job_with_name(const YAML::Node& yaml, const std::string& name) noexcept {
+    try {
         const auto& yaml_jobs{yaml["jobs"]};
         const auto& yaml_job{yaml_jobs[name]};
         const auto& yaml_steps{yaml_job["steps"]};
@@ -352,25 +361,68 @@ std::expected<wf_job, error_code> load_job_with_name(const std::string& yaml_str
 }
 
 struct workflow_contexts {
-    std::unordered_map<std::string, std::string> secrets;
-    std::unordered_map<std::string, std::string> vars;
-    ::google::protobuf::Struct main;
+    std::string main;    // main context as a JSON object
+    std::string vars;    // configuration variables  as a JSON object
+    std::string secrets; // secrets  as a JSON object
 };
+
+using workflow_env = std::shared_ptr<std::unordered_map<std::string, std::string>>;
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Value& from);
+boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from);
+boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from);
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Value& from) {
+    if (from.has_bool_value()) {
+        return from.bool_value();
+    }
+    if (from.has_string_value()) {
+        return boost::json::string{from.string_value()};
+    }
+    if (from.has_number_value()) {
+        return from.number_value();
+    }
+    if (from.has_null_value()) {
+        return nullptr;
+    }
+    if (from.has_struct_value()) {
+        return protobuf_to_json(from.struct_value());
+    }
+    if (from.has_list_value()) {
+        return protobuf_to_json(from.list_value());
+    }
+    throw std::runtime_error{"Unknown protobuf value type"};
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from) {
+    boost::json::object result;
+    for (auto& entry : from.fields()) {
+        result[entry.first] = protobuf_to_json(entry.second);
+    }
+    return result;
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::ListValue& from) {
+    boost::json::array result;
+    for (auto& entry : from.values()) {
+        result.push_back(protobuf_to_json(entry));
+    }
+    return result;
+}
+
+boost::json::value protobuf_to_json(const ::google::protobuf::Map<std::string, std::string>& from) {
+    boost::json::object result;
+    for (auto& entry : from) {
+        result[entry.first] = entry.second;
+    }
+    return result;
+}
 
 std::expected<workflow_contexts, error_code> load_contexts_from_task(const ::runner::v1::Task& task) noexcept {
     try {
-        const auto& task_context{task.context()};
-        workflow_contexts contexts;
-
-        for (auto& item : task.secrets()) {
-            contexts.secrets.emplace(item.first, item.second);
-        }
-        // TODO: needs
-        for (auto& item : task.vars()) {
-            contexts.vars.emplace(item.first, item.second);
-        }
-
-        return contexts;
+        return workflow_contexts{.main = boost::json::serialize(protobuf_to_json(task.context())),
+                                 .vars = boost::json::serialize(protobuf_to_json(task.vars())),
+                                 .secrets = boost::json::serialize(protobuf_to_json(task.secrets()))};
     } catch (const std::exception&) {
         return std::unexpected{error_code::task_parse_failed};
     }
@@ -406,11 +458,14 @@ std::string regex_replace_callable(const std::string& text, const std::regex& pa
 
 enum class operating_system_id { windows, linux, macos };
 
-// std::string apply_string_substritutions(std::string script_str, const step_execution_dependencies& deps) {
-//     static const std::regex pattern{R"re(\$\{\{(.*?)}})re"};
-//     script_str = regex_replace_callable(script_str, pattern, [&](const std::smatch& m) -> std::string { return "";
-//     }); return script_str;
-// }
+std::string apply_string_substritutions(std::string script_str, const workflow::workflow_contexts& contexts) {
+    static const std::regex pattern{R"re(\$\{\{(.*?)}})re"};
+    script_str = regex_replace_callable(script_str, pattern, [&](const std::smatch& m) -> std::string {
+        // TODO
+        return "";
+    });
+    return script_str;
+}
 
 std::string get_default_shell(operating_system_id target_os) noexcept {
     using osid = operating_system_id;
@@ -468,7 +523,7 @@ esac
     return script;
 }
 
-bool execute_shell_script(const wf_step_run& input) {
+bool execute_shell_script(const wf_step_run& input, const workflow::workflow_env& env) {
     auto shell_name{input.shell.value_or("")};
     const auto script_str{input.script};
     fs::temporary_file real_script_file;
@@ -485,11 +540,34 @@ bool execute_shell_script(const wf_step_run& input) {
     }
     const auto intermeriate_script_path{utility::string_from_u8string(intermeriate_script_file.get_path().u8string())};
     const auto cmd{std::format("bash -e '{}' '{}' '{}'", intermeriate_script_path, shell_name, real_script_path)};
+
+    // Back up environment variables
+    std::unordered_map<std::string, std::optional<std::string>> original_env;
+    for (const auto& [k, v] : *env) {
+        original_env[k] = utility::getenv(k);
+    }
+
+    // Set environment variables
+    for (const auto& [k, v] : *env) {
+        utility::setenv(k, v);
+    }
+
     // TODO: Check UTF-8 compatibility on Windows
-    return std::system(cmd.c_str()) == 0;
+    bool exec_ok{std::system(cmd.c_str()) == 0};
+
+    // Restore environment variables
+    for (const auto& [k, v] : original_env) {
+        if (v) {
+            utility::setenv(k, *v);
+        } else {
+            utility::unsetenv(k);
+        }
+    }
+
+    return exec_ok;
 }
 
-bool execute_action(const wf_step_uses& input) {
+bool execute_action(const wf_step_uses& input, const workflow::workflow_env& env) {
     std::println("execute_action:\nurl: {}\n", input.url);
     return true;
 }
@@ -510,14 +588,14 @@ bool execute_action(const wf_step_uses& input) {
     return RESULT_SUCCESS;
 }
 
-::runner::v1::Result execute_job_step(step_execution_context& ctx) {
+::runner::v1::Result execute_job_step(step_execution_context& ctx, const workflow::workflow_env& env) {
     auto* step{ctx.step};
     auto* step_state{ctx.state};
     bool ok{};
     if (step->run) {
-        ok = execute_shell_script(*step->run);
+        ok = execute_shell_script(*step->run, env);
     } else if (step->uses) {
-        ok = execute_action(*step->uses);
+        ok = execute_action(*step->uses, env);
     }
     return ok ? ::runner::v1::RESULT_SUCCESS : ::runner::v1::RESULT_FAILURE;
 }
@@ -637,18 +715,50 @@ public:
     }
 
 private:
+    void add_contexts(const workflow::workflow_contexts& wf_contexts) {
+        // TODO
+    }
+
     js_State* m_jss{};
 };
+
+workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, workflow::workflow_env env = {}) {
+    if (!env) {
+        env = std::make_shared<workflow::workflow_env::element_type>();
+    }
+    if (!yaml) {
+        return env;
+    }
+    const auto& yaml_env{yaml["env"]};
+    if (!yaml_env || !yaml_env.IsMap()) {
+        return env;
+    }
+    auto env_copy{std::make_shared<workflow::workflow_env::element_type>(*env)};
+    for (auto& entry : yaml_env) {
+        if (!entry.second.IsScalar()) {
+            continue;
+        }
+        // TODO: may need conversion to string or error handling
+        const auto& key{entry.first.as<std::string>()};
+        const auto& value{entry.second.as<std::string>()};
+        (*env_copy)[key] = value;
+    }
+    return env_copy;
+}
 
 std::expected<void, error_code>
 process_task_response(const http_client& client, const ::runner::v1::FetchTaskResponse& fetch_task_response) noexcept {
     using namespace std::literals;
     const auto& task{fetch_task_response.task()};
     const auto& task_context{task.context()};
-    const auto& workflow_payload{task.workflow_payload()};
     const auto& job_name{task_context.fields().at("job").string_value()};
 
-    const auto wf_job{workflow::load_job_with_name(workflow_payload, job_name)};
+    auto workflow_payload{workflow::load_workflow_yaml(task.workflow_payload())};
+    if (!workflow_payload) {
+        return std::unexpected{workflow_payload.error()};
+    }
+
+    const auto wf_job{workflow::load_job_with_name(*workflow_payload, job_name)};
     if (!wf_job) {
         return std::unexpected{wf_job.error()};
     }
@@ -657,6 +767,10 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
     if (!wf_contexts) {
         return std::unexpected{wf_contexts.error()};
     }
+
+    const auto global_env{load_and_derive_env_from_yaml(*workflow_payload)};
+    const auto& yaml_jobs{(*workflow_payload)["jobs"]};
+    const auto job_env{load_and_derive_env_from_yaml(yaml_jobs, global_env)};
 
     // Initial task state
     auto update_task_request{::runner::v1::UpdateTaskRequest{}};
@@ -672,8 +786,6 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
     }
 
     std::vector<workflow::step_execution_context> step_executions;
-
-    std::string run_contexts_script_object;
 
     // Set initial step state
     {
@@ -698,12 +810,13 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         }
     }
 
-    // Simulate work and completion of steps
+    // Execute steps while updating status
     {
         for (auto& step_execution : step_executions) {
             auto* step{step_execution.step};
             auto* step_state{step_execution.state};
-            expression_evaluator expr{step_execution.wf_contexts};
+            const auto step_env{load_and_derive_env_from_yaml(step->yaml, job_env)};
+            expression_evaluator evaluator{step_execution.wf_contexts};
             // Started
             {
                 const auto ts{current_timestamp()};
@@ -718,7 +831,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             auto step_result{::runner::v1::RESULT_UNSPECIFIED};
             // "Work"
             if (step->condition) {
-                const auto eval_result{expr.eval_true(*step->condition)};
+                const auto eval_result{evaluator.eval_true(*step->condition)};
                 if (!eval_result) {
                     step_result = ::runner::v1::RESULT_FAILURE;
                 } else if (!*eval_result) {
@@ -726,7 +839,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
                 }
             }
             if (step_result == ::runner::v1::RESULT_UNSPECIFIED) {
-                step_result = execute_job_step(step_execution);
+                step_result = execute_job_step(step_execution, step_env);
             }
             // Completed
             {

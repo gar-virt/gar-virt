@@ -7,6 +7,7 @@ endif()
 add_library(utility SHARED)
 target_sources(utility PRIVATE
     src/env.cpp
+    src/filesystem.cpp
     src/string.cpp
     src/uuid.cpp
 )

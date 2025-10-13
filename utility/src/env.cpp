@@ -7,7 +7,7 @@
     #include <windows.h>
 #endif
 
-namespace utility {
+namespace ls_gitea_runner::utility {
 
 auto getenv(const std::string& name) -> std::optional<std::string> {
     if (auto value = std::getenv(name.c_str())) {
@@ -25,4 +25,4 @@ auto setenv(const std::string& name, const std::string& value) -> void {
 #endif
 }
 
-} // namespace utility
+} // namespace ls_gitea_runner::utility

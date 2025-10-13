@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace utility {
+namespace ls_gitea_runner::utility {
 
 #ifdef _WIN32
 std::wstring widen(const std::string& narrowString);
@@ -31,4 +31,4 @@ bool string_equals_ci(const std::string_view first, const std::string_view secon
 bool string_starts_with(const std::string_view haystack, const std::string_view needle);
 bool string_ends_with(const std::string_view haystack, const std::string_view needle);
 
-} // namespace utility
+} // namespace ls_gitea_runner::utility

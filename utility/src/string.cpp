@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace utility {
+namespace ls_gitea_runner::utility {
 
 #ifdef _WIN32
 std::wstring widen(const std::string& narrowString) {
@@ -34,7 +34,7 @@ std::string narrow(const std::wstring& wideString) {
     const auto wideStringC{wideString.c_str()};
     const auto wideStringLength{wideString.size()};
     const auto requiredLength{
-            ::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, nullptr, 0, nullptr, nullptr)};
+        ::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, nullptr, 0, nullptr, nullptr)};
     if (requiredLength > 0) {
         std::string narrowString(requiredLength, '\0');
         if (::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, narrowString.data(), narrowString.size(),
@@ -140,4 +140,4 @@ bool string_ends_with(const std::string_view haystack, const std::string_view ne
     return true;
 }
 
-} // namespace utility
+} // namespace ls_gitea_runner::utility

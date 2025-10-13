@@ -5,6 +5,9 @@ find_package(Boost REQUIRED COMPONENTS json CONFIG)
 find_package(CURL REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
+#find_package(mujs REQUIRED)
+find_library(MUJS_LIBRARY mujs REQUIRED)
+
 add_library(proto_objects OBJECT)
 target_sources(proto_objects PRIVATE
     proto/ping/v1/messages.proto
@@ -34,4 +37,4 @@ protobuf_generate(
 
 add_executable(ga_runner)
 target_sources(ga_runner PRIVATE src/main.cpp)
-target_link_libraries(ga_runner PRIVATE protobuf::libprotobuf gRPC::grpc gRPC::grpc++ Boost::json CURL::libcurl yaml-cpp::yaml-cpp proto_objects utility)
+target_link_libraries(ga_runner PRIVATE protobuf::libprotobuf gRPC::grpc gRPC::grpc++ Boost::json CURL::libcurl yaml-cpp::yaml-cpp ${MUJS_LIBRARY} proto_objects utility)

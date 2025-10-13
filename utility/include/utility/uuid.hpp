@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace utility {
+namespace ls_gitea_runner::utility {
 
 std::string uuid();
 

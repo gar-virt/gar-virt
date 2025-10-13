@@ -1,0 +1,102 @@
+#pragma once
+
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <optional>
+#include <queue>
+#include <thread>
+#include <vector>
+
+namespace ls_gitea_runner::utility {
+
+class thread_pool_executor final {
+    using ulock_t = std::unique_lock<std::mutex>;
+    using lock_t = std::lock_guard<std::mutex>;
+
+public:
+    using task_fn = std::function<void()>;
+
+    thread_pool_executor(std::optional<size_t> thread_count = std::nullopt) {
+        add_workers(thread_count.value_or(std::thread::hardware_concurrency()));
+    }
+
+    ~thread_pool_executor() {
+        {
+            lock_t lock{m_mutex};
+            m_stop = true;
+        }
+        m_cv.notify_all();
+        for (auto& thread : m_workers) {
+            thread.join();
+        }
+    }
+
+    void cancel() {
+        {
+            lock_t lock{m_mutex};
+            m_cancel = true;
+        }
+        m_cv.notify_all();
+    }
+
+    template <typename F, typename... Args> void put(F&& work, Args&&... args) {
+        {
+            lock_t lock{m_mutex};
+            if (m_stop) {
+                return;
+            }
+            m_queue.push(std::bind(std::forward<F>(work), std::forward<Args>(args)...));
+        }
+        m_cv.notify_one();
+    }
+
+    size_t get_thread_count() const {
+        lock_t lock{m_mutex};
+        return m_workers.size();
+    }
+
+private:
+    void worker_fn() {
+        while (true) {
+            task_fn task;
+            {
+                ulock_t lock{m_mutex};
+                m_cv.wait(lock, [this] { return m_cancel || m_stop || !m_queue.empty(); });
+                if (m_cancel || (m_stop && m_queue.empty())) {
+                    return;
+                }
+                if (m_queue.empty()) {
+                    continue;
+                }
+                task = std::move(m_queue.front());
+                m_queue.pop();
+            }
+            try {
+                task();
+            } catch (...) {
+                // Ignore
+            }
+        }
+    }
+
+    void add_workers(size_t count) {
+        lock_t lock{m_mutex};
+        while (m_workers.size() < count) {
+            add_worker();
+        }
+    }
+
+    void add_worker() {
+        m_workers.emplace_back([this] { worker_fn(); });
+    }
+
+    mutable std::mutex m_mutex;
+    std::condition_variable m_cv;
+    bool m_stop{};
+    bool m_cancel{};
+    std::queue<task_fn> m_queue;
+    std::vector<std::jthread> m_workers;
+};
+
+} // namespace ls_gitea_runner::utility

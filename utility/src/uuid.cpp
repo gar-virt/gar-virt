@@ -9,7 +9,7 @@
     #include <uuid/uuid.h>
 #endif
 
-namespace utility {
+namespace ls_gitea_runner::utility {
 
 std::string uuid() {
     // 36-byte string + terminator
@@ -47,4 +47,4 @@ std::string uuid() {
     return {uuid_cstr, uuid_cstr + 36};
 }
 
-} // namespace utility
+} // namespace ls_gitea_runner::utility

@@ -1,7 +1,7 @@
 find_package(gRPC CONFIG REQUIRED)
 find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 
-find_package(Boost REQUIRED COMPONENTS json CONFIG)
+find_package(Boost REQUIRED COMPONENTS json program_options CONFIG)
 find_package(CURL REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -37,4 +37,4 @@ protobuf_generate(
 
 add_executable(ga_runner)
 target_sources(ga_runner PRIVATE src/main.cpp)
-target_link_libraries(ga_runner PRIVATE protobuf::libprotobuf gRPC::grpc gRPC::grpc++ Boost::json CURL::libcurl yaml-cpp::yaml-cpp ${MUJS_LIBRARY} proto_objects utility)
+target_link_libraries(ga_runner PRIVATE protobuf::libprotobuf gRPC::grpc gRPC::grpc++ Boost::json Boost::program_options CURL::libcurl yaml-cpp::yaml-cpp ${MUJS_LIBRARY} proto_objects utility)

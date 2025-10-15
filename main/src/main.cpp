@@ -5,6 +5,7 @@
 #include <utility/temporary_file.hpp>
 
 #include <boost/json.hpp>
+#include <boost/program_options.hpp>
 #include <curl/curl.h>
 #include <grpc++/grpc++.h>
 #include <mujs.h>
@@ -16,9 +17,12 @@
 #include <expected>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <iostream>
 #include <optional>
 #include <print>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -39,6 +43,9 @@ enum class error_code {
     task_parse_failed,
     workflow_parse_failed,
     expression_evaluation_failed,
+    load_config_failed,
+    load_state_error,
+    save_state_error,
 };
 
 namespace {
@@ -535,6 +542,7 @@ struct workflow_contexts {
     std::string vars;    // configuration variables  as a JSON object
     std::string secrets; // secrets  as a JSON object
     std::string runner;  // info about current runner
+    std::string matrix;  // current matrix combination
 
     std::vector<std::pair<std::string, std::string>> to_list() const {
         std::vector<std::pair<std::string, std::string>> result;
@@ -543,6 +551,7 @@ struct workflow_contexts {
         result.emplace_back("vars", vars);
         result.emplace_back("secrets", secrets);
         result.emplace_back("runner", runner);
+        result.emplace_back("matrix", matrix);
         return result;
     }
 };
@@ -595,12 +604,31 @@ std::expected<YAML::Node, error_code> load_workflow_yaml(const std::string& yaml
     }
 }
 
+std::expected<YAML::Node, error_code> find_job_with_name_in_yaml(const YAML::Node& yaml,
+                                                                 const std::string& name) noexcept {
+    try {
+        const auto& yaml_jobs{yaml["jobs"]};
+        if (!yaml_jobs) {
+            return std::unexpected{error_code::workflow_parse_failed};
+        }
+        const auto& yaml_job{yaml_jobs[name]};
+        if (!yaml_job) {
+            return std::unexpected{error_code::workflow_parse_failed};
+        }
+        return yaml_job;
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::workflow_parse_failed};
+    }
+}
+
 std::expected<wf_job, error_code> load_job_with_name(const YAML::Node& yaml, const std::string& name,
                                                      const workflow_contexts& contexts) noexcept {
     try {
-        const auto& yaml_jobs{yaml["jobs"]};
-        const auto& yaml_job{yaml_jobs[name]};
-        const auto& yaml_steps{yaml_job["steps"]};
+        const auto& yaml_job{find_job_with_name_in_yaml(yaml, name)};
+        if (!yaml_job) {
+            return std::unexpected{error_code::workflow_parse_failed};
+        }
+        const auto& yaml_steps{(*yaml_job)["steps"]};
         wf_job job{.steps = load_steps(yaml_steps, contexts)};
         return job;
     } catch (const std::exception&) {
@@ -610,14 +638,47 @@ std::expected<wf_job, error_code> load_job_with_name(const YAML::Node& yaml, con
 
 using workflow_env = std::shared_ptr<std::unordered_map<std::string, std::string>>;
 
-std::expected<workflow_contexts, error_code> load_contexts_from_task(const ::runner::v1::Task& task) noexcept {
-    try {
-        return workflow_contexts{.main = boost::json::serialize(protobuf_to_json(task.context())),
-                                 .vars = boost::json::serialize(protobuf_to_json(task.vars())),
-                                 .secrets = boost::json::serialize(protobuf_to_json(task.secrets()))};
-    } catch (const std::exception&) {
-        return std::unexpected{error_code::task_parse_failed};
+std::string load_matrix_context_from_job_yaml(const YAML::Node& yaml) {
+    const auto& yaml_strategy{yaml["strategy"]};
+    if (!yaml_strategy) {
+        return "{}";
     }
+    const auto& yaml_matrix{yaml_strategy["matrix"]};
+    if (!yaml_matrix) {
+        return "{}";
+    }
+    if (!yaml_matrix.IsMap()) {
+        return "{}";
+    }
+    boost::json::object json;
+    for (auto& entry : yaml_matrix) {
+        if (!entry.second.IsSequence()) {
+            continue;
+        }
+        // TODO: better error handling
+        try {
+            const auto& key{entry.first.as<std::string>()};
+            const auto& values{entry.second.as<std::vector<std::string>>()};
+            json[key] = values.at(0);
+        } catch (const std::exception&) {
+            // Ignore
+        }
+    }
+    return boost::json::serialize(json);
+}
+
+std::string create_runner_context() {
+    std::string script;
+    script += "{";
+    script += R"(name:"fake-name",)";
+    script += R"(os:"fake-os",)";
+    script += R"(arch:"fake-arch",)";
+    script += R"(temp:"fake-temp",)";
+    script += R"(tool_cache:"fake-tool-cache",)";
+    script += R"(debug:"fake-debug",)";
+    script += R"(environment:"fake-environment",)";
+    script += "}";
+    return script;
 }
 
 struct step_execution_context {
@@ -724,7 +785,7 @@ bool execute_shell_script(const wf_step_run& input, const workflow::workflow_env
 }
 
 bool execute_action(const wf_step_uses& input, const workflow::workflow_env& env) {
-    std::println("execute_action(url: {})", input.url);
+    std::println("TODO: execute_action(url: {})", input.url);
     return true;
 }
 
@@ -758,21 +819,141 @@ bool execute_action(const wf_step_uses& input, const workflow::workflow_env& env
 
 } // namespace workflow
 
-std::string create_runner_context() {
-    std::string script;
-    script += "{";
-    script += R"(name:"fake-name",)";
-    script += R"(os:"fake-os",)";
-    script += R"(arch:"fake-arch",)";
-    script += R"(temp:"fake-temp",)";
-    script += R"(tool_cache:"fake-tool-cache",)";
-    script += R"(debug:"fake-debug",)";
-    script += R"(environment:"fake-environment",)";
-    script += "}";
-    return script;
-}
+namespace config {
+struct docker_config {
+    std::string image;
+    std::string tag;
+};
 
-workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, workflow::workflow_env env = {}) {
+struct qemu_config {
+    std::string image;
+    std::string cpu;
+    std::size_t memory;
+};
+
+struct runner_environment_config {
+    std::vector<std::string> labels;
+    std::string os;
+    std::variant<docker_config, qemu_config> details;
+};
+
+struct runner_config {
+    std::string instance_url;
+    std::string name;
+    std::string token;
+    bool ephemeral{};
+    std::unordered_map<std::string, runner_environment_config> environments;
+};
+
+std::expected<runner_config, error_code> load_file(const std::filesystem::path& file_path) noexcept {
+    try {
+        std::ifstream is{file_path, std::ios_base::binary};
+        const auto j{boost::json::parse(is).as_object()};
+        runner_config c{
+            .instance_url = std::string{j.at("instance_url").as_string()},
+            .name = std::string{j.at("name").as_string()},
+            .token = std::string{j.at("token").as_string()},
+            .ephemeral = j.at("ephemeral").as_bool(),
+        };
+        for (auto& [env_key, env_value] : j.at("environments").as_object()) {
+            const auto& env_labels{env_value.at("labels").as_array()};
+            const auto& env_details{env_value.at("details").as_object()};
+            c.environments[env_key] = {
+                .labels =
+                    [&] {
+                        std::vector<std::string> labels;
+                        labels.reserve(env_labels.size());
+                        std::transform(env_labels.begin(), env_labels.end(), std::back_inserter(labels),
+                                       [](auto& l) { return std::string{l.as_string()}; });
+                        return labels;
+                    }(),
+                .os = std::string{env_value.at("os").as_string()},
+                .details = [&] -> decltype(runner_environment_config::details) {
+                    if (env_key == "docker") {
+                        return docker_config{
+                            .image = std::string{env_details.at("image").as_string()},
+                            .tag = std::string{env_details.at("tag").as_string()},
+                        };
+                    } else if (env_key == "qemu") {
+                        return qemu_config{
+                            .image = std::string{env_details.at("image").as_string()},
+                            .cpu = std::string{env_details.at("cpu").as_string()},
+                            .memory = utility::safe_cast_int<decltype(qemu_config::memory)>(
+                                env_details.at("memory").as_int64()),
+                        };
+                    }
+                    throw std::runtime_error{"Invalid runner environment type in config"};
+                }(),
+            };
+        }
+        return c;
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::load_config_failed};
+    }
+}
+} // namespace config
+
+struct program_options {
+    std::filesystem::path config_file;
+    std::filesystem::path state_file;
+};
+
+struct runtime_state {
+    std::string uuid;
+    std::string token;
+
+    std::expected<void, error_code> save() {
+        try {
+            std::ostringstream oss{std::ios_base::binary};
+            boost::json::object o = {
+                {"uuid", uuid},
+                {"token", token},
+            };
+            oss << boost::json::serialize(o);
+            std::ofstream ofs{m_file_path, std::ios_base::binary};
+            if (!ofs.is_open()) {
+                return std::unexpected{error_code::save_state_error};
+            }
+            ofs << oss.str();
+            return {};
+        } catch (const std::exception&) {
+            return std::unexpected{error_code::save_state_error};
+        }
+    }
+
+    static std::expected<runtime_state, error_code> load_file(const std::filesystem::path& file_path) {
+        try {
+            std::ifstream is{file_path, std::ios_base::binary};
+            if (!is.is_open()) {
+                return std::unexpected{error_code::load_state_error};
+            }
+            const auto json{boost::json::parse(is).as_object()};
+            runtime_state result{file_path};
+            result.uuid = std::string{json.at("uuid").as_string()};
+            result.token = std::string{json.at("token").as_string()};
+            return result;
+        } catch (const std::exception&) {
+            return std::unexpected{error_code::load_state_error};
+        }
+    }
+
+    static std::expected<runtime_state, error_code> create(const std::filesystem::path& file_path) {
+        try {
+            runtime_state result{file_path};
+            return result;
+        } catch (const std::exception&) {
+            return std::unexpected{error_code::load_state_error};
+        }
+    }
+
+private:
+    runtime_state(const std::filesystem::path& file_path) : m_file_path{file_path} {}
+
+    std::filesystem::path m_file_path;
+};
+
+workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, workflow::workflow_env env,
+                                                     workflow::workflow_contexts& contexts) {
     if (!env) {
         env = std::make_shared<workflow::workflow_env::element_type>();
     }
@@ -783,6 +964,8 @@ workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, wor
     if (!yaml_env || !yaml_env.IsMap()) {
         return env;
     }
+    const auto sub{scripting::apply_string_substitutions};
+    const auto& contexts_list{contexts.to_list()};
     auto env_copy{std::make_shared<workflow::workflow_env::element_type>(*env)};
     for (auto& entry : yaml_env) {
         if (!entry.second.IsScalar()) {
@@ -790,14 +973,21 @@ workflow::workflow_env load_and_derive_env_from_yaml(const YAML::Node& yaml, wor
         }
         // TODO: may need conversion to string or error handling
         const auto& key{entry.first.as<std::string>()};
-        const auto& value{entry.second.as<std::string>()};
-        (*env_copy)[key] = value;
+        auto value{sub(entry.second.as<std::string>(), contexts_list)};
+        (*env_copy)[key] = std::move(value);
     }
     return env_copy;
 }
 
-std::expected<void, error_code>
-process_task_response(const http_client& client, const ::runner::v1::FetchTaskResponse& fetch_task_response) noexcept {
+boost::json::value fixup_main_context_json(boost::json::value json) {
+    json.as_object()["gitea"].as_object()["workspace"] =
+        utility::string_from_u8string(std::filesystem::current_path().u8string());
+    return json;
+}
+
+std::expected<void, error_code> process_task_response(const http_client& client,
+                                                      const ::runner::v1::FetchTaskResponse& fetch_task_response,
+                                                      const config::runner_config& config) noexcept {
     using namespace std::literals;
     const auto& task{fetch_task_response.task()};
     const auto& task_context{task.context()};
@@ -808,21 +998,29 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         return std::unexpected{workflow_payload.error()};
     }
 
-    auto wf_contexts{workflow::load_contexts_from_task(task)};
-    if (!wf_contexts) {
-        return std::unexpected{wf_contexts.error()};
+    const auto yaml_job{workflow::find_job_with_name_in_yaml(*workflow_payload, job_name)};
+    if (!yaml_job) {
+        return std::unexpected{yaml_job.error()};
     }
 
-    wf_contexts->runner = create_runner_context();
+    workflow::workflow_contexts wf_contexts;
+    try {
+        wf_contexts.main = boost::json::serialize(fixup_main_context_json(protobuf_to_json(task.context())));
+        wf_contexts.vars = boost::json::serialize(protobuf_to_json(task.vars()));
+        wf_contexts.secrets = boost::json::serialize(protobuf_to_json(task.secrets()));
+        wf_contexts.runner = workflow::create_runner_context();
+        wf_contexts.matrix = workflow::load_matrix_context_from_job_yaml(*yaml_job);
+    } catch (const std::exception&) {
+        return std::unexpected{error_code::task_parse_failed};
+    }
 
-    const auto wf_job{workflow::load_job_with_name(*workflow_payload, job_name, *wf_contexts)};
+    const auto global_env{load_and_derive_env_from_yaml(*workflow_payload, {}, wf_contexts)};
+    const auto job_env{load_and_derive_env_from_yaml(*yaml_job, global_env, wf_contexts)};
+
+    const auto wf_job{workflow::load_job_with_name(*workflow_payload, job_name, wf_contexts)};
     if (!wf_job) {
         return std::unexpected{wf_job.error()};
     }
-
-    const auto global_env{load_and_derive_env_from_yaml(*workflow_payload)};
-    const auto& yaml_jobs{(*workflow_payload)["jobs"]};
-    const auto job_env{load_and_derive_env_from_yaml(yaml_jobs, global_env)};
 
     // Initial task state
     auto update_task_request{::runner::v1::UpdateTaskRequest{}};
@@ -852,7 +1050,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
             step_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
             step_state->set_log_index(0);
             step_state->set_log_length(0);
-            step_executions.push_back({.step = &wf_step, .state = step_state, .wf_contexts = *wf_contexts});
+            step_executions.push_back({.step = &wf_step, .state = step_state, .wf_contexts = wf_contexts});
             ++i;
         }
 
@@ -867,7 +1065,7 @@ process_task_response(const http_client& client, const ::runner::v1::FetchTaskRe
         for (auto& step_execution : step_executions) {
             auto* step{step_execution.step};
             auto* step_state{step_execution.state};
-            const auto step_env{load_and_derive_env_from_yaml(step->yaml, job_env)};
+            const auto step_env{load_and_derive_env_from_yaml(step->yaml, job_env, wf_contexts)};
             scripting::expression_evaluator evaluator{step_execution.wf_contexts.to_list()};
             // Started
             {
@@ -948,11 +1146,11 @@ std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(con
     return fetch_task_response;
 }
 
-void run_task_loop(const http_client& client) noexcept {
+void run_task_loop(const http_client& client, const config::runner_config& config) noexcept {
     using namespace std::literals;
     while (true) {
         if (!wait_for_new_task(client).and_then(
-                [&](auto fetch_task_response) { return process_task_response(client, fetch_task_response); })) {
+                [&](auto fetch_task_response) { return process_task_response(client, fetch_task_response, config); })) {
             std::println(std::cerr, "Error");
             std::this_thread::sleep_for(5s);
         }
@@ -961,36 +1159,14 @@ void run_task_loop(const http_client& client) noexcept {
 
 constexpr auto runner_version{std::string_view{"v0.1.0"}};
 
-int cmd_register() noexcept {
+int cmd_register(config::runner_config config, runtime_state state) noexcept {
     // GITEA_RUNNER_REGISTRATION_TOKEN_FILE
 
-    const auto options{runner_options::from_env()};
-
-    if (!options.instance) {
-        std::println(std::cerr, "Missing instance URL");
-        return 1;
-    }
-
-    if (!options.runner_name) {
-        std::println(std::cerr, "Missing runner name");
-        return 1;
-    }
-
-    if (!options.runner_registration_token) {
-        std::println(std::cerr, "Missing runner registration token");
-        return 1;
-    }
-
-    if (options.runner_labels.empty()) {
-        std::println(std::cerr, "Missing runner labels");
-        return 1;
-    }
-
     auto header_source{std::make_shared<class header_source>()};
-    http_client client{*options.instance, header_source};
+    http_client client{config.instance_url, header_source};
 
     auto ping_request{::ping::v1::PingRequest{}};
-    ping_request.set_data(*options.runner_name);
+    ping_request.set_data(config.name);
     auto ping_response{ping::ping(client, ping_request)};
     if (!ping_response) {
         std::println(std::cerr, "Error");
@@ -998,67 +1174,47 @@ int cmd_register() noexcept {
     }
 
     auto reqister_request{::runner::v1::RegisterRequest{}};
-    reqister_request.set_name(*options.runner_name);
-    reqister_request.set_token(*options.runner_registration_token);
+    reqister_request.set_name(config.name);
+    reqister_request.set_token(config.token);
     reqister_request.set_version(std::string{runner_version});
-    for (auto& label : options.runner_labels) {
-        reqister_request.add_labels(std::move(label));
+    for (auto& [env_type, env_config] : config.environments) {
+        for (auto& label : env_config.labels) {
+            reqister_request.add_labels(std::move(label));
+        }
     }
-    if (options.ephemeral) {
-        reqister_request.set_ephemeral(*options.ephemeral);
-    }
+    reqister_request.set_ephemeral(config.ephemeral);
     auto register_response{runner::register_(client, reqister_request)};
     if (!register_response) {
         std::println(std::cerr, "Error");
         return 1;
     }
 
-    std::println("uuid={}", register_response->runner().uuid());
-    std::println("token={}", register_response->runner().token());
+    state.uuid = register_response->runner().uuid();
+    state.token = register_response->runner().token();
+
+    if (auto res{state.save()}; !res) {
+        std::println(std::cerr, "Unable to save state");
+        return 1;
+    }
 
     return 0;
 }
 
-int cmd_daemon() noexcept {
+int cmd_daemon(config::runner_config config, runtime_state state) noexcept {
     using namespace std::literals;
 
-    const auto options{runner_options::from_env()};
-
-    if (!options.instance) {
-        std::println(std::cerr, "Missing instance URL");
-        return 1;
-    }
-
-    if (!options.runner_name) {
-        std::println(std::cerr, "Missing runner name");
-        return 1;
-    }
-
-    if (options.runner_labels.empty()) {
-        std::println(std::cerr, "Missing runner labels");
-        return 1;
-    }
-
-    if (!options.runner_uuid) {
-        std::println(std::cerr, "Missing runner UUID");
-        return 1;
-    }
-
-    if (!options.runner_token) {
-        std::println(std::cerr, "Missing runner token");
-        return 1;
-    }
-
     auto header_source{std::make_shared<class header_source>()};
-    http_client client{*options.instance, header_source};
+    http_client client{config.instance_url, header_source};
 
-    header_source->set_uuid(*options.runner_uuid);
-    header_source->set_token(*options.runner_token);
+    header_source->set_uuid(state.uuid);
+    header_source->set_token(state.token);
 
     auto declare_request{::runner::v1::DeclareRequest{}};
     declare_request.set_version(std::string{runner_version});
-    for (auto& label : options.runner_labels) {
-        declare_request.add_labels(std::move(label));
+    for (auto& [env_type, env_config] : config.environments) {
+        for (auto& label : env_config.labels) {
+            declare_request.add_labels(std::move(label));
+        }
     }
     auto declare_response{runner::declare(client, declare_request)};
     if (!declare_response) {
@@ -1066,30 +1222,84 @@ int cmd_daemon() noexcept {
         return 1;
     }
 
-    run_task_loop(client);
+    run_task_loop(client, config);
 
     return 0;
 }
 
 int main(int argc, char* const argv[]) {
+    namespace po = boost::program_options;
     using namespace std::literals;
 
-    if (argc < 2) {
-        std::println(std::cerr, "Missing command");
+    try {
+        po::options_description options_desc{"Options"};
+        options_desc.add_options()                                                           //
+            ("help", "show help message")                                                    //
+            ("config-file", po::value<std::string>()->required(), "configuration file path") //
+            ("state-file", po::value<std::string>()->required(), "state file path")          //
+            ("command", po::value<std::string>()->required(), "command (register, daemon)");
+
+        po::positional_options_description positional_desc;
+        positional_desc.add("command", 1);
+
+        po::variables_map vm;
+        po::store(po::command_line_parser{argc, argv}
+                      .options(options_desc)       //
+                      .positional(positional_desc) //
+                      .run(),
+                  vm);
+
+        if (vm.contains("help")) {
+            std::cout << "Usage: program [options] command\n"
+                      << "Commands:\n"
+                      << "  register\n"
+                      << "    Register the runner.\n"
+                      << "  daemon\n"
+                      << "    Start taking jobs.\n"
+                      << options_desc << '\n';
+            return 1;
+        }
+
+        po::notify(vm);
+
+        const program_options options{
+            .config_file = std::filesystem::u8path(vm.at("config-file").as<std::string>()),
+            .state_file = std::filesystem::u8path(vm.at("state-file").as<std::string>()),
+        };
+
+        auto config{config::load_file(options.config_file)};
+        if (!config) {
+            std::println(std::cerr, "Unable to load config file");
+            return 1;
+        }
+
+        const auto& cmd{vm.at("command").as<std::string>()};
+        auto state{runtime_state::load_file(options.state_file)};
+
+        if (cmd == "register"sv) {
+            if (!state) {
+                state = runtime_state::create(options.state_file);
+                if (!state) {
+                    throw std::logic_error{"Couldn't create runtime state"};
+                }
+            }
+            return cmd_register(std::move(*config), std::move(*state));
+        } else if (cmd == "daemon"sv) {
+            if (!state) {
+                std::println(std::cerr, "Unable to load state file");
+                return 1;
+            }
+            return cmd_daemon(std::move(*config), std::move(*state));
+        } else {
+            std::println(std::cerr, "Invalid command");
+            return 1;
+        }
+
+        return 0;
+    } catch (const std::exception& ex) {
+        std::println(std::cerr, "Error: {}", ex.what());
         return 1;
     }
-
-    const auto cmd{std::string_view{argv[1]}};
-    if (cmd == "register"sv) {
-        return cmd_register();
-    } else if (cmd == "daemon"sv) {
-        return cmd_daemon();
-    } else {
-        std::println(std::cerr, "Invalid command");
-        return 1;
-    }
-
-    return 0;
 }
 
 } // namespace ls_gitea_runner

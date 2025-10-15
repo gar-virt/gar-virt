@@ -36,5 +36,31 @@ protobuf_generate(
 )
 
 add_executable(ga_runner)
-target_sources(ga_runner PRIVATE src/main.cpp)
-target_link_libraries(ga_runner PRIVATE protobuf::libprotobuf gRPC::grpc gRPC::grpc++ Boost::json Boost::program_options CURL::libcurl yaml-cpp::yaml-cpp ${MUJS_LIBRARY} proto_objects utility)
+target_sources(ga_runner PRIVATE
+    src/commands/daemon.cpp
+    src/commands/register.cpp
+    src/config.cpp
+    src/error.cpp
+    src/gitea/gitea_runner_service_client.cpp
+    src/gitea/gitea_runner_task_poller.cpp
+    src/gitea/gitea_runner_task_processor.cpp
+    src/gitea/gitea_workflow.cpp
+    src/gitea/gitea_workflow_executor.cpp
+    src/http.cpp
+    src/main.cpp
+    src/protobuf_helper.cpp
+    src/scripting.cpp
+    src/state.cpp
+)
+target_link_libraries(ga_runner PRIVATE
+    protobuf::libprotobuf
+    gRPC::grpc
+    gRPC::grpc++
+    Boost::json
+    Boost::program_options
+    CURL::libcurl
+    yaml-cpp::yaml-cpp
+    ${MUJS_LIBRARY}
+    proto_objects
+    utility
+)

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <regex>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace ls_gitea_runner::utility {
 
@@ -30,5 +32,9 @@ bool string_compare_less_ci(const std::string_view first, const std::string_view
 bool string_equals_ci(const std::string_view first, const std::string_view second);
 bool string_starts_with(const std::string_view haystack, const std::string_view needle);
 bool string_ends_with(const std::string_view haystack, const std::string_view needle);
+std::vector<std::string> string_split(const std::string_view input);
+
+std::string regex_replace_callable(const std::string& text, const std::regex& pattern,
+                                   std::function<std::string(const std::smatch&)> replacer);
 
 } // namespace ls_gitea_runner::utility

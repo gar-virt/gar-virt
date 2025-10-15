@@ -22,6 +22,7 @@
 #include <optional>
 #include <print>
 #include <regex>
+#include <source_location>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -30,22 +31,17 @@
 #include <variant>
 #include <vector>
 
-#include <setjmp.h>
-
 namespace ls_gitea_runner {
 
-enum class error_code {
-    curl_error,
-    fetch_task_failed,
-    payload_encode_failed,
-    payload_decode_failed,
-    service_failure,
-    task_parse_failed,
-    workflow_parse_failed,
-    expression_evaluation_failed,
-    load_config_failed,
-    load_state_error,
-    save_state_error,
+class generic_error : public std::runtime_error {
+public:
+    generic_error(const std::string& message, std::source_location sloc = std::source_location::current())
+            : runtime_error{message}, m_sloc{sloc} {}
+
+    const std::source_location& where() const noexcept { return m_sloc; }
+
+private:
+    std::source_location m_sloc;
 };
 
 namespace {
@@ -91,8 +87,8 @@ public:
         m_base_url += "api/actions";
     }
 
-    std::expected<http_response, error_code> post(const std::string& path,
-                                                  const std::vector<std::byte>& payload) const noexcept {
+    std::expected<http_response, generic_error> post(const std::string& path,
+                                                     const std::vector<std::byte>& payload) const noexcept {
         const auto url{m_base_url + path};
 
         std::string response_headers;
@@ -136,7 +132,9 @@ public:
         curl_slist_free_all(headers);
 
         if (!curl || curl_code != CURLE_OK) {
-            return std::unexpected{error_code::curl_error};
+            return std::unexpected{generic_error{
+                std::format("HTTP request failed to \"{}\" failed (cURL error code: {}; HTTP status code: {})", url,
+                            static_cast<long>(curl_code), response_code)}};
         }
 
         return http_response{.body = response_body};
@@ -147,27 +145,27 @@ private:
     std::shared_ptr<http_header_source> m_header_source;
 };
 
-template <typename T> std::expected<std::vector<std::byte>, error_code> encode_payload(const T& msg) noexcept {
+template <typename T> std::expected<std::vector<std::byte>, generic_error> encode_payload(const T& msg) noexcept {
     const auto byte_size{msg.ByteSizeLong()};
     std::vector<std::byte> data;
     data.resize(static_cast<std::size_t>(byte_size));
     if (!msg.SerializeToArray(data.data(), byte_size)) {
-        return std::unexpected{error_code::payload_encode_failed};
+        return std::unexpected{generic_error{"Failed to encode gRPC message"}};
     }
     return data;
 }
 
-template <typename T> std::expected<T, error_code> decode_payload(const std::vector<std::byte>& payload) noexcept {
+template <typename T> std::expected<T, generic_error> decode_payload(const std::vector<std::byte>& payload) noexcept {
     T msg;
     if (!msg.ParseFromArray(payload.data(), static_cast<int>(payload.size()))) {
-        return std::unexpected{error_code::payload_decode_failed};
+        return std::unexpected{generic_error{"Failed to decode gRPC message"}};
     }
     return msg;
 }
 
 template <typename Request, typename Response>
-std::expected<Response, error_code> send_post_request(const http_client& client, const std::string& path,
-                                                      const Request& req) noexcept {
+std::expected<Response, generic_error> send_post_request(const http_client& client, const std::string& path,
+                                                         const Request& req) noexcept {
     return encode_payload(req)
         .and_then([&](auto payload) { return client.post(path, payload); })
         .and_then([](auto res) { return decode_payload<Response>(res.body); });
@@ -196,7 +194,7 @@ boost::json::value protobuf_to_json(const ::google::protobuf::Value& from) {
     if (from.has_list_value()) {
         return protobuf_to_json(from.list_value());
     }
-    throw std::runtime_error{"Unknown protobuf value type"};
+    throw generic_error{"Can't map unknown protobuf value type to JSON"};
 }
 
 boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from) {
@@ -301,7 +299,8 @@ public:
     expression_evaluator(const std::vector<std::pair<std::string, std::string>>& global_objects)
             : m_jss{js_newstate(nullptr, nullptr, JS_STRICT)} {
         js_setreport(
-            m_jss, +[](js_State* jss_, const char* message) { std::println("Evaluation error: {}", message); });
+            m_jss,
+            +[](js_State* jss_, const char* message) { std::println("Expression evaluation error: {}", message); });
         builtin_fn::register_contains(m_jss);
         builtin_fn::register_endsWith(m_jss);
         builtin_fn::register_startsWith(m_jss);
@@ -310,9 +309,9 @@ public:
 
     ~expression_evaluator() { js_freestate(m_jss); }
 
-    std::expected<value_t, error_code> eval(const std::string& expr) {
+    std::expected<value_t, generic_error> eval(const std::string& expr) {
         if (js_ploadstring(m_jss, "[script]", expr.c_str())) {
-            return std::unexpected{error_code::expression_evaluation_failed};
+            return std::unexpected{generic_error{std::format("Failed to load expression <{}>", expr)}};
         }
 
         // Push the "this" value
@@ -321,10 +320,10 @@ public:
         if (js_pcall(m_jss, 0)) {
             // Pop the "this" value?
             js_pop(m_jss, 1);
-            return std::unexpected{error_code::expression_evaluation_failed};
+            return std::unexpected{generic_error{std::format("Evaluation of expression <{}> failed", expr)}};
         }
 
-        std::expected<value_t, error_code> eval_result;
+        std::expected<value_t, generic_error> eval_result;
 
         if (js_isboolean(m_jss, -1)) {
             eval_result = js_toboolean(m_jss, -1) != 0;
@@ -335,7 +334,8 @@ public:
         } else if (js_isnull(m_jss, -1)) {
             eval_result = nullptr;
         } else {
-            eval_result = std::unexpected{error_code::expression_evaluation_failed};
+            return std::unexpected{
+                generic_error{std::format("Evaluation of expression <{}> resulted in unsupported type", expr)}};
         }
 
         // TODO: object, array, NaN?
@@ -345,7 +345,7 @@ public:
         return eval_result;
     }
 
-    std::expected<bool, error_code> eval_true(const std::string& expr) {
+    std::expected<bool, generic_error> eval_true(const std::string& expr) {
         const auto expr_{std::format("!!({})", expr)};
         return eval(expr_).transform([](auto res) {
             auto bool_res{std::get<bool>(res)};
@@ -401,8 +401,8 @@ std::string apply_string_substitutions(std::string script_str,
 
 namespace ping {
 
-std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& client,
-                                                         ::ping::v1::PingRequest req) noexcept {
+std::expected<::ping::v1::PingResponse, generic_error> ping(const http_client& client,
+                                                            ::ping::v1::PingRequest req) noexcept {
     return send_post_request<::ping::v1::PingRequest, ::ping::v1::PingResponse>(client, "/ping.v1.PingService/Ping",
                                                                                 req);
 }
@@ -411,32 +411,32 @@ std::expected<::ping::v1::PingResponse, error_code> ping(const http_client& clie
 
 namespace runner {
 
-std::expected<::runner::v1::RegisterResponse, error_code> register_(const http_client& client,
-                                                                    ::runner::v1::RegisterRequest req) noexcept {
+std::expected<::runner::v1::RegisterResponse, generic_error> register_(const http_client& client,
+                                                                       ::runner::v1::RegisterRequest req) noexcept {
     return send_post_request<::runner::v1::RegisterRequest, ::runner::v1::RegisterResponse>(
         client, "/runner.v1.RunnerService/Register", req);
 }
 
-std::expected<::runner::v1::DeclareResponse, error_code> declare(const http_client& client,
-                                                                 ::runner::v1::DeclareRequest req) noexcept {
+std::expected<::runner::v1::DeclareResponse, generic_error> declare(const http_client& client,
+                                                                    ::runner::v1::DeclareRequest req) noexcept {
     return send_post_request<::runner::v1::DeclareRequest, ::runner::v1::DeclareResponse>(
         client, "/runner.v1.RunnerService/Declare", req);
 }
 
-std::expected<::runner::v1::FetchTaskResponse, error_code> fetch_task(const http_client& client,
-                                                                      ::runner::v1::FetchTaskRequest req) noexcept {
+std::expected<::runner::v1::FetchTaskResponse, generic_error> fetch_task(const http_client& client,
+                                                                         ::runner::v1::FetchTaskRequest req) noexcept {
     return send_post_request<::runner::v1::FetchTaskRequest, ::runner::v1::FetchTaskResponse>(
         client, "/runner.v1.RunnerService/FetchTask", req);
 }
 
-std::expected<::runner::v1::UpdateTaskResponse, error_code> update_task(const http_client& client,
-                                                                        ::runner::v1::UpdateTaskRequest req) noexcept {
+std::expected<::runner::v1::UpdateTaskResponse, generic_error>
+update_task(const http_client& client, ::runner::v1::UpdateTaskRequest req) noexcept {
     return send_post_request<::runner::v1::UpdateTaskRequest, ::runner::v1::UpdateTaskResponse>(
         client, "/runner.v1.RunnerService/UpdateTask", req);
 }
 
-std::expected<::runner::v1::UpdateLogResponse, error_code> update_log(const http_client& client,
-                                                                      ::runner::v1::UpdateLogRequest req) noexcept {
+std::expected<::runner::v1::UpdateLogResponse, generic_error> update_log(const http_client& client,
+                                                                         ::runner::v1::UpdateLogRequest req) noexcept {
     return send_post_request<::runner::v1::UpdateLogRequest, ::runner::v1::UpdateLogResponse>(
         client, "/runner.v1.RunnerService/UpdateLog", req);
 }
@@ -587,7 +587,7 @@ std::vector<wf_step> load_steps(const YAML::Node& yaml_steps, const workflow_con
                 s.uses = std::make_optional(wf_step_uses{.url = sub(uses.as<std::string>(), contexts_list)});
             }
             if (!s.run && !s.uses) {
-                throw std::runtime_error{"Missing run/uses in workflow step"};
+                throw generic_error{"Missing run/uses in workflow step"};
             }
             s.yaml = yaml_step.as<YAML::Node>();
             return s;
@@ -596,43 +596,45 @@ std::vector<wf_step> load_steps(const YAML::Node& yaml_steps, const workflow_con
     return steps;
 }
 
-std::expected<YAML::Node, error_code> load_workflow_yaml(const std::string& yaml_str) noexcept {
+std::expected<YAML::Node, generic_error> load_workflow_yaml(const std::string& yaml_str) noexcept {
     try {
         return YAML::Load(yaml_str);
     } catch (const std::exception&) {
-        return std::unexpected{error_code::workflow_parse_failed};
+        return std::unexpected{generic_error{"Failed to parse workflow YAML"}};
     }
 }
 
-std::expected<YAML::Node, error_code> find_job_with_name_in_yaml(const YAML::Node& yaml,
-                                                                 const std::string& name) noexcept {
+std::expected<YAML::Node, generic_error> find_job_with_name_in_yaml(const YAML::Node& yaml,
+                                                                    const std::string& name) noexcept {
     try {
         const auto& yaml_jobs{yaml["jobs"]};
         if (!yaml_jobs) {
-            return std::unexpected{error_code::workflow_parse_failed};
+            return std::unexpected{generic_error{"Missing jobs in workflow YAML"}};
         }
         const auto& yaml_job{yaml_jobs[name]};
         if (!yaml_job) {
-            return std::unexpected{error_code::workflow_parse_failed};
+            return std::unexpected{generic_error{std::format("Missing job named \"{}\" in workflow YAML", name)}};
         }
         return yaml_job;
-    } catch (const std::exception&) {
-        return std::unexpected{error_code::workflow_parse_failed};
+    } catch (const std::exception& ex) {
+        return std::unexpected{
+            generic_error{std::format("Error while looking for job in workflow YAML: {}", ex.what())}};
     }
 }
 
-std::expected<wf_job, error_code> load_job_with_name(const YAML::Node& yaml, const std::string& name,
-                                                     const workflow_contexts& contexts) noexcept {
+std::expected<wf_job, generic_error> load_job_with_name(const YAML::Node& yaml, const std::string& name,
+                                                        const workflow_contexts& contexts) noexcept {
     try {
         const auto& yaml_job{find_job_with_name_in_yaml(yaml, name)};
         if (!yaml_job) {
-            return std::unexpected{error_code::workflow_parse_failed};
+            return std::unexpected{generic_error{std::format("Couldn't find job named \"{}\" in workflow YAML", name)}};
         }
         const auto& yaml_steps{(*yaml_job)["steps"]};
         wf_job job{.steps = load_steps(yaml_steps, contexts)};
         return job;
-    } catch (const std::exception&) {
-        return std::unexpected{error_code::workflow_parse_failed};
+    } catch (const std::exception& ex) {
+        return std::unexpected{
+            generic_error{std::format("Error while loading job named \"{}\" in workflow YAML: {}", name, ex.what())}};
     }
 }
 
@@ -845,7 +847,7 @@ struct runner_config {
     std::unordered_map<std::string, runner_environment_config> environments;
 };
 
-std::expected<runner_config, error_code> load_file(const std::filesystem::path& file_path) noexcept {
+std::expected<runner_config, generic_error> load_file(const std::filesystem::path& file_path) noexcept {
     try {
         std::ifstream is{file_path, std::ios_base::binary};
         const auto j{boost::json::parse(is).as_object()};
@@ -882,13 +884,15 @@ std::expected<runner_config, error_code> load_file(const std::filesystem::path& 
                                 env_details.at("memory").as_int64()),
                         };
                     }
-                    throw std::runtime_error{"Invalid runner environment type in config"};
+                    throw generic_error{"Invalid runner environment type in config"};
                 }(),
             };
         }
         return c;
-    } catch (const std::exception&) {
-        return std::unexpected{error_code::load_config_failed};
+    } catch (const std::exception& ex) {
+        return std::unexpected{
+            generic_error{std::format("Error while loading config file \"{}\": {}",
+                                      utility::string_from_u8string(file_path.u8string()), ex.what())}};
     }
 }
 } // namespace config
@@ -902,7 +906,7 @@ struct runtime_state {
     std::string uuid;
     std::string token;
 
-    std::expected<void, error_code> save() {
+    std::expected<void, generic_error> save() {
         try {
             std::ostringstream oss{std::ios_base::binary};
             boost::json::object o = {
@@ -912,38 +916,40 @@ struct runtime_state {
             oss << boost::json::serialize(o);
             std::ofstream ofs{m_file_path, std::ios_base::binary};
             if (!ofs.is_open()) {
-                return std::unexpected{error_code::save_state_error};
+                return std::unexpected{generic_error{std::format(
+                    "Unable to open file for writing: {}", utility::string_from_u8string(m_file_path.u8string()))}};
             }
             ofs << oss.str();
             return {};
-        } catch (const std::exception&) {
-            return std::unexpected{error_code::save_state_error};
+        } catch (const std::exception& ex) {
+            return std::unexpected{
+                generic_error{std::format("Failed to save state file \"{}\": {}",
+                                          utility::string_from_u8string(m_file_path.u8string()), ex.what())}};
         }
     }
 
-    static std::expected<runtime_state, error_code> load_file(const std::filesystem::path& file_path) {
+    static std::expected<runtime_state, generic_error> load_file(const std::filesystem::path& file_path) {
         try {
             std::ifstream is{file_path, std::ios_base::binary};
             if (!is.is_open()) {
-                return std::unexpected{error_code::load_state_error};
+                return std::unexpected{generic_error{std::format("Unable to open file for reading: {}",
+                                                                 utility::string_from_u8string(file_path.u8string()))}};
             }
             const auto json{boost::json::parse(is).as_object()};
             runtime_state result{file_path};
             result.uuid = std::string{json.at("uuid").as_string()};
             result.token = std::string{json.at("token").as_string()};
             return result;
-        } catch (const std::exception&) {
-            return std::unexpected{error_code::load_state_error};
+        } catch (const std::exception& ex) {
+            return std::unexpected{
+                generic_error{std::format("Failed to load state file \"{}\": {}",
+                                          utility::string_from_u8string(file_path.u8string()), ex.what())}};
         }
     }
 
-    static std::expected<runtime_state, error_code> create(const std::filesystem::path& file_path) {
-        try {
-            runtime_state result{file_path};
-            return result;
-        } catch (const std::exception&) {
-            return std::unexpected{error_code::load_state_error};
-        }
+    static std::expected<runtime_state, generic_error> create(const std::filesystem::path& file_path) {
+        runtime_state result{file_path};
+        return result;
     }
 
 private:
@@ -985,9 +991,9 @@ boost::json::value fixup_main_context_json(boost::json::value json) {
     return json;
 }
 
-std::expected<void, error_code> process_task_response(const http_client& client,
-                                                      const ::runner::v1::FetchTaskResponse& fetch_task_response,
-                                                      const config::runner_config& config) noexcept {
+std::expected<void, generic_error> process_task_response(const http_client& client,
+                                                         const ::runner::v1::FetchTaskResponse& fetch_task_response,
+                                                         const config::runner_config& config) noexcept {
     using namespace std::literals;
     const auto& task{fetch_task_response.task()};
     const auto& task_context{task.context()};
@@ -1011,7 +1017,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
         wf_contexts.runner = workflow::create_runner_context();
         wf_contexts.matrix = workflow::load_matrix_context_from_job_yaml(*yaml_job);
     } catch (const std::exception&) {
-        return std::unexpected{error_code::task_parse_failed};
+        return std::unexpected{generic_error{std::format("Failed to build contexts for task #{}", task.id())}};
     }
 
     const auto global_env{load_and_derive_env_from_yaml(*workflow_payload, {}, wf_contexts)};
@@ -1022,6 +1028,9 @@ std::expected<void, error_code> process_task_response(const http_client& client,
         return std::unexpected{wf_job.error()};
     }
 
+    const auto create_update_task_failure_error{
+        [&] { return std::unexpected{generic_error{std::format("Failed to update #{}", task.id())}}; }};
+
     // Initial task state
     auto update_task_request{::runner::v1::UpdateTaskRequest{}};
     auto* task_state{update_task_request.mutable_state()};
@@ -1031,7 +1040,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
 
         auto update_task_response{runner::update_task(client, update_task_request)};
         if (!update_task_response) {
-            return std::unexpected{error_code::service_failure};
+            return create_update_task_failure_error();
         }
     }
 
@@ -1056,7 +1065,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
 
         auto update_task_response{runner::update_task(client, update_task_request)};
         if (!update_task_response) {
-            return std::unexpected{error_code::service_failure};
+            return create_update_task_failure_error();
         }
     }
 
@@ -1075,7 +1084,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
 
                 auto update_task_response{runner::update_task(client, update_task_request)};
                 if (!update_task_response) {
-                    return std::unexpected{error_code::service_failure};
+                    return create_update_task_failure_error();
                 }
             }
             auto step_result{::runner::v1::RESULT_UNSPECIFIED};
@@ -1100,7 +1109,7 @@ std::expected<void, error_code> process_task_response(const http_client& client,
 
                 auto update_task_response{runner::update_task(client, update_task_request)};
                 if (!update_task_response) {
-                    return std::unexpected{error_code::service_failure};
+                    return create_update_task_failure_error();
                 }
             }
             if (!workflow::is_execution_result_ok(step_result)) {
@@ -1119,21 +1128,21 @@ std::expected<void, error_code> process_task_response(const http_client& client,
 
         auto update_task_response{runner::update_task(client, update_task_request)};
         if (!update_task_response) {
-            return std::unexpected{error_code::service_failure};
+            return create_update_task_failure_error();
         }
     }
 
     return {};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(const http_client& client) noexcept {
+std::expected<::runner::v1::FetchTaskResponse, generic_error> wait_for_new_task(const http_client& client) noexcept {
     using namespace std::literals;
-    auto fetch_task_response{std::expected<::runner::v1::FetchTaskResponse, error_code>{}};
+    auto fetch_task_response{std::expected<::runner::v1::FetchTaskResponse, generic_error>{}};
     while (true) {
         auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
         fetch_task_response = runner::fetch_task(client, fetch_task_request);
         if (!fetch_task_response) {
-            return std::unexpected{error_code::fetch_task_failed};
+            return std::unexpected{generic_error{"Failed to fetch any new tasks"}};
         }
 
         if (!fetch_task_response->has_task()) {
@@ -1149,9 +1158,12 @@ std::expected<::runner::v1::FetchTaskResponse, error_code> wait_for_new_task(con
 void run_task_loop(const http_client& client, const config::runner_config& config) noexcept {
     using namespace std::literals;
     while (true) {
-        if (!wait_for_new_task(client).and_then(
-                [&](auto fetch_task_response) { return process_task_response(client, fetch_task_response, config); })) {
-            std::println(std::cerr, "Error");
+        if (auto res{wait_for_new_task(client).and_then([&](auto fetch_task_response) {
+                return process_task_response(client, fetch_task_response, config);
+            })}) {
+            std::this_thread::sleep_for(250ms);
+        } else {
+            std::println(std::cerr, "Error: {}", res.error().what());
             std::this_thread::sleep_for(5s);
         }
     }
@@ -1218,7 +1230,7 @@ int cmd_daemon(config::runner_config config, runtime_state state) noexcept {
     }
     auto declare_response{runner::declare(client, declare_request)};
     if (!declare_response) {
-        std::println(std::cerr, "Error");
+        std::println(std::cerr, "Failed to declare runner: {}", declare_response.error().what());
         return 1;
     }
 
@@ -1269,8 +1281,7 @@ int main(int argc, char* const argv[]) {
 
         auto config{config::load_file(options.config_file)};
         if (!config) {
-            std::println(std::cerr, "Unable to load config file");
-            return 1;
+            throw config.error();
         }
 
         const auto& cmd{vm.at("command").as<std::string>()};
@@ -1280,14 +1291,13 @@ int main(int argc, char* const argv[]) {
             if (!state) {
                 state = runtime_state::create(options.state_file);
                 if (!state) {
-                    throw std::logic_error{"Couldn't create runtime state"};
+                    throw config.error();
                 }
             }
             return cmd_register(std::move(*config), std::move(*state));
         } else if (cmd == "daemon"sv) {
             if (!state) {
-                std::println(std::cerr, "Unable to load state file");
-                return 1;
+                throw config.error();
             }
             return cmd_daemon(std::move(*config), std::move(*state));
         } else {

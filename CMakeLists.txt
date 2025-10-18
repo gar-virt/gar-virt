@@ -18,5 +18,18 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 #set(FETCHCONTENT_QUIET OFF)
 #FetchContent_MakeAvailable(gRPC)
 
+include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
+
+set(BOOST_INCLUDE_LIBRARIES)
+FetchContent_Declare(
+  Boost
+  URL https://github.com/boostorg/boost/releases/download/boost-1.89.0/boost-1.89.0-cmake.7z
+  URL_HASH SHA256=252149f583054515b10688855b24ca1c16072b5118e603b8fe017894d319c262
+  EXCLUDE_FROM_ALL
+  OVERRIDE_FIND_PACKAGE
+)
+FetchContent_MakeAvailable(Boost)
+
 add_subdirectory(utility)
 add_subdirectory(main)

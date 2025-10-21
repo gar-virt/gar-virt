@@ -17,6 +17,7 @@ public:
             if (!res) {
                 std::println(std::cerr, "Error: {}", res.error().what());
                 std::this_thread::sleep_for(5s);
+                continue;
             }
             m_cb(std::move(res->task()));
             std::this_thread::sleep_for(250ms);

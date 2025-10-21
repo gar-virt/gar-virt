@@ -73,6 +73,11 @@ int main(int argc, char* const argv[]) {
                 throw config.error();
             }
             return cmd_daemon(std::move(*config), std::move(*state));
+        } else if (cmd == "test"sv) {
+            if (!state) {
+                throw config.error();
+            }
+            return cmd_test(std::move(*config), std::move(*state));
         } else {
             std::println(std::cerr, "Invalid command");
             return 1;

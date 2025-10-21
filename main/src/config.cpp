@@ -9,10 +9,27 @@
 
 namespace ls_gitea_runner::config {
 
+std::optional<std::tuple<std::string, runner_environment_config>>
+runner_config::find_environment_by_label(const std::string_view search_label) const noexcept {
+    for (auto& [env_k, env_v] : environments) {
+        for (auto& label : env_v.labels) {
+            if (utility::string_equals_ci(label, search_label)) {
+                return std::make_tuple(env_k, env_v);
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 std::expected<runner_config, generic_error> load_file(const std::filesystem::path& file_path) noexcept {
     try {
-        std::ifstream is{file_path, std::ios_base::binary};
-        const auto j{boost::json::parse(is).as_object()};
+        auto json{[&] {
+            std::ifstream is{file_path, std::ios_base::binary};
+            std::ostringstream ss{std::ios_base::binary};
+            ss << is.rdbuf();
+            return ss.str();
+        }()};
+        const auto j{boost::json::parse(json).as_object()};
         runner_config c{
             .instance_url = std::string{j.at("instance_url").as_string()},
             .name = std::string{j.at("name").as_string()},
@@ -32,6 +49,9 @@ std::expected<runner_config, generic_error> load_file(const std::filesystem::pat
                         return labels;
                     }(),
                 .os = std::string{env_value.at("os").as_string()},
+                .arch = std::string{env_value.at("arch").as_string()},
+                .temp_dir = std::string{env_value.at("temp_dir").as_string()},
+                .workspaces_dir = std::string{env_value.at("workspaces_dir").as_string()},
                 .details = [&] -> decltype(runner_environment_config::details) {
                     if (env_key == "docker") {
                         return docker_config{
@@ -48,6 +68,7 @@ std::expected<runner_config, generic_error> load_file(const std::filesystem::pat
                     }
                     throw generic_error{"Invalid runner environment type in config"};
                 }(),
+                .details_as_json = boost::json::serialize(env_details),
             };
         }
         return c;

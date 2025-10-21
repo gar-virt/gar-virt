@@ -1,6 +1,7 @@
 #include "gitea_workflow_executor.hpp"
 #include "../protobuf_helper.hpp"
 #include "../scripting.hpp"
+#include "gitea_log_reporter.hpp"
 #include "gitea_runner_service_client.hpp"
 #include "gitea_workflow.hpp"
 #include "runner/v1/messages.pb.h"
@@ -8,12 +9,17 @@
 #include <utility/env.hpp>
 #include <utility/string.hpp>
 #include <utility/temporary_file.hpp>
+#include <utility/uuid.hpp>
 
 #include <expected>
 #include <format>
 #include <print>
+#include <regex>
+#include <string_view>
+#include <vector>
 
 namespace ls_gitea_runner::gitea {
+namespace {
 
 struct step_execution_context {
     const wf_step* step{};
@@ -26,18 +32,57 @@ struct step_execution_context {
     }
 };
 
-inline bool is_execution_result_ok(::runner::v1::Result result) noexcept {
+bool is_execution_result_ok(::runner::v1::Result result) noexcept {
     using namespace ::runner::v1;
     return result == RESULT_SKIPPED || result == RESULT_SUCCESS;
 }
 
-inline std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
-                                                                const std::string& real_script_path) {
+std::string escape_shell_script_string(const std::string_view arg, bool add_quotes = true) {
+    std::string result;
+    result.reserve(arg.size() + (add_quotes ? 2 : 0)); // Reserve space for input and quotes
+    if (add_quotes) {
+        result += '"';
+    }
+    for (char c : arg) {
+        switch (c) {
+        case '"':
+        case '$':
+        case '\\':
+            result += '\\';
+            result += c;
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        default:
+            result += c;
+            break;
+        }
+    }
+    if (add_quotes) {
+        result += '"';
+    }
+    return result;
+}
+
+std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
+                                                         const std::string& real_script_path,
+                                                         const std::string& working_dir, const wf_env_vars& env) {
+    std::string env_script;
+    if (env) {
+        for (const auto& [k, v] : *env) {
+            static std::regex pattern{R"([^a-zA-Z0-9_])"};
+            const auto sanetized_key{std::regex_replace(k, pattern, "_")};
+            const auto escaped_value{escape_shell_script_string(v)};
+            env_script += std::format("export {}={}\n", sanetized_key, escaped_value);
+        }
+    }
     static constexpr auto format_string{R"script(
 set -e
-shell=${{1}}
-script_file=${{2}}
+shell={0}
+script_file={1}
 script_file=${{script_file//\\//}}
+working_dir={2}
 if [[ -z "${{shell}}" ]]; then
     if [[ "${{OSTYPE}}" =~ cygwin|msys ]]; then
         shell=pwsh
@@ -45,6 +90,9 @@ if [[ -z "${{shell}}" ]]; then
         shell=bash
     fi
 fi
+mkdir -p "${{working_dir}}"
+cd "${{working_dir}}"
+{3}
 case "${{shell}}" in
     pwsh)
         pwsh -command ". \"${{script_file}}\""
@@ -70,18 +118,49 @@ case "${{shell}}" in
         ;;
 esac
 )script"};
-    const auto script{std::format(format_string, shell_name, real_script_path)};
+    const auto script{std::format(format_string, escape_shell_script_string(shell_name),
+                                  escape_shell_script_string(real_script_path), escape_shell_script_string(working_dir),
+                                  env_script)};
     return script;
 }
 
-inline bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env) {
-    auto shell_name{input.shell.value_or("")};
+bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
+                          const std::string& working_dir, log_reporter& reporter) {
+    utility::spawn_options spawn_options{.stdout_reader = [&](const char* data, int length) {
+        reporter.add(std::string{data, static_cast<std::size_t>(length)});
+        return length;
+    }};
+    // TODO: don't store scripts locally, even if only temporarily
     const auto script_str{input.script};
     fs::temporary_file real_script_file;
     {
         auto script_file{real_script_file.create_output_stream()};
         script_file->write(script_str.data(), script_str.size());
     }
+    auto shell_name{input.shell.value_or("")};
+    const auto local_real_script_path{real_script_file.get_path()};
+    const auto local_real_script_path_str{utility::string_from_u8string(local_real_script_path.u8string())};
+    const auto remote_real_script_path_str{std::format("/tmp/script_{}.sh", utility::uuid())};
+    const auto local_intermediate_script{
+        generate_shell_execution_intermediate_script(shell_name, remote_real_script_path_str, working_dir, env)};
+    fs::temporary_file local_intermediate_script_file;
+    {
+        auto script_file{local_intermediate_script_file.create_output_stream()};
+        script_file->write(local_intermediate_script.data(), local_intermediate_script.size());
+    }
+    const auto intermediate_script_path{local_intermediate_script_file.get_path()};
+    const auto intermediate_script_path_str{utility::string_from_u8string(intermediate_script_path.u8string())};
+    const auto remote_intermediate_script_path_str{std::format("/tmp/script_{}.sh", utility::uuid())};
+    const auto exec_result{
+        machine->copy_file_into(local_real_script_path, remote_real_script_path_str)
+            .and_then(
+                [&] { return machine->copy_file_into(intermediate_script_path, remote_intermediate_script_path_str); })
+            .and_then([&] {
+                return machine->shell_exec({"/usr/bin/bash", "-e", remote_intermediate_script_path_str}, spawn_options);
+            })};
+    return exec_result && *exec_result == 0;
+#if 0
+    // This is for local runs
     const auto real_script_path{utility::string_from_u8string(real_script_file.get_path().u8string())};
     const auto intermediate_script{generate_shell_execution_intermediate_script(shell_name, real_script_path)};
     fs::temporary_file intermeriate_script_file;
@@ -116,14 +195,16 @@ inline bool execute_shell_script(const wf_step_run& input, const wf_env_vars& en
     }
 
     return exec_ok;
+#endif
 }
 
-inline bool execute_action(const wf_step_uses& input, const wf_env_vars& env) {
-    std::println("TODO: execute_action(url: {})", input.url);
+bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
+                    const std::string& working_dir, log_reporter& reporter) {
+    reporter.add(std::format("TODO: execute_action(url: {})", input.url));
     return true;
 }
 
-inline ::runner::v1::Result task_result_from_step_states(const std::vector<step_execution_context>& steps) noexcept {
+::runner::v1::Result task_result_from_step_states(const std::vector<step_execution_context>& steps) noexcept {
     using namespace ::runner::v1;
     for (const auto& step : steps) {
         switch (step.state->result()) {
@@ -139,31 +220,38 @@ inline ::runner::v1::Result task_result_from_step_states(const std::vector<step_
     return RESULT_SUCCESS;
 }
 
-inline ::runner::v1::Result execute_job_step(step_execution_context& ctx, const wf_env_vars& env) {
+::runner::v1::Result execute_job_step(step_execution_context& ctx, const wf_env_vars& env,
+                                      std::unique_ptr<machine>& machine, const std::string& working_dir,
+                                      log_reporter& reporter) {
     auto* step{ctx.step};
     auto* step_state{ctx.state};
     bool ok{};
     if (step->run) {
-        ok = execute_shell_script(*step->run, env);
+        ok = execute_shell_script(*step->run, env, machine, working_dir, reporter);
     } else if (step->uses) {
-        ok = execute_action(*step->uses, env);
+        ok = execute_action(*step->uses, env, machine, working_dir, reporter);
     }
     return ok ? ::runner::v1::RESULT_SUCCESS : ::runner::v1::RESULT_FAILURE;
 }
 
+} // namespace
+
 class gitea_workflow_executor::impl final {
 public:
     impl(const gitea_runner_service_client& client, ::runner::v1::Task task, const wf_job& job, wf_env_vars job_env,
-         const wf_run_contexts& wf_contexts)
+         const wf_run_contexts& wf_contexts, std::unique_ptr<machine> machine, const std::string& working_dir)
             : m_client{client}, m_task{std::move(task)}, m_job{job}, m_job_env{std::move(job_env)},
-              m_wf_contexts{wf_contexts} {}
+              m_wf_contexts{wf_contexts}, m_machine{std::move(machine)}, m_working_dir{working_dir} {}
 
     std::expected<void, generic_error> run() {
         const auto create_update_task_failure_error{
-            [&] { return std::unexpected{generic_error{std::format("Failed to update #{}", m_task.id())}}; }};
+            [&] { return std::unexpected{generic_error{std::format("Failed to update task #{}", m_task.id())}}; }};
+
+        gitea_log_reporter reporter{m_client.get(), m_task};
+        reporter.add(std::format("Starting task #{}", m_task.id()));
 
         // Initial task state
-        auto update_task_request{::runner::v1::UpdateTaskRequest{}};
+        ::runner::v1::UpdateTaskRequest update_task_request;
         auto* task_state{update_task_request.mutable_state()};
         {
             task_state->set_id(m_task.id());
@@ -179,6 +267,7 @@ public:
 
         // Set initial step state
         {
+            const auto base_index{reporter.head()};
             const auto ts{protobuf::current_timestamp()};
             task_state->mutable_started_at()->set_seconds(ts.seconds());
             task_state->mutable_started_at()->set_nanos(ts.nanos());
@@ -188,8 +277,8 @@ public:
                 auto* step_state{task_state->add_steps()};
                 step_state->set_id(i);
                 step_state->set_result(::runner::v1::RESULT_UNSPECIFIED);
-                step_state->set_log_index(0);
-                step_state->set_log_length(0);
+                step_state->set_log_index(base_index);
+                step_state->set_log_length(reporter.head() - base_index);
                 step_executions.push_back({.step = &wf_step, .state = step_state, .wf_contexts = m_wf_contexts.get()});
                 ++i;
             }
@@ -203,6 +292,7 @@ public:
         // Execute steps while updating status
         {
             for (auto& step_execution : step_executions) {
+                const auto base_index{reporter.head()};
                 auto* step{step_execution.step};
                 auto* step_state{step_execution.state};
                 const auto step_env{wf_load_and_derive_env_from_yaml(step->yaml, m_job_env, m_wf_contexts.get())};
@@ -212,6 +302,8 @@ public:
                     const auto ts{protobuf::current_timestamp()};
                     step_state->mutable_started_at()->set_seconds(ts.seconds());
                     step_state->mutable_started_at()->set_nanos(ts.nanos());
+                    step_state->set_log_index(base_index);
+                    step_state->set_log_length(reporter.head() - base_index);
 
                     auto update_task_response{m_client.get().update_task(update_task_request)};
                     if (!update_task_response) {
@@ -229,7 +321,7 @@ public:
                     }
                 }
                 if (step_result == ::runner::v1::RESULT_UNSPECIFIED) {
-                    step_result = execute_job_step(step_execution, step_env);
+                    step_result = execute_job_step(step_execution, step_env, m_machine, m_working_dir, reporter);
                 }
                 // Completed
                 {
@@ -237,6 +329,8 @@ public:
                     step_state->mutable_stopped_at()->set_seconds(ts.seconds());
                     step_state->mutable_stopped_at()->set_nanos(ts.nanos());
                     step_state->set_result(step_result);
+                    step_state->set_log_index(base_index);
+                    step_state->set_log_length(reporter.head() - base_index);
 
                     auto update_task_response{m_client.get().update_task(update_task_request)};
                     if (!update_task_response) {
@@ -251,6 +345,9 @@ public:
 
         // Completion
         {
+            reporter.add(std::format("Completed task #{}", m_task.id()));
+            reporter.flush();
+
             const auto task_result{task_result_from_step_states(step_executions)};
             const auto ts{protobuf::current_timestamp()};
             task_state->mutable_stopped_at()->set_seconds(ts.seconds());
@@ -272,12 +369,16 @@ private:
     std::reference_wrapper<const wf_job> m_job;
     wf_env_vars m_job_env;
     std::reference_wrapper<const wf_run_contexts> m_wf_contexts;
+    std::unique_ptr<machine> m_machine;
+    std::string m_working_dir;
 };
 
 gitea_workflow_executor::gitea_workflow_executor(const gitea_runner_service_client& client, ::runner::v1::Task task,
                                                  const wf_job& job, wf_env_vars job_env,
-                                                 const wf_run_contexts& wf_contexts)
-        : m_impl{std::make_unique<impl>(client, std::move(task), job, std::move(job_env), wf_contexts)} {}
+                                                 const wf_run_contexts& wf_contexts, std::unique_ptr<machine> machine,
+                                                 const std::string& working_dir)
+        : m_impl{std::make_unique<impl>(client, std::move(task), job, std::move(job_env), wf_contexts,
+                                        std::move(machine), working_dir)} {}
 
 gitea_workflow_executor::~gitea_workflow_executor() {}
 

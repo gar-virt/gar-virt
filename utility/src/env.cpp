@@ -42,8 +42,8 @@ void setenv(const std::string& name, const std::string& value) {
 
 void unsetenv(const std::string& name) {
 #ifdef _WIN32
-    const auto& wname{widen(name)};
-    SetEnvironmentVariableW(wname.c_str(), nullptr);
+    const auto& wname{widen_string(name)};
+    ::SetEnvironmentVariableW(wname.c_str(), nullptr);
 #else
     ::unsetenv(name.c_str());
 #endif

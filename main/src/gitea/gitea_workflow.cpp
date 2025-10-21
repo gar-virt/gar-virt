@@ -111,6 +111,14 @@ std::expected<wf_job, generic_error> wf_load_job_with_name(const YAML::Node& yam
     }
 }
 
+std::expected<std::string, generic_error> wf_get_label_from_job_yaml(const YAML::Node& yaml) noexcept {
+    const auto& runs_on{yaml["runs-on"]};
+    if (!runs_on) {
+        return std::unexpected{generic_error{"Couldn't find runs-on key in YAML workflow job"}};
+    }
+    return runs_on.as<std::string>();
+}
+
 using wf_env_vars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
 
 std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml) {
@@ -142,18 +150,15 @@ std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml) {
     return boost::json::serialize(json);
 }
 
-std::string wf_create_runner_context() {
-    std::string script;
-    script += "{";
-    script += R"(name:"fake-name",)";
-    script += R"(os:"fake-os",)";
-    script += R"(arch:"fake-arch",)";
-    script += R"(temp:"fake-temp",)";
-    script += R"(tool_cache:"fake-tool-cache",)";
-    script += R"(debug:"fake-debug",)";
-    script += R"(environment:"fake-environment",)";
-    script += "}";
-    return script;
+std::string wf_create_runner_context(const std::string& name, const config::runner_environment_config& config) {
+    // TODO: tool_cache, debug, environment
+    boost::json::object j = {
+        {"name", name},
+        {"os", config.os},
+        {"arch", config.arch},
+        {"temp", config.temp_dir},
+    };
+    return boost::json::serialize(j);
 }
 
 wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const wf_run_contexts& contexts) {

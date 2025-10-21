@@ -4,8 +4,10 @@
 
 #include <expected>
 #include <filesystem>
+#include <optional>
 #include <string>
-#include <unordered_map>
+#include <tuple>
+#include <map>
 #include <vector>
 
 namespace ls_gitea_runner::config {
@@ -24,7 +26,11 @@ struct qemu_config {
 struct runner_environment_config {
     std::vector<std::string> labels;
     std::string os;
+    std::string arch;
+    std::string temp_dir;
+    std::string workspaces_dir;
     std::variant<docker_config, qemu_config> details;
+    std::string details_as_json;
 };
 
 struct runner_config {
@@ -32,7 +38,10 @@ struct runner_config {
     std::string name;
     std::string token;
     bool ephemeral{};
-    std::unordered_map<std::string, runner_environment_config> environments;
+    std::map<std::string, runner_environment_config> environments;
+
+    std::optional<std::tuple<std::string, runner_environment_config>>
+    find_environment_by_label(const std::string_view search_label) const noexcept;
 };
 
 std::expected<runner_config, generic_error> load_file(const std::filesystem::path& file_path) noexcept;

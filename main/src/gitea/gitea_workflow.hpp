@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../config.hpp"
 #include "../error.hpp"
 
 #include <yaml-cpp/yaml.h>
@@ -57,11 +58,13 @@ std::expected<YAML::Node, generic_error> wf_find_job_with_name_in_yaml(const YAM
 std::expected<wf_job, generic_error> wf_load_job_with_name(const YAML::Node& yaml, const std::string& name,
                                                            const wf_run_contexts& contexts) noexcept;
 
+std::expected<std::string, generic_error> wf_get_label_from_job_yaml(const YAML::Node& yaml) noexcept;
+
 using wf_env_vars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
 
 std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml);
 
-std::string wf_create_runner_context();
+std::string wf_create_runner_context(const std::string& name, const config::runner_environment_config& config);
 
 wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const wf_run_contexts& contexts);
 

@@ -7,43 +7,56 @@
 #endif
 
 #include <algorithm>
-#include <iostream>
 
 namespace ls_gitea_runner::utility {
 
-#ifdef _WIN32
-std::wstring widen(const std::string& narrowString) {
-    const auto cp{CP_UTF8};
-    const auto flags{MB_ERR_INVALID_CHARS};
-    const auto narrowStringC{narrowString.c_str()};
-    const auto narrowStringLength{narrowString.size()};
-    const auto requiredLength{::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, nullptr, 0)};
-    if (requiredLength > 0) {
-        std::wstring wideString(requiredLength, '\0');
-        if (::MultiByteToWideChar(cp, flags, narrowStringC, narrowStringLength, wideString.data(), wideString.size()) >
-            0) {
-            return wideString;
+#if defined(_WIN32)
+// Converts a narrow (UTF-8-encoded) string into a wide (UTF-16-encoded) string.
+std::wstring widen_string(const char* data, size_t length) {
+    if (length == 0) {
+        return {};
+    }
+    const UINT cp{CP_UTF8};
+    const DWORD flags{MB_ERR_INVALID_CHARS};
+    const auto input_length{utility::safe_cast_int<int>(length)};
+    auto required_length{::MultiByteToWideChar(cp, flags, data, input_length, nullptr, 0)};
+    if (required_length > 0) {
+        std::wstring output(utility::safe_cast_int<std::size_t>(required_length), L'\0');
+        if (::MultiByteToWideChar(cp, flags, data, input_length, &output[0], required_length) > 0) {
+            return output;
         }
     }
     throw std::runtime_error{"Failed to convert string from UTF-8 to UTF-16"};
 }
 
-std::string narrow(const std::wstring& wideString) {
-    const auto cp{CP_UTF8};
-    const auto flags{WC_ERR_INVALID_CHARS};
-    const auto wideStringC{wideString.c_str()};
-    const auto wideStringLength{wideString.size()};
-    const auto requiredLength{
-        ::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, nullptr, 0, nullptr, nullptr)};
-    if (requiredLength > 0) {
-        std::string narrowString(requiredLength, '\0');
-        if (::WideCharToMultiByte(cp, flags, wideStringC, wideStringLength, narrowString.data(), narrowString.size(),
-                                  nullptr, nullptr) > 0) {
-            return narrowString;
+std::wstring widen_string(const std::string& input) { return widen_string(input.data(), input.size()); }
+
+// Converts a wide (UTF-16-encoded) string into a narrow (UTF-8-encoded) string.
+std::string narrow_string(const wchar_t* data, size_t length) {
+    struct wc_flags {
+        enum TYPE : unsigned int {
+            // WC_ERR_INVALID_CHARS
+            err_invalid_chars = 0x00000080U
+        };
+    };
+    if (input.empty()) {
+        return {};
+    }
+    const UINT cp{CP_UTF8};
+    const DWORD flags{wc_flags::err_invalid_chars};
+    const auto input_length{utility::safe_cast_int<int>(length)};
+    const auto required_length{WideCharToMultiByte(cp, flags, data, input_length, nullptr, 0, nullptr, nullptr)};
+    if (required_length > 0) {
+        std::basic_string<T> output(utility::safe_cast_int<std::size_t>(required_length), '\0');
+        if (WideCharToMultiByte(cp, flags, data, input_length, reinterpret_cast<char*>(&output[0]), required_length,
+                                nullptr, nullptr) > 0) {
+            return output;
         }
     }
     throw std::runtime_error{"Failed to convert string from UTF-8 to UTF-16"};
 }
+
+std::string narrow_string(const std::wstring& input) { return narrow_string(input.data(), input.size()); }
 #endif
 
 std::string string_from_u8string(const std::u8string_view from) {
@@ -55,16 +68,44 @@ std::string string_from_u8string(const std::u8string_view from) {
     return result;
 }
 
-void string_trim_right(std::string& s, char c) {
+const std::string_view string_trim_left(const std::string_view s, const std::set<char> chars) {
+    for (std::size_t i{}; i < s.size(); ++i) {
+        if (!chars.contains(s[i])) {
+            return s.substr(i, s.size() - i);
+        }
+    }
+    return s;
+}
+
+const std::string_view string_trim_right(const std::string_view s, const std::set<char> chars) {
+    for (std::size_t i{}; i < s.size(); ++i) {
+        const auto j{s.size() - i};
+        if (!chars.contains(s[j - 1])) {
+            return s.substr(i, j);
+        }
+    }
+    return s;
+}
+
+const std::string_view string_trim(const std::string_view s, const std::set<char> chars) {
+    return string_trim_left(string_trim_right(s, chars), chars);
+}
+
+void string_trim_right(std::in_place_t, std::string& s, const std::set<char> chars) {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
-        if (*it == c) {
-            --length;
+        if (!chars.contains(*it)) {
+            break;
         }
+        --length;
     }
     if (length != s.size()) {
         s.resize(length);
     }
+}
+
+void string_trim_right(std::in_place_t, std::string& s, char c) {
+    return string_trim_right(std::in_place, s, std::set<char>{c});
 }
 
 bool string_contains_ci(const std::string_view needle, const std::string_view haystack) {
@@ -140,10 +181,21 @@ bool string_ends_with(const std::string_view haystack, const std::string_view ne
     return true;
 }
 
-std::vector<std::string> string_split(const std::string_view input) {
+void string_split(const std::string_view input, char separator, std::function<void(const std::string_view token)> cb) {
     auto result{std::vector<std::string>{}};
     std::string::size_type a{}, b{};
-    for (; (b = input.find_first_of(',', b)) != std::string::npos; a = ++b) {
+    for (; (b = input.find_first_of(separator, b)) != std::string::npos; a = ++b) {
+        cb(input.substr(a, b - a));
+    }
+    if (input.length() - a > 0U) {
+        cb(input.substr(a));
+    }
+}
+
+std::vector<std::string> string_split(const std::string_view input, char separator) {
+    auto result{std::vector<std::string>{}};
+    std::string::size_type a{}, b{};
+    for (; (b = input.find_first_of(separator, b)) != std::string::npos; a = ++b) {
         result.emplace_back(input.substr(a, b - a));
     }
     if (input.length() - a > 0U) {

@@ -33,7 +33,7 @@ int cmd_daemon(config::runner_config config, runtime_state state) noexcept {
     declare_request.set_version(std::string{runner_version});
     for (auto& [env_type, env_config] : config.environments) {
         for (auto& label : env_config.labels) {
-            declare_request.add_labels(std::move(label));
+            declare_request.add_labels(label);
         }
     }
     auto declare_response{client.declare(declare_request)};

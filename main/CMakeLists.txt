@@ -39,14 +39,22 @@ add_executable(ga_runner)
 target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
     src/commands/register.cpp
+    src/commands/test.cpp
     src/config.cpp
     src/error.cpp
+    src/gitea/gitea_log_reporter.cpp
     src/gitea/gitea_runner_service_client.cpp
     src/gitea/gitea_runner_task_poller.cpp
     src/gitea/gitea_runner_task_processor.cpp
     src/gitea/gitea_workflow.cpp
     src/gitea/gitea_workflow_executor.cpp
     src/http.cpp
+    src/machine/docker_engine_client.cpp
+    src/machine/docker_machine.cpp
+    src/machine/docker_machine_manager.cpp
+    src/machine/docker_machine_manager_factory.cpp
+    src/machine/docker_machine_options.cpp
+    src/machine/machine_manager_factory_selector.cpp
     src/main.cpp
     src/protobuf_helper.cpp
     src/scripting.cpp

@@ -39,7 +39,6 @@ add_executable(ga_runner)
 target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
     src/commands/register.cpp
-    src/commands/test.cpp
     src/config.cpp
     src/error.cpp
     src/gitea/gitea_log_reporter.cpp

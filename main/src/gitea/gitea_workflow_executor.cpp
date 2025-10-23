@@ -11,11 +11,14 @@
 #include <utility/temporary_file.hpp>
 #include <utility/uuid.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <expected>
 #include <format>
 #include <print>
 #include <regex>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace ls_gitea_runner::gitea {
@@ -321,7 +324,26 @@ public:
                     }
                 }
                 if (step_result == ::runner::v1::RESULT_UNSPECIFIED) {
+                    std::atomic_bool done{};
+                    std::jthread report_thread{[&] {
+                        using namespace std::literals;
+                        auto last_time{std::chrono::steady_clock::now()};
+                        while (!done) {
+                            const auto diff_time{std::chrono::steady_clock::now() - last_time};
+                            if (diff_time >= 2s) {
+                                // TODO: handle errors
+                                reporter.flush();
+                                step_state->set_log_length(reporter.head() - base_index);
+                                std::ignore = m_client.get().update_task(update_task_request);
+                                last_time = std::chrono::steady_clock::now();
+                            }
+                            std::this_thread::sleep_for(100ms);
+                        }
+                    }};
+                    // TODO: timeout
                     step_result = execute_job_step(step_execution, step_env, m_machine, m_working_dir, reporter);
+                    done = true;
+                    report_thread.join();
                 }
                 // Completed
                 {
@@ -346,7 +368,7 @@ public:
         // Completion
         {
             reporter.add(std::format("Completed task #{}", m_task.id()));
-            reporter.flush();
+            reporter.close();
 
             const auto task_result{task_result_from_step_states(step_executions)};
             const auto ts{protobuf::current_timestamp()};

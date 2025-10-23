@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,7 @@ private:
     std::int64_t m_head{};
     std::vector<entry_t> m_entries;
     bool m_done{};
+    mutable std::mutex m_mutex;
 };
 
 } // namespace ls_gitea_runner::gitea

@@ -163,10 +163,12 @@ std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>&
             }
             options.stdout_reader(buffer.data(), amount_from_child);
         }
-        int wait_status{};
-        int exit_code{};
-        if (::waitpid(child_pid, &wait_status, WEXITED) != -1) {
-            exit_code = WEXITSTATUS(wait_status);
+        int exit_code{-1};
+        siginfo_t si{};
+        if (::waitid(P_PID, child_pid, &si, WEXITED) != -1) {
+            if (si.si_code == CLD_EXITED) {
+                exit_code = si.si_status;
+            }
         }
         return exit_code;
     }

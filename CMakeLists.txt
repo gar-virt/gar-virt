@@ -31,5 +31,4 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Boost)
 
-add_subdirectory(utility)
-add_subdirectory(main)
+add_subdirectory(modules)

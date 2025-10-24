@@ -28,7 +28,7 @@ docker_engine_client::container_create(const std::string& name, const std::strin
 std::expected<int, generic_error> docker_engine_client::container_exec(const docker_container_id& id,
                                                                        const std::vector<std::string>& cmd,
                                                                        utility::spawn_options options) const {
-    std::vector<std::string> docker_cmd = {"docker", "container", "exec", id.value};
+    std::vector<std::string> docker_cmd = {"docker", "container", "exec", "--interactive", id.value};
     std::copy(cmd.begin(), cmd.end(), std::back_inserter(docker_cmd));
     auto res{utility::spawn_cmd(docker_cmd, std::move(options))};
     if (!res) {
@@ -73,7 +73,8 @@ std::expected<void, generic_error> docker_engine_client::container_kill(const do
 std::expected<int, generic_error> docker_engine_client::container_run(const std::string& name, const std::string& image,
                                                                       const std::vector<std::string>& cmd,
                                                                       utility::spawn_options options) const {
-    std::vector<std::string> docker_cmd = {"docker", "container", "run", "--rm", "--name", name, image};
+    std::vector<std::string> docker_cmd = {"docker", "container", "run", "--interactive",
+                                           "--rm",   "--name",    name,  image};
     std::copy(cmd.begin(), cmd.end(), std::back_inserter(docker_cmd));
     auto res{utility::spawn_cmd(docker_cmd, std::move(options))};
     if (!res) {

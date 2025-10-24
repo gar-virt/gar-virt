@@ -69,9 +69,7 @@ std::string escape_shell_script_string(const std::string_view arg, bool add_quot
     return result;
 }
 
-std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
-                                                         const std::string& real_script_path,
-                                                         const std::string& working_dir, const wf_env_vars& env) {
+std::string make_env_script(const wf_env_vars& env) {
     std::string env_script;
     if (env) {
         for (const auto& [k, v] : *env) {
@@ -81,6 +79,13 @@ std::string generate_shell_execution_intermediate_script(const std::string& shel
             env_script += std::format("export {}={}\n", sanetized_key, escaped_value);
         }
     }
+    return env_script;
+}
+
+std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
+                                                         const std::string& real_script_path,
+                                                         const std::string& working_dir, const wf_env_vars& env) {
+    const auto env_script{make_env_script(env)};
     static constexpr auto format_string{R"script(
 set -e
 shell={0}
@@ -129,22 +134,8 @@ esac
 }
 
 bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
-                          const std::string& working_dir, log_reporter& reporter) {
-    std::string buffer;
-    utility::spawn_options spawn_options{.stdout_reader = [&](const char* data, int length) {
-        buffer.append(data, length);
-        auto [lines, remainder]{utility::string_split_with_remainder(buffer, '\n')};
-        for (auto& line : lines) {
-            reporter.add(std::string{utility::string_trim_right(line, {'\r'})});
-        }
-        buffer = std::move(remainder);
-        return length;
-    }};
-    auto deferred_last_report{utility::defer([&] {
-        if (!buffer.empty()) {
-            reporter.add(std::move(buffer));
-        }
-    })};
+                          const std::string& working_dir, log_reporter& reporter,
+                          std::function<std::int64_t(const char*, int)> stdout_reader) {
     // TODO: don't store scripts locally, even if only temporarily
     const auto script_str{input.script};
     fs::temporary_file real_script_file;
@@ -166,6 +157,7 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
     const auto intermediate_script_path{local_intermediate_script_file.get_path()};
     const auto intermediate_script_path_str{utility::string_from_u8string(intermediate_script_path.u8string())};
     const auto remote_intermediate_script_path_str{std::format("/tmp/script_{}.sh", utility::uuid())};
+    utility::spawn_options spawn_options{.stdout_reader = std::move(stdout_reader)};
     const auto exec_result{
         machine->copy_file_into(local_real_script_path, remote_real_script_path_str)
             .and_then(
@@ -213,10 +205,71 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
 #endif
 }
 
+struct action_url_t {
+    std::string url;
+    std::string version;
+
+    static action_url_t parse(const std::string_view input,
+                              const std::string_view default_base_url = "https://github.com") {
+        auto parts{utility::string_split(input, '@')};
+        std::string full_url;
+        if (!parts.at(0).contains("://")) {
+            full_url += default_base_url;
+        }
+        if (!full_url.ends_with('/')) {
+            full_url += '/';
+        }
+        full_url += parts.at(0);
+        return action_url_t{
+            .url = std::move(full_url),
+            .version = parts.size() > 1 ? std::move(parts.at(1)) : std::string{},
+        };
+    }
+};
+
 bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
-                    const std::string& working_dir, log_reporter& reporter) {
-    reporter.add(std::format("TODO: execute_action(url: {})", input.url));
-    return true;
+                    const std::string& working_dir, log_reporter& reporter,
+                    std::function<std::int64_t(const char*, int)> stdout_reader) {
+    using namespace std::literals;
+    const auto action_url{action_url_t::parse(input.url)};
+    auto env_copy{std::make_shared<wf_env_vars::element_type>(*env)};
+    // Token should be set automatically
+    env_copy->emplace("INPUT_TOKEN", (*env_copy)["GITHUB_TOKEN"]);
+    const auto env_script{make_env_script(env_copy)};
+    const auto script{std::format(R"script(
+set -e
+working_dir={0}
+action_url={1}
+action_version={2}
+mkdir -p "${{working_dir}}"
+cd "${{working_dir}}"
+{3}
+mkdir -p _actions/checkout
+cd _actions/checkout
+git init
+git remote add origin "${{action_url}}"
+git fetch --depth=1 origin tag "${{action_version}}"
+git switch --detach "${{action_version}}"
+node dist/index.js
+)script",
+                                  escape_shell_script_string(working_dir), escape_shell_script_string(action_url.url),
+                                  escape_shell_script_string(action_url.version), env_script)};
+    std::int64_t amount_copied{};
+    utility::spawn_options spawn_options{
+        .stdin_writer = [&](char* buffer, int buffer_length) -> std::int64_t {
+            if (buffer_length < 1 || amount_copied >= script.size()) {
+                return 0;
+            }
+            const auto amount{std::min<std::int64_t>(
+                script.size() - static_cast<std::size_t>(amount_copied),
+                std::min<std::int64_t>(buffer_length, static_cast<std::int64_t>(script.size())))};
+            std::memcpy(buffer, script.data() + amount_copied, static_cast<std::size_t>(amount));
+            amount_copied += amount;
+            return amount;
+        },
+        .stdout_reader = std::move(stdout_reader)};
+    const auto exec_result{machine->shell_exec({"bash"}, spawn_options)};
+    return exec_result && *exec_result == 0;
 }
 
 ::runner::v1::Result task_result_from_step_states(const std::vector<step_execution_context>& steps) noexcept {
@@ -238,13 +291,28 @@ bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::uniq
 ::runner::v1::Result execute_job_step(step_execution_context& ctx, const wf_env_vars& env,
                                       std::unique_ptr<machine>& machine, const std::string& working_dir,
                                       log_reporter& reporter) {
+    std::string buffer;
+    std::function<std::int64_t(const char*, int)> stdout_reader{[&](const char* data, int length) {
+        buffer.append(data, length);
+        auto [lines, remainder]{utility::string_split_with_remainder(buffer, '\n')};
+        for (auto& line : lines) {
+            reporter.add(std::string{utility::string_trim_right(line, {'\r'})});
+        }
+        buffer = std::move(remainder);
+        return length;
+    }};
+    auto deferred_last_report{utility::defer([&] {
+        if (!buffer.empty()) {
+            reporter.add(std::move(buffer));
+        }
+    })};
     auto* step{ctx.step};
     auto* step_state{ctx.state};
     bool ok{};
     if (step->run) {
-        ok = execute_shell_script(*step->run, env, machine, working_dir, reporter);
+        ok = execute_shell_script(*step->run, env, machine, working_dir, reporter, stdout_reader);
     } else if (step->uses) {
-        ok = execute_action(*step->uses, env, machine, working_dir, reporter);
+        ok = execute_action(*step->uses, env, machine, working_dir, reporter, stdout_reader);
     }
     return ok ? ::runner::v1::RESULT_SUCCESS : ::runner::v1::RESULT_FAILURE;
 }

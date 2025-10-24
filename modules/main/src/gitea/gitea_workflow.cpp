@@ -238,6 +238,8 @@ std::expected<wf_env_vars, generic_error> wf_create_initial_env(const wf_run_con
             {"RUNNER_OS", std::string{runner_ctx.at("os").as_string()}},
             {"RUNNER_TEMP", std::string{runner_ctx.at("temp").as_string()}},
             //{"RUNNER_TOOL_CACHE", ""},
+            // Other variables
+            {"GITHUB_TOKEN", std::string{main_ctx.at("token").as_string()}},
         };
         return env_ptr;
     } catch (const std::exception& ex) {

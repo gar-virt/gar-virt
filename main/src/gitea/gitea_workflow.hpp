@@ -67,5 +67,6 @@ std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml);
 std::string wf_create_runner_context(const std::string& name, const config::runner_environment_config& config);
 
 wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const wf_run_contexts& contexts);
+std::expected<wf_env_vars, generic_error> wf_create_initial_env(const wf_run_contexts& contexts);
 
 } // namespace ls_gitea_runner::gitea

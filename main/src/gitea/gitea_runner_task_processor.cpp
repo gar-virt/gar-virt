@@ -97,7 +97,12 @@ public:
                     generic_error{std::format("Failed to build contexts for task #{}: {}", task.id(), ex.what())}};
             }
 
-            const auto global_env{wf_load_and_derive_env_from_yaml(*workflow_payload, {}, wf_contexts)};
+            const auto initial_env{wf_create_initial_env(wf_contexts)};
+            if (!initial_env) {
+                return std::unexpected{initial_env.error()};
+            }
+
+            const auto global_env{wf_load_and_derive_env_from_yaml(*workflow_payload, *initial_env, wf_contexts)};
             const auto job_env{wf_load_and_derive_env_from_yaml(*yaml_job, global_env, wf_contexts)};
 
             const auto wf_job{wf_load_job_with_name(*workflow_payload, job_name, wf_contexts)};
@@ -105,7 +110,8 @@ public:
                 return std::unexpected{wf_job.error()};
             }
 
-            gitea_workflow_executor executor{m_client.get(), task, *wf_job, job_env, wf_contexts, std::move(machine), workspace_dir};
+            gitea_workflow_executor executor{m_client.get(),     task,         *wf_job, job_env, wf_contexts,
+                                             std::move(machine), workspace_dir};
             return executor.run();
         } catch (const std::exception& ex) {
             return std::unexpected{generic_error{std::format("Failed to process task #{}: {}", task.id(), ex.what())}};

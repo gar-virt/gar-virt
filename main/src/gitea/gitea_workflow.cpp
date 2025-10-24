@@ -187,4 +187,62 @@ wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars
     return env_copy;
 }
 
+std::expected<wf_env_vars, generic_error> wf_create_initial_env(const wf_run_contexts& contexts) {
+    try {
+        const auto main_ctx{boost::json::parse(contexts.main)};
+        const auto runner_ctx{boost::json::parse(contexts.runner)};
+        auto env_ptr{std::make_shared<wf_env_vars::element_type>()};
+        auto& env{*env_ptr};
+        env = {
+            {"CI", "true"},
+            {"GITHUB_ACTION", std::string{main_ctx.at("action").as_string()}},
+            {"GITHUB_ACTION_PATH", std::string{main_ctx.at("action_path").as_string()}},
+            {"GITHUB_ACTION_REPOSITORY", std::string{main_ctx.at("action_repository").as_string()}},
+            //{"GITHUB_ACTIONS", ""},
+            {"GITHUB_ACTOR", std::string{main_ctx.at("actor").as_string()}},
+            //{"GITHUB_ACTOR_ID", ""},
+            {"GITHUB_API_URL", std::string{main_ctx.at("api_url").as_string()}},
+            {"GITHUB_BASE_REF", std::string{main_ctx.at("base_ref").as_string()}},
+            {"GITHUB_ENV", std::string{main_ctx.at("env").as_string()}},
+            {"GITHUB_EVENT_NAME", std::string{main_ctx.at("event_name").as_string()}},
+            {"GITHUB_EVENT_PATH", std::string{main_ctx.at("event_path").as_string()}},
+            {"GITHUB_GRAPHQL_URL", std::string{main_ctx.at("graphql_url").as_string()}},
+            {"GITHUB_HEAD_REF", std::string{main_ctx.at("head_ref").as_string()}},
+            {"GITHUB_JOB", std::string{main_ctx.at("job").as_string()}},
+            //{"GITHUB_OUTPUT", ""},
+            {"GITHUB_PATH", std::string{main_ctx.at("path").as_string()}},
+            {"GITHUB_REF", std::string{main_ctx.at("ref").as_string()}},
+            {"GITHUB_REF_NAME", std::string{main_ctx.at("ref_name").as_string()}},
+            {"GITHUB_REF_PROTECTED", std::string{main_ctx.at("ref_protected").as_bool() ? "true" : "false"}},
+            {"GITHUB_REF_TYPE", std::string{main_ctx.at("ref_type").as_string()}},
+            {"GITHUB_REPOSITORY", std::string{main_ctx.at("repository").as_string()}},
+            //{"GITHUB_REPOSITORY_ID", ""},
+            {"GITHUB_REPOSITORY_OWNER", std::string{main_ctx.at("repository_owner").as_string()}},
+            //{"GITHUB_REPOSITORY_OWNER_ID", ""},
+            {"GITHUB_RETENTION_DAYS", std::string{main_ctx.at("retention_days").as_string()}},
+            {"GITHUB_RUN_ATTEMPT", std::string{main_ctx.at("run_attempt").as_string()}},
+            {"GITHUB_RUN_ID", std::string{main_ctx.at("run_id").as_string()}},
+            {"GITHUB_RUN_NUMBER", std::string{main_ctx.at("run_number").as_string()}},
+            {"GITHUB_SERVER_URL", std::string{main_ctx.at("server_url").as_string()}},
+            {"GITHUB_SHA", std::string{main_ctx.at("sha").as_string()}},
+            //{"GITHUB_STEP_SUMMARY", ""},
+            {"GITHUB_TRIGGERING_ACTOR", std::string{main_ctx.at("triggering_actor").as_string()}},
+            {"GITHUB_WORKFLOW", std::string{main_ctx.at("workflow").as_string()}},
+            //{"GITHUB_WORKFLOW_REF", ""},
+            //{"GITHUB_WORKFLOW_SHA", ""},
+            {"GITHUB_WORKSPACE", std::string{main_ctx.at("workspace").as_string()}},
+            {"RUNNER_ARCH", std::string{runner_ctx.at("arch").as_string()}},
+            //{"RUNNER_DEBUG", ""},
+            //{"RUNNER_ENVIRONMENT", ""},
+            {"RUNNER_NAME", std::string{runner_ctx.at("name").as_string()}},
+            {"RUNNER_OS", std::string{runner_ctx.at("os").as_string()}},
+            {"RUNNER_TEMP", std::string{runner_ctx.at("temp").as_string()}},
+            //{"RUNNER_TOOL_CACHE", ""},
+        };
+        return env_ptr;
+    } catch (const std::exception& ex) {
+        return std::unexpected{generic_error{"Unable to generate initial environment variables"}};
+    }
+}
+
 } // namespace ls_gitea_runner::gitea

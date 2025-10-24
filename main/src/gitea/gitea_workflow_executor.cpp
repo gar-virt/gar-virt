@@ -129,8 +129,14 @@ esac
 
 bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
                           const std::string& working_dir, log_reporter& reporter) {
+    std::string buffer;
     utility::spawn_options spawn_options{.stdout_reader = [&](const char* data, int length) {
-        reporter.add(std::string{data, static_cast<std::size_t>(length)});
+        buffer.append(data, length);
+        auto [lines, remainder]{utility::string_split_with_remainder(buffer, '\n')};
+        for (auto& line : lines) {
+            reporter.add(std::string{utility::string_trim_right(line, {'\r'})});
+        }
+        buffer = std::move(remainder);
         return length;
     }};
     // TODO: don't store scripts locally, even if only temporarily
@@ -161,6 +167,10 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
             .and_then([&] {
                 return machine->shell_exec({"/usr/bin/bash", "-e", remote_intermediate_script_path_str}, spawn_options);
             })};
+    if (!buffer.empty()) {
+        // TODO: use RAII
+        reporter.add(std::move(buffer));
+    }
     return exec_result && *exec_result == 0;
 #if 0
     // This is for local runs

@@ -51,6 +51,8 @@ bool string_starts_with(const std::string_view haystack, const std::string_view 
 bool string_ends_with(const std::string_view haystack, const std::string_view needle);
 void string_split(const std::string_view input, char separator, std::function<void(const std::string_view token)> cb);
 std::vector<std::string> string_split(const std::string_view input, char separator);
+std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(const std::string_view input,
+                                                                              char separator);
 
 std::string regex_replace_callable(const std::string& text, const std::regex& pattern,
                                    std::function<std::string(const std::smatch&)> replacer);

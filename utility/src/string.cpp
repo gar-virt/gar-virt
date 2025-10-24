@@ -81,7 +81,7 @@ const std::string_view string_trim_right(const std::string_view s, const std::se
     for (std::size_t i{}; i < s.size(); ++i) {
         const auto j{s.size() - i};
         if (!chars.contains(s[j - 1])) {
-            return s.substr(i, j);
+            return s.substr(0, j);
         }
     }
     return s;

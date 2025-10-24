@@ -6,6 +6,7 @@
 #include "gitea_workflow.hpp"
 #include "runner/v1/messages.pb.h"
 
+#include <utility/defer.hpp>
 #include <utility/env.hpp>
 #include <utility/string.hpp>
 #include <utility/temporary_file.hpp>
@@ -139,6 +140,11 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
         buffer = std::move(remainder);
         return length;
     }};
+    auto deferred_last_report{utility::defer([&] {
+        if (!buffer.empty()) {
+            reporter.add(std::move(buffer));
+        }
+    })};
     // TODO: don't store scripts locally, even if only temporarily
     const auto script_str{input.script};
     fs::temporary_file real_script_file;
@@ -167,10 +173,6 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
             .and_then([&] {
                 return machine->shell_exec({"/usr/bin/bash", "-e", remote_intermediate_script_path_str}, spawn_options);
             })};
-    if (!buffer.empty()) {
-        // TODO: use RAII
-        reporter.add(std::move(buffer));
-    }
     return exec_result && *exec_result == 0;
 #if 0
     // This is for local runs

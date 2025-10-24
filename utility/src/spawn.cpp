@@ -1,57 +1,15 @@
 #include "utility/spawn.hpp"
-#include "utility/file_handle.hpp"
 
 #ifdef __linux__
     #include <sys/wait.h>
     #include <unistd.h>
 #endif
 
-#include <format>
 #include <optional>
 #include <span>
-#include <sstream>
 #include <utility>
 
 namespace ls_gitea_runner::utility {
-
-std::string spawn_escape_arg(const std::string_view arg) {
-    // TODO: what about args that start with e.g. "-"?
-    if (arg.empty()) {
-        return "''";
-    }
-    std::string result;
-    result.reserve(arg.size());
-    bool need_quotes{};
-    for (char c : arg) {
-        switch (c) {
-        case '|':
-        case '&':
-        case ';':
-        case '<':
-        case '>':
-        case '(':
-        case ')':
-        case '$':
-        case '`':
-        case '\\':
-        case '"':
-        case ' ':
-        case '\t':
-        case '\n':
-            need_quotes = true;
-            break;
-        case '\'':
-            need_quotes = true;
-            result += '\\';
-            break;
-        }
-        result += c;
-    }
-    if (need_quotes) {
-        return '\'' + result + '\'';
-    }
-    return result;
-}
 
 class fd_wrapper {
 public:
@@ -177,32 +135,6 @@ std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>&
 #endif
 }
 
-std::expected<spawn_result, std::runtime_error> spawn_cmd(const std::string cmd) {
-    file_handle fp{::popen(cmd.c_str(), "r")};
-    if (!fp.get_native_handle()) {
-        return std::unexpected{std::runtime_error{std::format("Unable to spawn process with cmd: {}", cmd)}};
-    }
-    std::ostringstream output;
-    std::array<char, 512> buffer{};
-    while (true) {
-        auto bytes_read{::fread(buffer.data(), 1, buffer.size(), fp.get_native_handle())};
-        if (::ferror(fp.get_native_handle())) {
-            break;
-        }
-        if (bytes_read > 0) {
-            output.write(buffer.data(), bytes_read);
-        }
-        if (::feof(fp.get_native_handle())) {
-            break;
-        }
-    }
-    auto exit_code{::pclose(fp.get_native_handle())};
-    if (exit_code != 0) {
-        return std::unexpected{std::runtime_error{std::format("Spawned process returned {}: {}", exit_code, cmd)}};
-    }
-    return spawn_result{.exit_code = exit_code, .output = output.str()};
-}
-
 std::expected<spawn_result, std::runtime_error> spawn_cmd(const std::vector<std::string>& cmd) {
     spawn_result result;
     spawn_options options{.stdout_reader = [&](const char* buffer, int length) {
@@ -215,17 +147,6 @@ std::expected<spawn_result, std::runtime_error> spawn_cmd(const std::vector<std:
     } else {
         return std::unexpected{res.error()};
     }
-    /*
-    if (cmd.empty()) {
-        return std::unexpected{std::runtime_error{"Cannot spawn empty command"}};
-    }
-    std::string cmd_line{cmd[0]};
-    for (std::size_t i{1}; i < cmd.size(); ++i) {
-        cmd_line += ' ';
-        cmd_line += spawn_escape_arg(cmd[i]);
-    }
-    return spawn_cmd(cmd_line);
-    */
 }
 
 } // namespace ls_gitea_runner::utility

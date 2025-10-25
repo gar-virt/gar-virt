@@ -18,6 +18,7 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 #set(FETCHCONTENT_QUIET OFF)
 #FetchContent_MakeAvailable(gRPC)
 
+include(GNUInstallDirs)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 

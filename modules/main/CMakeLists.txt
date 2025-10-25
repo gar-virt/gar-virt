@@ -71,3 +71,5 @@ target_link_libraries(ga_runner PRIVATE
     proto_objects
     utility
 )
+
+install(TARGETS ga_runner RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

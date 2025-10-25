@@ -94,6 +94,7 @@ std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>&
         ::dup2(pipe_to_child->readable.value(), STDIN_FILENO);
         pipe_to_child->readable.close();
         ::dup2(pipe_from_child->writable.value(), STDOUT_FILENO);
+        ::dup2(pipe_from_child->writable.value(), STDERR_FILENO);
         pipe_from_child->writable.close();
         ::execvp(argv.at(0), const_cast<char* const*>(argv.data()));
         // Shouldn't reach here, and we can't recover anyway if it happens

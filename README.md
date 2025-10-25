@@ -33,7 +33,6 @@ What does work:
 - So far the `actions/checkout` action works for cloning the repository.
 
 Known to not work yet:
-- `stderr` redirection seems to have a problem at the moment and may not be reported back to Gitea.
 - Overriding working directory in workflow yaml.
 - Defaults in workflow yaml.
 - Job status in context and environment variable.

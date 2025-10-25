@@ -42,7 +42,7 @@ int main(int argc, char* const argv[]) {
                       << "  daemon\n"
                       << "    Start taking jobs.\n"
                       << options_desc << '\n';
-            return 1;
+            return 0;
         }
 
         po::notify(vm);

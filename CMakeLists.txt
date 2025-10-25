@@ -28,6 +28,7 @@ FetchContent_Declare(
   URL https://github.com/boostorg/boost/releases/download/boost-1.89.0/boost-1.89.0-cmake.7z
   URL_HASH SHA256=252149f583054515b10688855b24ca1c16072b5118e603b8fe017894d319c262
   EXCLUDE_FROM_ALL
+  SYSTEM
   OVERRIDE_FIND_PACKAGE
 )
 FetchContent_MakeAvailable(Boost)

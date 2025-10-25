@@ -4,7 +4,7 @@ elseif(UNIX)
     find_library(UUID_LIBRARIES uuid REQUIRED)
 endif()
 
-add_library(utility SHARED)
+add_library(utility)
 target_sources(utility PRIVATE
     src/env.cpp
     src/file_handle.cpp

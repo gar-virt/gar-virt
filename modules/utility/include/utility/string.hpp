@@ -32,14 +32,32 @@ const std::string_view string_trim(const std::string_view s,
 void string_trim_right(std::in_place_t, std::string& s, const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
 void string_trim_right(std::in_place_t, std::string& s, char c);
 
-template <typename Container> std::string string_join(const Container& container, const std::string_view glue) {
-    auto joined = std::string{};
+template <typename Container>
+    requires(!std::is_convertible_v<Container, const std::string_view>)
+std::string string_join(const std::string_view glue, const Container& container) {
+    std::string joined;
     for (auto i = size_t{}; i < container.size(); ++i) {
         if (i > 0) {
             joined += glue;
         }
         joined += container[i];
     }
+    return joined;
+}
+
+template <typename... Ts>
+    requires(... && std::is_convertible_v<Ts, const std::string_view>)
+std::string string_join(const std::string_view glue, Ts&... pieces) {
+    std::string joined;
+    size_t i{};
+    (
+        [&] {
+            if (i++ > 0) {
+                joined += glue;
+            }
+            joined += pieces;
+        }(),
+        ...);
     return joined;
 }
 

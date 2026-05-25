@@ -208,9 +208,13 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
 struct action_url_t {
     std::string url;
     std::string version;
+    bool is_local{};
 
     static action_url_t parse(const std::string_view input,
                               const std::string_view default_base_url = "https://github.com") {
+        if (input.starts_with("./")) {
+            return action_url_t{.url = std::string{input}, .is_local = true};
+        }
         auto parts{utility::string_split(input, '@')};
         std::string full_url;
         if (!parts.at(0).contains("://")) {
@@ -220,40 +224,27 @@ struct action_url_t {
             full_url += '/';
         }
         full_url += parts.at(0);
-        return action_url_t{
-            .url = std::move(full_url),
-            .version = parts.size() > 1 ? std::move(parts.at(1)) : std::string{},
-        };
+        return action_url_t{.url = std::move(full_url),
+                            .version = parts.size() > 1 ? std::move(parts.at(1)) : std::string{},
+                            .is_local = false};
     }
 };
 
-bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
-                    const std::string& working_dir, log_reporter& reporter,
-                    std::function<std::int64_t(const char*, int)> stdout_reader) {
+bool execute_js_action(const wf_env_vars& env, std::unique_ptr<machine>& machine, const std::string& action_dir,
+                       log_reporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
-    const auto action_url{action_url_t::parse(input.url)};
     auto env_copy{std::make_shared<wf_env_vars::element_type>(*env)};
     // Token should be set automatically
     env_copy->emplace("INPUT_TOKEN", (*env_copy)["GITHUB_TOKEN"]);
     const auto env_script{make_env_script(env_copy)};
     const auto script{std::format(R"script(
 set -e
-working_dir={0}
-action_url={1}
-action_version={2}
-mkdir -p "${{working_dir}}"
-cd "${{working_dir}}"
-{3}
-mkdir -p _actions/checkout
-cd _actions/checkout
-git init
-git remote add origin "${{action_url}}"
-git fetch --depth=1 origin tag "${{action_version}}"
-git switch --detach "${{action_version}}"
+action_dir={0}
+cd "${{action_dir}}"
+{1}
 node dist/index.js
 )script",
-                                  escape_shell_script_string(working_dir), escape_shell_script_string(action_url.url),
-                                  escape_shell_script_string(action_url.version), env_script)};
+                                  escape_shell_script_string(action_dir), env_script)};
     std::int64_t amount_copied{};
     utility::spawn_options spawn_options{
         .stdin_writer = [&](char* buffer, int buffer_length) -> std::int64_t {
@@ -270,6 +261,61 @@ node dist/index.js
         .stdout_reader = std::move(stdout_reader)};
     const auto exec_result{machine->shell_exec({"bash"}, spawn_options)};
     return exec_result && *exec_result == 0;
+}
+
+bool fetch_action(const action_url_t& action_url, std::unique_ptr<machine>& machine, const std::string& action_dir,
+                  log_reporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
+    using namespace std::literals;
+    const auto script{std::format(R"script(
+set -e
+action_dir={0}
+action_url={1}
+action_version={2}
+mkdir -p "${{action_dir}}"
+cd "${{action_dir}}"
+git init
+git remote add origin "${{action_url}}"
+git fetch --depth=1 origin tag "${{action_version}}"
+git switch --detach "${{action_version}}"
+)script",
+                                  escape_shell_script_string(action_dir), escape_shell_script_string(action_url.url),
+                                  escape_shell_script_string(action_url.version))};
+    std::int64_t amount_copied{};
+    utility::spawn_options spawn_options{
+        .stdin_writer = [&](char* buffer, int buffer_length) -> std::int64_t {
+            if (buffer_length < 1 || amount_copied >= script.size()) {
+                return 0;
+            }
+            const auto amount{std::min<std::int64_t>(
+                script.size() - static_cast<std::size_t>(amount_copied),
+                std::min<std::int64_t>(buffer_length, static_cast<std::int64_t>(script.size())))};
+            std::memcpy(buffer, script.data() + amount_copied, static_cast<std::size_t>(amount));
+            amount_copied += amount;
+            return amount;
+        },
+        .stdout_reader = std::move(stdout_reader)};
+    const auto exec_result{machine->shell_exec({"bash"}, spawn_options)};
+    return exec_result && *exec_result == 0;
+}
+
+bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
+                    const std::string& working_dir, log_reporter& reporter,
+                    std::function<std::int64_t(const char*, int)> stdout_reader) {
+    using namespace std::literals;
+    const auto action_url{action_url_t::parse(input.url)};
+    std::string action_dir;
+    const std::string dir_separator{machine->info().os == "Windows" ? "\\" : "/"};
+    if (!action_url.is_local) {
+        // Need to fetch it
+        const auto url_hash{std::to_string(std::hash<std::string>{}(action_url.url))};
+        action_dir = utility::string_join(dir_separator, working_dir, "_actions", url_hash);
+        if (!fetch_action(action_url, machine, action_dir, reporter, stdout_reader)) {
+            return false;
+        }
+    } else {
+        action_dir = action_url.url;
+    }
+    return execute_js_action(env, machine, action_dir, reporter, std::move(stdout_reader));
 }
 
 ::runner::v1::Result task_result_from_step_states(const std::vector<step_execution_context>& steps) noexcept {

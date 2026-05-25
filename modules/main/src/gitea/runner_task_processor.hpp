@@ -2,7 +2,7 @@
 
 #include "../config.hpp"
 #include "../error.hpp"
-#include "gitea_runner_service_client.hpp"
+#include "runner_service_client.hpp"
 #include "runner/v1/messages.pb.h"
 
 #include <expected>

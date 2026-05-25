@@ -60,13 +60,13 @@ std::expected<WfJob, GenericError> wf_load_job_with_name(const YAML::Node& yaml,
 
 std::expected<std::string, GenericError> wf_get_label_from_job_yaml(const YAML::Node& yaml) noexcept;
 
-using wf_env_vars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
+using WfEnvVars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
 
 std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml);
 
 std::string wf_create_runner_context(const std::string& name, const config::RunnerEnvironmentConfig& config);
 
-wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const WfRunContexts& contexts);
-std::expected<wf_env_vars, GenericError> wf_create_initial_env(const WfRunContexts& contexts);
+WfEnvVars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, WfEnvVars env, const WfRunContexts& contexts);
+std::expected<WfEnvVars, GenericError> wf_create_initial_env(const WfRunContexts& contexts);
 
 } // namespace ls_gitea_runner::gitea

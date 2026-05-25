@@ -1,4 +1,4 @@
-#include "gitea_runner_task_poller.hpp"
+#include "runner_task_poller.hpp"
 
 #include <print>
 #include <thread>

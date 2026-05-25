@@ -1,8 +1,8 @@
-#include "docker_machine_manager.hpp"
-#include "../machine/docker_engine_client.hpp"
-#include "docker_container_id.hpp"
-#include "docker_machine.hpp"
-#include "docker_machine_options.hpp"
+#include "machine_manager.hpp"
+#include "container_id.hpp"
+#include "engine_client.hpp"
+#include "machine.hpp"
+#include "machine_options.hpp"
 
 #include <utility/uuid.hpp>
 

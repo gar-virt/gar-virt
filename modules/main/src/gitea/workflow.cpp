@@ -1,4 +1,4 @@
-#include "gitea_workflow.hpp"
+#include "workflow.hpp"
 
 #include "../scripting.hpp"
 
@@ -119,7 +119,7 @@ std::expected<std::string, GenericError> wf_get_label_from_job_yaml(const YAML::
     return runs_on.as<std::string>();
 }
 
-using wf_env_vars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
+using WfEnvVars = std::shared_ptr<std::unordered_map<std::string, std::string>>;
 
 std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml) {
     const auto& yaml_strategy{yaml["strategy"]};
@@ -161,9 +161,9 @@ std::string wf_create_runner_context(const std::string& name, const config::Runn
     return boost::json::serialize(j);
 }
 
-wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const WfRunContexts& contexts) {
+WfEnvVars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, WfEnvVars env, const WfRunContexts& contexts) {
     if (!env) {
-        env = std::make_shared<wf_env_vars::element_type>();
+        env = std::make_shared<WfEnvVars::element_type>();
     }
     if (!yaml) {
         return env;
@@ -174,7 +174,7 @@ wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars
     }
     const auto sub{scripting::apply_string_substitutions};
     const auto& contexts_list{contexts.to_list()};
-    auto env_copy{std::make_shared<wf_env_vars::element_type>(*env)};
+    auto env_copy{std::make_shared<WfEnvVars::element_type>(*env)};
     for (auto& entry : yaml_env) {
         if (!entry.second.IsScalar()) {
             continue;
@@ -187,11 +187,11 @@ wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars
     return env_copy;
 }
 
-std::expected<wf_env_vars, GenericError> wf_create_initial_env(const WfRunContexts& contexts) {
+std::expected<WfEnvVars, GenericError> wf_create_initial_env(const WfRunContexts& contexts) {
     try {
         const auto main_ctx{boost::json::parse(contexts.main)};
         const auto runner_ctx{boost::json::parse(contexts.runner)};
-        auto env_ptr{std::make_shared<wf_env_vars::element_type>()};
+        auto env_ptr{std::make_shared<WfEnvVars::element_type>()};
         auto& env{*env_ptr};
         env = {
             {"CI", "true"},

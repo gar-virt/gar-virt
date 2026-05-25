@@ -1,7 +1,7 @@
 #pragma once
 
-#include "docker_container_id.hpp"
-#include "machine.hpp"
+#include "container_id.hpp"
+#include "../machine/machine.hpp"
 
 #include <memory>
 

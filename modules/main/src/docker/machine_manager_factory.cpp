@@ -1,5 +1,5 @@
-#include "docker_machine_manager_factory.hpp"
-#include "docker_machine_manager.hpp"
+#include "machine_manager_factory.hpp"
+#include "machine_manager.hpp"
 
 namespace ls_gitea_runner {
 

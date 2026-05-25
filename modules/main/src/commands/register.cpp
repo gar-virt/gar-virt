@@ -4,7 +4,7 @@
 #include "runner/v1/messages.pb.h"
 
 #include "../config.hpp"
-#include "../gitea/gitea_runner_service_client.hpp"
+#include "../gitea/runner_service_client.hpp"
 #include "../version.hpp"
 
 #include <cstring>

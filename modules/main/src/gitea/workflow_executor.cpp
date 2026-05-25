@@ -1,9 +1,9 @@
-#include "gitea_workflow_executor.hpp"
+#include "workflow_executor.hpp"
 #include "../protobuf_helper.hpp"
 #include "../scripting.hpp"
-#include "gitea_log_reporter.hpp"
-#include "gitea_runner_service_client.hpp"
-#include "gitea_workflow.hpp"
+#include "log_reporter.hpp"
+#include "runner_service_client.hpp"
+#include "workflow.hpp"
 #include "runner/v1/messages.pb.h"
 
 #include <utility/defer.hpp>
@@ -69,7 +69,7 @@ std::string escape_shell_script_string(const std::string_view arg, bool add_quot
     return result;
 }
 
-std::string make_env_script(const wf_env_vars& env) {
+std::string make_env_script(const WfEnvVars& env) {
     std::string env_script;
     if (env) {
         for (const auto& [k, v] : *env) {
@@ -84,7 +84,7 @@ std::string make_env_script(const wf_env_vars& env) {
 
 std::string generate_shell_execution_intermediate_script(const std::string& shell_name,
                                                          const std::string& real_script_path,
-                                                         const std::string& working_dir, const wf_env_vars& env) {
+                                                         const std::string& working_dir, const WfEnvVars& env) {
     const auto env_script{make_env_script(env)};
     static constexpr auto format_string{R"script(
 set -e
@@ -133,7 +133,7 @@ esac
     return script;
 }
 
-bool execute_shell_script(const WfStepRun& input, const wf_env_vars& env, std::unique_ptr<Machine>& machine,
+bool execute_shell_script(const WfStepRun& input, const WfEnvVars& env, std::unique_ptr<Machine>& machine,
                           const std::string& working_dir, LogReporter& reporter,
                           std::function<std::int64_t(const char*, int)> stdout_reader) {
     // TODO: don't store scripts locally, even if only temporarily
@@ -230,10 +230,10 @@ struct ActionUrl {
     }
 };
 
-bool execute_js_action(const wf_env_vars& env, std::unique_ptr<Machine>& machine, const std::string& action_dir,
+bool execute_js_action(const WfEnvVars& env, std::unique_ptr<Machine>& machine, const std::string& action_dir,
                        LogReporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
-    auto env_copy{std::make_shared<wf_env_vars::element_type>(*env)};
+    auto env_copy{std::make_shared<WfEnvVars::element_type>(*env)};
     // Token should be set automatically
     env_copy->emplace("INPUT_TOKEN", (*env_copy)["GITHUB_TOKEN"]);
     const auto env_script{make_env_script(env_copy)};
@@ -298,7 +298,7 @@ git switch --detach "${{action_version}}"
     return exec_result && *exec_result == 0;
 }
 
-bool execute_action(const WfStepUses& input, const wf_env_vars& env, std::unique_ptr<Machine>& machine,
+bool execute_action(const WfStepUses& input, const WfEnvVars& env, std::unique_ptr<Machine>& machine,
                     const std::string& working_dir, LogReporter& reporter,
                     std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
@@ -334,7 +334,7 @@ bool execute_action(const WfStepUses& input, const wf_env_vars& env, std::unique
     return RESULT_SUCCESS;
 }
 
-::runner::v1::Result execute_job_step(StepExecutionContext& ctx, const wf_env_vars& env,
+::runner::v1::Result execute_job_step(StepExecutionContext& ctx, const WfEnvVars& env,
                                       std::unique_ptr<Machine>& machine, const std::string& working_dir,
                                       LogReporter& reporter) {
     std::string buffer;
@@ -367,7 +367,7 @@ bool execute_action(const WfStepUses& input, const wf_env_vars& env, std::unique
 
 class GiteaWorkflowExecutor::Impl final {
 public:
-    Impl(const GiteaRunnerServiceClient& client, ::runner::v1::Task task, const WfJob& job, wf_env_vars job_env,
+    Impl(const GiteaRunnerServiceClient& client, ::runner::v1::Task task, const WfJob& job, WfEnvVars job_env,
          const WfRunContexts& wf_contexts, std::unique_ptr<Machine> machine, const std::string& working_dir)
             : m_client{client}, m_task{std::move(task)}, m_job{job}, m_job_env{std::move(job_env)},
               m_wf_contexts{wf_contexts}, m_machine{std::move(machine)}, m_working_dir{working_dir} {}
@@ -515,14 +515,14 @@ private:
     std::reference_wrapper<const GiteaRunnerServiceClient> m_client;
     ::runner::v1::Task m_task;
     std::reference_wrapper<const WfJob> m_job;
-    wf_env_vars m_job_env;
+    WfEnvVars m_job_env;
     std::reference_wrapper<const WfRunContexts> m_wf_contexts;
     std::unique_ptr<Machine> m_machine;
     std::string m_working_dir;
 };
 
 GiteaWorkflowExecutor::GiteaWorkflowExecutor(const GiteaRunnerServiceClient& client, ::runner::v1::Task task,
-                                             const WfJob& job, wf_env_vars job_env, const WfRunContexts& wf_contexts,
+                                             const WfJob& job, WfEnvVars job_env, const WfRunContexts& wf_contexts,
                                              std::unique_ptr<Machine> machine, const std::string& working_dir)
         : m_impl{std::make_unique<Impl>(client, std::move(task), job, std::move(job_env), wf_contexts,
                                         std::move(machine), working_dir)} {}

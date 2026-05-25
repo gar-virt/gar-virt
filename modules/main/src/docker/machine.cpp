@@ -1,5 +1,5 @@
-#include "docker_machine.hpp"
-#include "docker_engine_client.hpp"
+#include "machine.hpp"
+#include "engine_client.hpp"
 
 #include <utility/string.hpp>
 

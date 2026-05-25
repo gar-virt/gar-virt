@@ -1,9 +1,9 @@
-#include "gitea_runner_task_processor.hpp"
+#include "runner_task_processor.hpp"
 #include "../machine/machine_manager_factory_selector.hpp"
 #include "../protobuf_helper.hpp"
-#include "gitea_runner_service_client.hpp"
-#include "gitea_workflow.hpp"
-#include "gitea_workflow_executor.hpp"
+#include "runner_service_client.hpp"
+#include "workflow.hpp"
+#include "workflow_executor.hpp"
 
 #include <boost/json.hpp>
 

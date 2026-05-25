@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../error.hpp"
-#include "machine.hpp"
-#include "machine_manager.hpp"
+#include "../machine/machine.hpp"
+#include "../machine/machine_manager.hpp"
 
 #include <expected>
 #include <memory>

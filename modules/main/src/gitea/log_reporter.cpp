@@ -1,4 +1,4 @@
-#include "gitea_log_reporter.hpp"
+#include "log_reporter.hpp"
 #include "../protobuf_helper.hpp"
 
 #include <utility/string.hpp>

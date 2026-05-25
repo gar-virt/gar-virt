@@ -2,7 +2,7 @@
 
 #include "../error.hpp"
 #include "../http.hpp"
-#include "gitea_runner_credentials.hpp"
+#include "runner_credentials.hpp"
 #include "ping/v1/messages.pb.h"
 #include "runner/v1/messages.pb.h"
 

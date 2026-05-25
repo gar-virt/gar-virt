@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../error.hpp"
-#include "docker_container_id.hpp"
+#include "container_id.hpp"
 
 #include <utility/file_handle.hpp>
 #include <utility/spawn.hpp>

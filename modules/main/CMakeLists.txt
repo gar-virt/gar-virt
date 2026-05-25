@@ -40,19 +40,19 @@ target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
     src/commands/register.cpp
     src/config.cpp
+    src/docker/engine_client.cpp
+    src/docker/machine.cpp
+    src/docker/machine_manager.cpp
+    src/docker/machine_manager_factory.cpp
+    src/docker/machine_options.cpp
     src/error.cpp
-    src/gitea/gitea_log_reporter.cpp
-    src/gitea/gitea_runner_service_client.cpp
-    src/gitea/gitea_runner_task_poller.cpp
-    src/gitea/gitea_runner_task_processor.cpp
-    src/gitea/gitea_workflow.cpp
-    src/gitea/gitea_workflow_executor.cpp
+    src/gitea/log_reporter.cpp
+    src/gitea/runner_service_client.cpp
+    src/gitea/runner_task_poller.cpp
+    src/gitea/runner_task_processor.cpp
+    src/gitea/workflow.cpp
+    src/gitea/workflow_executor.cpp
     src/http.cpp
-    src/machine/docker_engine_client.cpp
-    src/machine/docker_machine.cpp
-    src/machine/docker_machine_manager.cpp
-    src/machine/docker_machine_manager_factory.cpp
-    src/machine/docker_machine_options.cpp
     src/machine/machine_manager_factory_selector.cpp
     src/main.cpp
     src/protobuf_helper.cpp

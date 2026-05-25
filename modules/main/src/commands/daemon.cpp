@@ -3,9 +3,9 @@
 #include "runner/v1/messages.pb.h"
 
 #include "../config.hpp"
-#include "../gitea/gitea_runner_service_client.hpp"
-#include "../gitea/gitea_runner_task_poller.hpp"
-#include "../gitea/gitea_runner_task_processor.hpp"
+#include "../gitea/runner_service_client.hpp"
+#include "../gitea/runner_task_poller.hpp"
+#include "../gitea/runner_task_processor.hpp"
 #include "../version.hpp"
 
 #include <cstring>

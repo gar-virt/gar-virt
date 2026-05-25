@@ -61,7 +61,13 @@ public:
 
             auto machine_manager_factory{std::move(*machine_manager_factory_res)};
             auto machine_manager{machine_manager_factory->create()};
-            auto machine_res{machine_manager->spawn(machine_config.details_as_json)};
+            auto machine_res{machine_manager->spawn(
+                machine::info_t{
+                    .os = machine_config.os,
+                    .arch = machine_config.arch,
+                    .temp_dir = machine_config.temp_dir,
+                },
+                machine_config.details_as_json)};
 
             if (!machine_res) {
                 return std::unexpected{machine_res.error()};

@@ -42,7 +42,7 @@ std::string normalize_uname_machine(const std::string& input) {
 
 class docker_machine::impl final {
 public:
-    impl(const docker_container_id& id) : m_id{id} {}
+    impl(const docker_container_id& id, info_t info) : m_id{id}, m_info{std::move(info)} {}
 
     ~impl() { std::ignore = terminate(); }
 
@@ -79,12 +79,16 @@ public:
         return m_docker.container_cp_into(m_id, local_path, remote_path);
     }
 
+    const machine::info_t& info() const { return m_info; }
+
 private:
     docker_container_id m_id;
+    machine::info_t m_info;
     docker_engine_client m_docker;
 };
 
-docker_machine::docker_machine(const docker_container_id& id) : m_impl{std::make_unique<impl>(id)} {}
+docker_machine::docker_machine(const docker_container_id& id, info_t info)
+        : m_impl{std::make_unique<impl>(id, std::move(info))} {}
 
 docker_machine::~docker_machine() {}
 
@@ -108,5 +112,7 @@ std::expected<void, generic_error> docker_machine::copy_file_into(const std::fil
                                                                   const std::string& remote_path) {
     return m_impl->copy_file_into(local_path, remote_path);
 }
+
+const machine::info_t& docker_machine::info() const { return m_impl->info(); }
 
 } // namespace ls_gitea_runner

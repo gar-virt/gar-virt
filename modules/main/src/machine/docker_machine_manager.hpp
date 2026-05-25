@@ -14,7 +14,8 @@ public:
     docker_machine_manager();
     ~docker_machine_manager();
 
-    std::expected<std::unique_ptr<machine>, generic_error> spawn(const std::string& options) override;
+    std::expected<std::unique_ptr<machine>, generic_error> spawn(machine::info_t info,
+                                                                 const std::string& details) override;
 
 private:
     class impl;

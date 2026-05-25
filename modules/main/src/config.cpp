@@ -9,8 +9,8 @@
 
 namespace ls_gitea_runner::config {
 
-std::optional<std::tuple<std::string, runner_environment_config>>
-runner_config::find_environment_by_label(const std::string_view search_label) const noexcept {
+std::optional<std::tuple<std::string, RunnerEnvironmentConfig>>
+RunnerConfig::find_environment_by_label(const std::string_view search_label) const noexcept {
     for (auto& [env_k, env_v] : environments) {
         for (auto& label : env_v.labels) {
             if (utility::string_equals_ci(label, search_label)) {
@@ -21,7 +21,7 @@ runner_config::find_environment_by_label(const std::string_view search_label) co
     return std::nullopt;
 }
 
-std::expected<runner_config, generic_error> load_file(const std::filesystem::path& file_path) noexcept {
+std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept {
     try {
         auto json{[&] {
             std::ifstream is{file_path, std::ios_base::binary};
@@ -30,7 +30,7 @@ std::expected<runner_config, generic_error> load_file(const std::filesystem::pat
             return ss.str();
         }()};
         const auto j{boost::json::parse(json).as_object()};
-        runner_config c{
+        RunnerConfig c{
             .instance_url = std::string{j.at("instance_url").as_string()},
             .name = std::string{j.at("name").as_string()},
             .token = std::string{j.at("token").as_string()},
@@ -52,21 +52,21 @@ std::expected<runner_config, generic_error> load_file(const std::filesystem::pat
                 .arch = std::string{env_value.at("arch").as_string()},
                 .temp_dir = std::string{env_value.at("temp_dir").as_string()},
                 .workspaces_dir = std::string{env_value.at("workspaces_dir").as_string()},
-                .details = [&] -> decltype(runner_environment_config::details) {
+                .details = [&] -> decltype(RunnerEnvironmentConfig::details) {
                     if (env_key == "docker") {
-                        return docker_config{
+                        return DockerConfig{
                             .image = std::string{env_details.at("image").as_string()},
                             .tag = std::string{env_details.at("tag").as_string()},
                         };
                     } else if (env_key == "qemu") {
-                        return qemu_config{
+                        return QemuConfig{
                             .image = std::string{env_details.at("image").as_string()},
                             .cpu = std::string{env_details.at("cpu").as_string()},
-                            .memory = utility::safe_cast_int<decltype(qemu_config::memory)>(
+                            .memory = utility::safe_cast_int<decltype(QemuConfig::memory)>(
                                 env_details.at("memory").as_int64()),
                         };
                     }
-                    throw generic_error{"Invalid runner environment type in config"};
+                    throw GenericError{"Invalid runner environment type in config"};
                 }(),
                 .details_as_json = boost::json::serialize(env_details),
             };
@@ -74,8 +74,8 @@ std::expected<runner_config, generic_error> load_file(const std::filesystem::pat
         return c;
     } catch (const std::exception& ex) {
         return std::unexpected{
-            generic_error{std::format("Error while loading config file \"{}\": {}",
-                                      utility::string_from_u8string(file_path.u8string()), ex.what())}};
+            GenericError{std::format("Error while loading config file \"{}\": {}",
+                                     utility::string_from_u8string(file_path.u8string()), ex.what())}};
     }
 }
 

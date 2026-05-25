@@ -4,9 +4,9 @@
 
 namespace ls_gitea_runner {
 
-class log_reporter {
+class LogReporter {
 public:
-    virtual ~log_reporter() = default;
+    virtual ~LogReporter() = default;
     virtual void add(std::string message) = 0;
     virtual void flush() = 0;
 };

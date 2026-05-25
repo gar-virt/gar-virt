@@ -16,10 +16,10 @@
 
 namespace ls_gitea_runner {
 
-int cmd_register(config::runner_config config, runtime_state state) noexcept {
+int cmd_register(config::RunnerConfig config, RuntimeState state) noexcept {
     // GITEA_RUNNER_REGISTRATION_TOKEN_FILE
 
-    gitea::gitea_runner_service_client client{config.instance_url};
+    gitea::GiteaRunnerServiceClient client{config.instance_url};
 
     auto ping_request{::ping::v1::PingRequest{}};
     ping_request.set_data(config.name);

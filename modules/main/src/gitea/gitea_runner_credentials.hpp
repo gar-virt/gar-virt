@@ -4,7 +4,7 @@
 
 namespace ls_gitea_runner::gitea {
 
-struct gitea_runner_credentials {
+struct GiteaRunnerCredentials {
     std::string uuid;
     std::string token;
 };

@@ -40,22 +40,22 @@ std::string normalize_uname_machine(const std::string& input) {
 }
 } // namespace
 
-class docker_machine::impl final {
+class DockerMachine::Impl final {
 public:
-    impl(const docker_container_id& id, info_t info) : m_id{id}, m_info{std::move(info)} {}
+    Impl(const DockerContainerId& id, Info info) : m_id{id}, m_info{std::move(info)} {}
 
-    ~impl() { std::ignore = terminate(); }
+    ~Impl() { std::ignore = terminate(); }
 
     const std::string& get_id() const { return m_id.value; }
 
-    std::expected<void, generic_error> terminate() { return m_docker.container_kill(m_id); }
+    std::expected<void, GenericError> terminate() { return m_docker.container_kill(m_id); }
 
-    std::expected<int, generic_error> shell_exec(const std::vector<std::string>& cmd,
-                                                 utility::spawn_options options) const {
+    std::expected<int, GenericError> shell_exec(const std::vector<std::string>& cmd,
+                                                utility::SpawnOptions options) const {
         return m_docker.container_exec(m_id, cmd, std::move(options));
     }
 
-    std::expected<utility::spawn_result, generic_error> shell_exec(const std::vector<std::string>& cmd) const {
+    std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) const {
         return m_docker.container_exec(m_id, cmd);
     }
 
@@ -74,45 +74,44 @@ public:
         return false;
     }
 
-    std::expected<void, generic_error> copy_file_into(const std::filesystem::path& local_path,
-                                                      const std::string& remote_path) {
+    std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
+                                                     const std::string& remote_path) {
         return m_docker.container_cp_into(m_id, local_path, remote_path);
     }
 
-    const machine::info_t& info() const { return m_info; }
+    const Machine::Info& info() const { return m_info; }
 
 private:
-    docker_container_id m_id;
-    machine::info_t m_info;
-    docker_engine_client m_docker;
+    DockerContainerId m_id;
+    Machine::Info m_info;
+    DockerEngineClient m_docker;
 };
 
-docker_machine::docker_machine(const docker_container_id& id, info_t info)
-        : m_impl{std::make_unique<impl>(id, std::move(info))} {}
+DockerMachine::DockerMachine(const DockerContainerId& id, Info info)
+        : m_impl{std::make_unique<Impl>(id, std::move(info))} {}
 
-docker_machine::~docker_machine() {}
+DockerMachine::~DockerMachine() {}
 
-const std::string& docker_machine::get_id() const { return m_impl->get_id(); }
+const std::string& DockerMachine::get_id() const { return m_impl->get_id(); }
 
-std::expected<void, generic_error> docker_machine::terminate() { return m_impl->terminate(); }
+std::expected<void, GenericError> DockerMachine::terminate() { return m_impl->terminate(); }
 
-std::expected<int, generic_error> docker_machine::shell_exec(const std::vector<std::string>& cmd,
-                                                             utility::spawn_options options) const {
+std::expected<int, GenericError> DockerMachine::shell_exec(const std::vector<std::string>& cmd,
+                                                           utility::SpawnOptions options) const {
     return m_impl->shell_exec(cmd, std::move(options));
 }
 
-std::expected<utility::spawn_result, generic_error>
-docker_machine::shell_exec(const std::vector<std::string>& cmd) const {
+std::expected<utility::SpawnResult, GenericError> DockerMachine::shell_exec(const std::vector<std::string>& cmd) const {
     return m_impl->shell_exec(cmd);
 }
 
-bool docker_machine::wait_until_ready(std::chrono::seconds timeout) { return m_impl->wait_until_ready(timeout); }
+bool DockerMachine::wait_until_ready(std::chrono::seconds timeout) { return m_impl->wait_until_ready(timeout); }
 
-std::expected<void, generic_error> docker_machine::copy_file_into(const std::filesystem::path& local_path,
-                                                                  const std::string& remote_path) {
+std::expected<void, GenericError> DockerMachine::copy_file_into(const std::filesystem::path& local_path,
+                                                                const std::string& remote_path) {
     return m_impl->copy_file_into(local_path, remote_path);
 }
 
-const machine::info_t& docker_machine::info() const { return m_impl->info(); }
+const Machine::Info& DockerMachine::info() const { return m_impl->info(); }
 
 } // namespace ls_gitea_runner

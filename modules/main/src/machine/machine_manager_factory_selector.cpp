@@ -3,12 +3,12 @@
 
 namespace ls_gitea_runner {
 
-std::expected<std::unique_ptr<machine_manager_factory>, generic_error>
-machine_manager_factory_selector::get_factory(const std::string& name) {
+std::expected<std::unique_ptr<MachineManagerFactory>, GenericError>
+MachineManagerFactorySelector::get_factory(const std::string& name) {
     if (name == "docker") {
-        return std::make_unique<docker_machine_manager_factory>();
+        return std::make_unique<DockerMachineManagerFactory>();
     }
-    return std::unexpected{generic_error{std::format("Invalid machine manager factory name: {}", name)}};
+    return std::unexpected{GenericError{std::format("Invalid machine manager factory name: {}", name)}};
 }
 
 } // namespace ls_gitea_runner

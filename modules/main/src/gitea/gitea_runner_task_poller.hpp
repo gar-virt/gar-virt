@@ -10,22 +10,21 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_runner_task_poller final {
+class GiteaRunnerTaskPoller final {
 public:
-    using run_callback_fn = std::function<void(::runner::v1::Task)>;
+    using RunCallbackFn = std::function<void(::runner::v1::Task)>;
 
-    gitea_runner_task_poller(const gitea_runner_service_client& client, const config::runner_config& config,
-                             run_callback_fn cb);
-    ~gitea_runner_task_poller();
+    GiteaRunnerTaskPoller(const GiteaRunnerServiceClient& client, const config::RunnerConfig& config, RunCallbackFn cb);
+    ~GiteaRunnerTaskPoller();
 
-    gitea_runner_task_poller(const gitea_runner_task_poller&) = delete;
-    gitea_runner_task_poller& operator=(const gitea_runner_task_poller&) = delete;
+    GiteaRunnerTaskPoller(const GiteaRunnerTaskPoller&) = delete;
+    GiteaRunnerTaskPoller& operator=(const GiteaRunnerTaskPoller&) = delete;
 
     void run();
 
 private:
-    class impl;
-    std::unique_ptr<impl> m_impl;
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace ls_gitea_runner::gitea

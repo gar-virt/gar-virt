@@ -10,7 +10,7 @@
 
 namespace ls_gitea_runner {
 
-std::expected<void, generic_error> runtime_state::save() {
+std::expected<void, GenericError> RuntimeState::save() {
     try {
         std::ostringstream oss{std::ios_base::binary};
         boost::json::object o = {
@@ -20,40 +20,40 @@ std::expected<void, generic_error> runtime_state::save() {
         oss << boost::json::serialize(o);
         std::ofstream ofs{m_file_path, std::ios_base::binary};
         if (!ofs.is_open()) {
-            return std::unexpected{generic_error{std::format("Unable to open file for writing: {}",
-                                                             utility::string_from_u8string(m_file_path.u8string()))}};
+            return std::unexpected{GenericError{std::format("Unable to open file for writing: {}",
+                                                            utility::string_from_u8string(m_file_path.u8string()))}};
         }
         ofs << oss.str();
         return {};
     } catch (const std::exception& ex) {
-        return std::unexpected{generic_error{std::format(
+        return std::unexpected{GenericError{std::format(
             "Failed to save state file \"{}\": {}", utility::string_from_u8string(m_file_path.u8string()), ex.what())}};
     }
 }
 
-std::expected<runtime_state, generic_error> runtime_state::load_file(const std::filesystem::path& file_path) {
+std::expected<RuntimeState, GenericError> RuntimeState::load_file(const std::filesystem::path& file_path) {
     try {
         std::ifstream is{file_path, std::ios_base::binary};
         if (!is.is_open()) {
-            return std::unexpected{generic_error{std::format("Unable to open file for reading: {}",
-                                                             utility::string_from_u8string(file_path.u8string()))}};
+            return std::unexpected{GenericError{std::format("Unable to open file for reading: {}",
+                                                            utility::string_from_u8string(file_path.u8string()))}};
         }
         const auto json{boost::json::parse(is).as_object()};
-        runtime_state result{file_path};
+        RuntimeState result{file_path};
         result.uuid = std::string{json.at("uuid").as_string()};
         result.token = std::string{json.at("token").as_string()};
         return result;
     } catch (const std::exception& ex) {
-        return std::unexpected{generic_error{std::format(
+        return std::unexpected{GenericError{std::format(
             "Failed to load state file \"{}\": {}", utility::string_from_u8string(file_path.u8string()), ex.what())}};
     }
 }
 
-std::expected<runtime_state, generic_error> runtime_state::create(const std::filesystem::path& file_path) {
-    runtime_state result{file_path};
+std::expected<RuntimeState, GenericError> RuntimeState::create(const std::filesystem::path& file_path) {
+    RuntimeState result{file_path};
     return result;
 }
 
-runtime_state::runtime_state(const std::filesystem::path& file_path) : m_file_path{file_path} {}
+RuntimeState::RuntimeState(const std::filesystem::path& file_path) : m_file_path{file_path} {}
 
 } // namespace ls_gitea_runner

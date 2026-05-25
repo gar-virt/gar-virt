@@ -10,18 +10,18 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_workflow_executor final {
+class GiteaWorkflowExecutor final {
 public:
-    gitea_workflow_executor(const gitea_runner_service_client& client, ::runner::v1::Task task, const wf_job& job,
-                            wf_env_vars job_env, const wf_run_contexts& wf_contexts, std::unique_ptr<machine> machine,
-                            const std::string& working_dir);
-    ~gitea_workflow_executor();
+    GiteaWorkflowExecutor(const GiteaRunnerServiceClient& client, ::runner::v1::Task task, const WfJob& job,
+                          wf_env_vars job_env, const WfRunContexts& wf_contexts, std::unique_ptr<Machine> machine,
+                          const std::string& working_dir);
+    ~GiteaWorkflowExecutor();
 
-    std::expected<void, generic_error> run();
+    std::expected<void, GenericError> run();
 
 private:
-    class impl;
-    std::unique_ptr<impl> m_impl;
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace ls_gitea_runner::gitea

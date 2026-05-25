@@ -10,15 +10,15 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_runner_task_processor final {
+class GiteaRunnerTaskProcessor final {
 public:
-    gitea_runner_task_processor(const gitea_runner_service_client& client, const config::runner_config& config);
-    ~gitea_runner_task_processor();
-    std::expected<void, generic_error> process(::runner::v1::Task task) noexcept;
+    GiteaRunnerTaskProcessor(const GiteaRunnerServiceClient& client, const config::RunnerConfig& config);
+    ~GiteaRunnerTaskProcessor();
+    std::expected<void, GenericError> process(::runner::v1::Task task) noexcept;
 
 private:
-    class impl;
-    std::unique_ptr<impl> m_impl;
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace ls_gitea_runner::gitea

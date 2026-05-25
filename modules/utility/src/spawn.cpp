@@ -11,15 +11,15 @@
 
 namespace ls_gitea_runner::utility {
 
-class fd_wrapper {
+class FdWrapper {
 public:
-    fd_wrapper(int fd) : m_value{fd} {}
-    ~fd_wrapper() { close(); }
-    fd_wrapper(const fd_wrapper&) = delete;
-    fd_wrapper& operator=(const fd_wrapper&) = delete;
-    fd_wrapper(fd_wrapper&& other) noexcept { *this = std::move(other); }
+    FdWrapper(int fd) : m_value{fd} {}
+    ~FdWrapper() { close(); }
+    FdWrapper(const FdWrapper&) = delete;
+    FdWrapper& operator=(const FdWrapper&) = delete;
+    FdWrapper(FdWrapper&& other) noexcept { *this = std::move(other); }
 
-    fd_wrapper& operator=(fd_wrapper&& other) noexcept {
+    FdWrapper& operator=(FdWrapper&& other) noexcept {
         if (this != &other) {
             m_value = std::exchange(other.m_value, 0);
         }
@@ -42,20 +42,20 @@ private:
     int m_value{};
 };
 
-struct pipefd_wrapper {
-    fd_wrapper readable;
-    fd_wrapper writable;
+struct PipefdWrapper {
+    FdWrapper readable;
+    FdWrapper writable;
 
-    static std::optional<pipefd_wrapper> pipe() {
+    static std::optional<PipefdWrapper> pipe() {
         std::array<int, 2> pipefd{};
         if (::pipe(pipefd.data()) == 0) {
-            return pipefd_wrapper{.readable = pipefd[0], .writable = pipefd[1]};
+            return PipefdWrapper{.readable = pipefd[0], .writable = pipefd[1]};
         }
         return std::nullopt;
     }
 };
 
-std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>& cmd, spawn_options options) {
+std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>& cmd, SpawnOptions options) {
     if (cmd.empty()) {
         return std::unexpected{std::runtime_error{"Cannot spawn empty command"}};
     }
@@ -74,11 +74,11 @@ std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>&
         return result;
     }()};
 #ifdef __linux__
-    auto pipe_to_child{pipefd_wrapper::pipe()};
+    auto pipe_to_child{PipefdWrapper::pipe()};
     if (!pipe_to_child) {
         return std::unexpected{std::runtime_error{"pipe() failed when spawning child process"}};
     }
-    auto pipe_from_child{pipefd_wrapper::pipe()};
+    auto pipe_from_child{PipefdWrapper::pipe()};
     if (!pipe_from_child) {
         return std::unexpected{std::runtime_error{"pipe() failed when spawning child process"}};
     }
@@ -136,9 +136,9 @@ std::expected<int, std::runtime_error> spawn_cmd(const std::vector<std::string>&
 #endif
 }
 
-std::expected<spawn_result, std::runtime_error> spawn_cmd(const std::vector<std::string>& cmd) {
-    spawn_result result;
-    spawn_options options{.stdout_reader = [&](const char* buffer, int length) {
+std::expected<SpawnResult, std::runtime_error> spawn_cmd(const std::vector<std::string>& cmd) {
+    SpawnResult result;
+    SpawnOptions options{.stdout_reader = [&](const char* buffer, int length) {
         result.output.append(buffer, static_cast<size_t>(length));
         return length;
     }};

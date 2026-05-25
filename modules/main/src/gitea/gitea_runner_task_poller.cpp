@@ -5,9 +5,9 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_runner_task_poller::impl final {
+class GiteaRunnerTaskPoller::Impl final {
 public:
-    impl(const gitea_runner_service_client& client, const config::runner_config& config, run_callback_fn cb)
+    Impl(const GiteaRunnerServiceClient& client, const config::RunnerConfig& config, RunCallbackFn cb)
             : m_client{client}, m_config{config}, m_cb{std::move(cb)} {}
 
     void run() {
@@ -25,14 +25,14 @@ public:
     }
 
 private:
-    std::expected<::runner::v1::FetchTaskResponse, generic_error> wait_for_new_task() noexcept {
+    std::expected<::runner::v1::FetchTaskResponse, GenericError> wait_for_new_task() noexcept {
         using namespace std::literals;
-        auto fetch_task_response{std::expected<::runner::v1::FetchTaskResponse, generic_error>{}};
+        auto fetch_task_response{std::expected<::runner::v1::FetchTaskResponse, GenericError>{}};
         while (true) {
             auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
             fetch_task_response = m_client.get().fetch_task(fetch_task_request);
             if (!fetch_task_response) {
-                return std::unexpected{generic_error{"Failed to fetch any new tasks"}};
+                return std::unexpected{GenericError{"Failed to fetch any new tasks"}};
             }
 
             if (!fetch_task_response->has_task()) {
@@ -45,17 +45,17 @@ private:
         return fetch_task_response;
     }
 
-    std::reference_wrapper<const gitea_runner_service_client> m_client;
-    std::reference_wrapper<const config::runner_config> m_config;
-    run_callback_fn m_cb;
+    std::reference_wrapper<const GiteaRunnerServiceClient> m_client;
+    std::reference_wrapper<const config::RunnerConfig> m_config;
+    RunCallbackFn m_cb;
 };
 
-gitea_runner_task_poller::gitea_runner_task_poller(const gitea_runner_service_client& client,
-                                                   const config::runner_config& config, run_callback_fn cb)
-        : m_impl{std::make_unique<impl>(client, config, std::move(cb))} {}
+GiteaRunnerTaskPoller::GiteaRunnerTaskPoller(const GiteaRunnerServiceClient& client, const config::RunnerConfig& config,
+                                             RunCallbackFn cb)
+        : m_impl{std::make_unique<Impl>(client, config, std::move(cb))} {}
 
-gitea_runner_task_poller::~gitea_runner_task_poller() {}
+GiteaRunnerTaskPoller::~GiteaRunnerTaskPoller() {}
 
-void gitea_runner_task_poller::run() { m_impl->run(); }
+void GiteaRunnerTaskPoller::run() { m_impl->run(); }
 
 } // namespace ls_gitea_runner::gitea

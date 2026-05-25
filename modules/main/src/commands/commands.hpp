@@ -5,8 +5,8 @@
 
 namespace ls_gitea_runner {
 
-int cmd_daemon(config::runner_config config, runtime_state state) noexcept;
-int cmd_register(config::runner_config config, runtime_state state) noexcept;
-int cmd_test(config::runner_config config, runtime_state state) noexcept;
+int cmd_daemon(config::RunnerConfig config, RuntimeState state) noexcept;
+int cmd_register(config::RunnerConfig config, RuntimeState state) noexcept;
+int cmd_test(config::RunnerConfig config, RuntimeState state) noexcept;
 
 } // namespace ls_gitea_runner

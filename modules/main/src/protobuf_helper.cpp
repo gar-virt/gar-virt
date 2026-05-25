@@ -25,7 +25,7 @@ boost::json::value protobuf_to_json(const ::google::protobuf::Value& from) {
     if (from.has_list_value()) {
         return protobuf_to_json(from.list_value());
     }
-    throw generic_error{"Can't map unknown protobuf value type to JSON"};
+    throw GenericError{"Can't map unknown protobuf value type to JSON"};
 }
 
 boost::json::value protobuf_to_json(const ::google::protobuf::Struct& from) {

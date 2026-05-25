@@ -25,10 +25,10 @@
 namespace ls_gitea_runner::gitea {
 namespace {
 
-struct step_execution_context {
-    const wf_step* step{};
+struct StepExecutionContext {
+    const WfStep* step{};
     ::runner::v1::StepState* state{};
-    wf_run_contexts wf_contexts;
+    WfRunContexts wf_contexts;
 
     bool is_ok() noexcept {
         using namespace ::runner::v1;
@@ -133,12 +133,12 @@ esac
     return script;
 }
 
-bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
-                          const std::string& working_dir, log_reporter& reporter,
+bool execute_shell_script(const WfStepRun& input, const wf_env_vars& env, std::unique_ptr<Machine>& machine,
+                          const std::string& working_dir, LogReporter& reporter,
                           std::function<std::int64_t(const char*, int)> stdout_reader) {
     // TODO: don't store scripts locally, even if only temporarily
     const auto script_str{input.script};
-    fs::temporary_file real_script_file;
+    fs::TemporaryFile real_script_file;
     {
         auto script_file{real_script_file.create_output_stream()};
         script_file->write(script_str.data(), script_str.size());
@@ -149,7 +149,7 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
     const auto remote_real_script_path_str{std::format("/tmp/script_{}.sh", utility::uuid())};
     const auto local_intermediate_script{
         generate_shell_execution_intermediate_script(shell_name, remote_real_script_path_str, working_dir, env)};
-    fs::temporary_file local_intermediate_script_file;
+    fs::TemporaryFile local_intermediate_script_file;
     {
         auto script_file{local_intermediate_script_file.create_output_stream()};
         script_file->write(local_intermediate_script.data(), local_intermediate_script.size());
@@ -157,7 +157,7 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
     const auto intermediate_script_path{local_intermediate_script_file.get_path()};
     const auto intermediate_script_path_str{utility::string_from_u8string(intermediate_script_path.u8string())};
     const auto remote_intermediate_script_path_str{std::format("/tmp/script_{}.sh", utility::uuid())};
-    utility::spawn_options spawn_options{.stdout_reader = std::move(stdout_reader)};
+    utility::SpawnOptions spawn_options{.stdout_reader = std::move(stdout_reader)};
     const auto exec_result{
         machine->copy_file_into(local_real_script_path, remote_real_script_path_str)
             .and_then(
@@ -205,15 +205,15 @@ bool execute_shell_script(const wf_step_run& input, const wf_env_vars& env, std:
 #endif
 }
 
-struct action_url_t {
+struct ActionUrl {
     std::string url;
     std::string version;
     bool is_local{};
 
-    static action_url_t parse(const std::string_view input,
-                              const std::string_view default_base_url = "https://github.com") {
+    static ActionUrl parse(const std::string_view input,
+                           const std::string_view default_base_url = "https://github.com") {
         if (input.starts_with("./")) {
-            return action_url_t{.url = std::string{input}, .is_local = true};
+            return ActionUrl{.url = std::string{input}, .is_local = true};
         }
         auto parts{utility::string_split(input, '@')};
         std::string full_url;
@@ -224,14 +224,14 @@ struct action_url_t {
             full_url += '/';
         }
         full_url += parts.at(0);
-        return action_url_t{.url = std::move(full_url),
-                            .version = parts.size() > 1 ? std::move(parts.at(1)) : std::string{},
-                            .is_local = false};
+        return ActionUrl{.url = std::move(full_url),
+                         .version = parts.size() > 1 ? std::move(parts.at(1)) : std::string{},
+                         .is_local = false};
     }
 };
 
-bool execute_js_action(const wf_env_vars& env, std::unique_ptr<machine>& machine, const std::string& action_dir,
-                       log_reporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
+bool execute_js_action(const wf_env_vars& env, std::unique_ptr<Machine>& machine, const std::string& action_dir,
+                       LogReporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
     auto env_copy{std::make_shared<wf_env_vars::element_type>(*env)};
     // Token should be set automatically
@@ -246,7 +246,7 @@ node dist/index.js
 )script",
                                   escape_shell_script_string(action_dir), env_script)};
     std::int64_t amount_copied{};
-    utility::spawn_options spawn_options{
+    utility::SpawnOptions spawn_options{
         .stdin_writer = [&](char* buffer, int buffer_length) -> std::int64_t {
             if (buffer_length < 1 || amount_copied >= script.size()) {
                 return 0;
@@ -263,8 +263,8 @@ node dist/index.js
     return exec_result && *exec_result == 0;
 }
 
-bool fetch_action(const action_url_t& action_url, std::unique_ptr<machine>& machine, const std::string& action_dir,
-                  log_reporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
+bool fetch_action(const ActionUrl& action_url, std::unique_ptr<Machine>& machine, const std::string& action_dir,
+                  LogReporter& reporter, std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
     const auto script{std::format(R"script(
 set -e
@@ -281,7 +281,7 @@ git switch --detach "${{action_version}}"
                                   escape_shell_script_string(action_dir), escape_shell_script_string(action_url.url),
                                   escape_shell_script_string(action_url.version))};
     std::int64_t amount_copied{};
-    utility::spawn_options spawn_options{
+    utility::SpawnOptions spawn_options{
         .stdin_writer = [&](char* buffer, int buffer_length) -> std::int64_t {
             if (buffer_length < 1 || amount_copied >= script.size()) {
                 return 0;
@@ -298,11 +298,11 @@ git switch --detach "${{action_version}}"
     return exec_result && *exec_result == 0;
 }
 
-bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::unique_ptr<machine>& machine,
-                    const std::string& working_dir, log_reporter& reporter,
+bool execute_action(const WfStepUses& input, const wf_env_vars& env, std::unique_ptr<Machine>& machine,
+                    const std::string& working_dir, LogReporter& reporter,
                     std::function<std::int64_t(const char*, int)> stdout_reader) {
     using namespace std::literals;
-    const auto action_url{action_url_t::parse(input.url)};
+    const auto action_url{ActionUrl::parse(input.url)};
     std::string action_dir;
     const std::string dir_separator{machine->info().os == "Windows" ? "\\" : "/"};
     if (!action_url.is_local) {
@@ -318,7 +318,7 @@ bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::uniq
     return execute_js_action(env, machine, action_dir, reporter, std::move(stdout_reader));
 }
 
-::runner::v1::Result task_result_from_step_states(const std::vector<step_execution_context>& steps) noexcept {
+::runner::v1::Result task_result_from_step_states(const std::vector<StepExecutionContext>& steps) noexcept {
     using namespace ::runner::v1;
     for (const auto& step : steps) {
         switch (step.state->result()) {
@@ -334,9 +334,9 @@ bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::uniq
     return RESULT_SUCCESS;
 }
 
-::runner::v1::Result execute_job_step(step_execution_context& ctx, const wf_env_vars& env,
-                                      std::unique_ptr<machine>& machine, const std::string& working_dir,
-                                      log_reporter& reporter) {
+::runner::v1::Result execute_job_step(StepExecutionContext& ctx, const wf_env_vars& env,
+                                      std::unique_ptr<Machine>& machine, const std::string& working_dir,
+                                      LogReporter& reporter) {
     std::string buffer;
     std::function<std::int64_t(const char*, int)> stdout_reader{[&](const char* data, int length) {
         buffer.append(data, length);
@@ -365,18 +365,18 @@ bool execute_action(const wf_step_uses& input, const wf_env_vars& env, std::uniq
 
 } // namespace
 
-class gitea_workflow_executor::impl final {
+class GiteaWorkflowExecutor::Impl final {
 public:
-    impl(const gitea_runner_service_client& client, ::runner::v1::Task task, const wf_job& job, wf_env_vars job_env,
-         const wf_run_contexts& wf_contexts, std::unique_ptr<machine> machine, const std::string& working_dir)
+    Impl(const GiteaRunnerServiceClient& client, ::runner::v1::Task task, const WfJob& job, wf_env_vars job_env,
+         const WfRunContexts& wf_contexts, std::unique_ptr<Machine> machine, const std::string& working_dir)
             : m_client{client}, m_task{std::move(task)}, m_job{job}, m_job_env{std::move(job_env)},
               m_wf_contexts{wf_contexts}, m_machine{std::move(machine)}, m_working_dir{working_dir} {}
 
-    std::expected<void, generic_error> run() {
+    std::expected<void, GenericError> run() {
         const auto create_update_task_failure_error{
-            [&] { return std::unexpected{generic_error{std::format("Failed to update task #{}", m_task.id())}}; }};
+            [&] { return std::unexpected{GenericError{std::format("Failed to update task #{}", m_task.id())}}; }};
 
-        gitea_log_reporter reporter{m_client.get(), m_task};
+        GiteaLogReporter reporter{m_client.get(), m_task};
         reporter.add(std::format("Starting task #{}", m_task.id()));
 
         // Initial task state
@@ -392,7 +392,7 @@ public:
             }
         }
 
-        std::vector<step_execution_context> step_executions;
+        std::vector<StepExecutionContext> step_executions;
 
         // Set initial step state
         {
@@ -425,7 +425,7 @@ public:
                 auto* step{step_execution.step};
                 auto* step_state{step_execution.state};
                 const auto step_env{wf_load_and_derive_env_from_yaml(step->yaml, m_job_env, m_wf_contexts.get())};
-                scripting::expression_evaluator evaluator{step_execution.wf_contexts.to_list()};
+                scripting::ExpressionEvaluator evaluator{step_execution.wf_contexts.to_list()};
                 // Started
                 {
                     const auto ts{protobuf::current_timestamp()};
@@ -512,24 +512,23 @@ public:
     }
 
 private:
-    std::reference_wrapper<const gitea_runner_service_client> m_client;
+    std::reference_wrapper<const GiteaRunnerServiceClient> m_client;
     ::runner::v1::Task m_task;
-    std::reference_wrapper<const wf_job> m_job;
+    std::reference_wrapper<const WfJob> m_job;
     wf_env_vars m_job_env;
-    std::reference_wrapper<const wf_run_contexts> m_wf_contexts;
-    std::unique_ptr<machine> m_machine;
+    std::reference_wrapper<const WfRunContexts> m_wf_contexts;
+    std::unique_ptr<Machine> m_machine;
     std::string m_working_dir;
 };
 
-gitea_workflow_executor::gitea_workflow_executor(const gitea_runner_service_client& client, ::runner::v1::Task task,
-                                                 const wf_job& job, wf_env_vars job_env,
-                                                 const wf_run_contexts& wf_contexts, std::unique_ptr<machine> machine,
-                                                 const std::string& working_dir)
-        : m_impl{std::make_unique<impl>(client, std::move(task), job, std::move(job_env), wf_contexts,
+GiteaWorkflowExecutor::GiteaWorkflowExecutor(const GiteaRunnerServiceClient& client, ::runner::v1::Task task,
+                                             const WfJob& job, wf_env_vars job_env, const WfRunContexts& wf_contexts,
+                                             std::unique_ptr<Machine> machine, const std::string& working_dir)
+        : m_impl{std::make_unique<Impl>(client, std::move(task), job, std::move(job_env), wf_contexts,
                                         std::move(machine), working_dir)} {}
 
-gitea_workflow_executor::~gitea_workflow_executor() {}
+GiteaWorkflowExecutor::~GiteaWorkflowExecutor() {}
 
-std::expected<void, generic_error> gitea_workflow_executor::run() { return m_impl->run(); }
+std::expected<void, GenericError> GiteaWorkflowExecutor::run() { return m_impl->run(); }
 
 } // namespace ls_gitea_runner::gitea

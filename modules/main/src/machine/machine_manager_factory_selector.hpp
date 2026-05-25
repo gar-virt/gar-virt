@@ -7,9 +7,9 @@
 
 namespace ls_gitea_runner {
 
-class machine_manager_factory_selector final {
+class MachineManagerFactorySelector final {
 public:
-    static std::expected<std::unique_ptr<machine_manager_factory>, generic_error> get_factory(const std::string& name);
+    static std::expected<std::unique_ptr<MachineManagerFactory>, GenericError> get_factory(const std::string& name);
 };
 
 } // namespace ls_gitea_runner

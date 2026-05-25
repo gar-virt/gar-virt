@@ -10,22 +10,22 @@
 
 namespace ls_gitea_runner::scripting {
 
-class expression_evaluator final {
+class ExpressionEvaluator final {
 public:
     using value_t = std::variant<std::string, bool, double, std::nullptr_t>;
 
-    expression_evaluator(const std::vector<std::pair<std::string, std::string>>& global_objects);
-    ~expression_evaluator();
-    std::expected<value_t, generic_error> eval(const std::string& expr);
-    std::expected<bool, generic_error> eval_true(const std::string& expr);
+    ExpressionEvaluator(const std::vector<std::pair<std::string, std::string>>& global_objects);
+    ~ExpressionEvaluator();
+    std::expected<value_t, GenericError> eval(const std::string& expr);
+    std::expected<bool, GenericError> eval_true(const std::string& expr);
 
 private:
-    class impl;
-    std::unique_ptr<impl> m_impl;
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
-struct apply_string_substitutions_visitor {
-    apply_string_substitutions_visitor(std::string& result);
+struct ApplyStringSubstitutionsVisitor {
+    ApplyStringSubstitutionsVisitor(std::string& result);
 
     std::string operator()(std::nullptr_t);
     std::string operator()(bool v);

@@ -15,26 +15,26 @@
 
 namespace ls_gitea_runner {
 
-struct http_response {
+struct HttpResponse {
     int status{};
     std::vector<std::byte> body;
 };
 
-class http_header_source {
+class HttpHeaderSource {
 public:
     virtual void set_headers(std::function<auto(const std::string& name, const std::string& value)->void> cb) = 0;
 };
 
-class http_client {
+class HttpClient {
 public:
-    http_client(const std::string& base_url, std::shared_ptr<http_header_source> header_source = {});
+    HttpClient(const std::string& base_url, std::shared_ptr<HttpHeaderSource> header_source = {});
 
-    std::expected<http_response, generic_error> post(const std::string& path,
-                                                     const std::vector<std::byte>& payload) const noexcept;
+    std::expected<HttpResponse, GenericError> post(const std::string& path,
+                                                   const std::vector<std::byte>& payload) const noexcept;
 
 private:
     std::string m_base_url;
-    std::shared_ptr<http_header_source> m_header_source;
+    std::shared_ptr<HttpHeaderSource> m_header_source;
 };
 
 } // namespace ls_gitea_runner

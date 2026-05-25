@@ -47,7 +47,7 @@ int main(int argc, char* const argv[]) {
 
         po::notify(vm);
 
-        const program_options options{
+        const ProgramOptions options{
             .config_file = std::filesystem::u8path(vm.at("config-file").as<std::string>()),
             .state_file = std::filesystem::u8path(vm.at("state-file").as<std::string>()),
         };
@@ -58,11 +58,11 @@ int main(int argc, char* const argv[]) {
         }
 
         const auto& cmd{vm.at("command").as<std::string>()};
-        auto state{runtime_state::load_file(options.state_file)};
+        auto state{RuntimeState::load_file(options.state_file)};
 
         if (cmd == "register"sv) {
             if (!state) {
-                state = runtime_state::create(options.state_file);
+                state = RuntimeState::create(options.state_file);
                 if (!state) {
                     throw config.error();
                 }

@@ -30,7 +30,7 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
 }
 } // namespace
 
-http_client::http_client(const std::string& base_url, std::shared_ptr<http_header_source> header_source)
+HttpClient::HttpClient(const std::string& base_url, std::shared_ptr<HttpHeaderSource> header_source)
         : m_base_url{base_url}, m_header_source{std::move(header_source)} {
     if (!m_base_url.ends_with('/')) {
         m_base_url += '/';
@@ -38,8 +38,8 @@ http_client::http_client(const std::string& base_url, std::shared_ptr<http_heade
     m_base_url += "api/actions";
 }
 
-std::expected<http_response, generic_error> http_client::post(const std::string& path,
-                                                              const std::vector<std::byte>& payload) const noexcept {
+std::expected<HttpResponse, GenericError> HttpClient::post(const std::string& path,
+                                                           const std::vector<std::byte>& payload) const noexcept {
     const auto url{m_base_url + path};
 
     std::string response_headers;
@@ -84,11 +84,11 @@ std::expected<http_response, generic_error> http_client::post(const std::string&
 
     if (!curl || curl_code != CURLE_OK) {
         return std::unexpected{
-            generic_error{std::format("HTTP request to \"{}\" failed (cURL error code: {}; HTTP status code: {})", url,
-                                      static_cast<long>(curl_code), response_code)}};
+            GenericError{std::format("HTTP request to \"{}\" failed (cURL error code: {}; HTTP status code: {})", url,
+                                     static_cast<long>(curl_code), response_code)}};
     }
 
-    return http_response{.body = response_body};
+    return HttpResponse{.body = response_body};
 }
 
 } // namespace ls_gitea_runner

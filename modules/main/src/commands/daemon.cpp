@@ -17,17 +17,16 @@
 
 namespace ls_gitea_runner {
 
-int cmd_daemon(config::runner_config config, runtime_state state) noexcept {
-    gitea::gitea_runner_service_client client{config.instance_url};
-    client.set_credentials(gitea::gitea_runner_credentials{.uuid = state.uuid, .token = state.token});
-    gitea::gitea_runner_task_processor processor{client, config};
-    gitea::gitea_runner_task_poller poller{client, config, [&](auto task) {
-                                               const auto id{task.id()};
-                                               if (auto res{processor.process(std::move(task))}; !res) {
-                                                   std::println(std::cerr, "Task #{} failed: {}", id,
-                                                                res.error().what());
-                                               }
-                                           }};
+int cmd_daemon(config::RunnerConfig config, RuntimeState state) noexcept {
+    gitea::GiteaRunnerServiceClient client{config.instance_url};
+    client.set_credentials(gitea::GiteaRunnerCredentials{.uuid = state.uuid, .token = state.token});
+    gitea::GiteaRunnerTaskProcessor processor{client, config};
+    gitea::GiteaRunnerTaskPoller poller{client, config, [&](auto task) {
+                                            const auto id{task.id()};
+                                            if (auto res{processor.process(std::move(task))}; !res) {
+                                                std::println(std::cerr, "Task #{} failed: {}", id, res.error().what());
+                                            }
+                                        }};
 
     auto declare_request{::runner::v1::DeclareRequest{}};
     declare_request.set_version(std::string{runner_version});

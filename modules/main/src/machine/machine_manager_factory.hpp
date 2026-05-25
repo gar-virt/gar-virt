@@ -6,10 +6,10 @@
 
 namespace ls_gitea_runner {
 
-class machine_manager_factory {
+class MachineManagerFactory {
 public:
-    virtual ~machine_manager_factory() = default;
-    virtual std::unique_ptr<machine_manager> create() = 0;
+    virtual ~MachineManagerFactory() = default;
+    virtual std::unique_ptr<MachineManager> create() = 0;
 };
 
 } // namespace ls_gitea_runner

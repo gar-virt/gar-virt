@@ -5,9 +5,9 @@
 namespace ls_gitea_runner::utility {
 
 template <typename Char, typename Traits = std::char_traits<Char>>
-class memstreambuf : public std::basic_streambuf<Char, Traits> {
+class MemoryStreambuf : public std::basic_streambuf<Char, Traits> {
 public:
-    memstreambuf(Char* start, Char* end) { this->setg(start, start, end); }
+    MemoryStreambuf(Char* start, Char* end) { this->setg(start, start, end); }
 
     std::streambuf::pos_type seekoff(std::streambuf::off_type offset, std::ios_base::seekdir dir,
                                      std::ios_base::openmode mode) override {

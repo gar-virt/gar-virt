@@ -4,7 +4,7 @@
 
 namespace ls_gitea_runner {
 
-struct program_options {
+struct ProgramOptions {
     std::filesystem::path config_file;
     std::filesystem::path state_file;
 };

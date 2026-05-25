@@ -12,40 +12,40 @@
 
 namespace ls_gitea_runner {
 
-class docker_engine_client final {
+class DockerEngineClient final {
 public:
-    docker_engine_client();
-    ~docker_engine_client();
+    DockerEngineClient();
+    ~DockerEngineClient();
 
-    docker_engine_client(const docker_engine_client&) = delete;
-    docker_engine_client& operator=(const docker_engine_client&) = delete;
-    docker_engine_client(docker_engine_client&&) = default;
-    docker_engine_client& operator=(docker_engine_client&&) = default;
+    DockerEngineClient(const DockerEngineClient&) = delete;
+    DockerEngineClient& operator=(const DockerEngineClient&) = delete;
+    DockerEngineClient(DockerEngineClient&&) = default;
+    DockerEngineClient& operator=(DockerEngineClient&&) = default;
 
-    std::expected<docker_container_id, generic_error>
-    container_create(const std::string& name, const std::string& image, const std::vector<std::string>& cmd) const;
+    std::expected<DockerContainerId, GenericError> container_create(const std::string& name, const std::string& image,
+                                                                    const std::vector<std::string>& cmd) const;
 
-    std::expected<int, generic_error> container_exec(const docker_container_id& id, const std::vector<std::string>& cmd,
-                                                     utility::spawn_options options) const;
+    std::expected<int, GenericError> container_exec(const DockerContainerId& id, const std::vector<std::string>& cmd,
+                                                    utility::SpawnOptions options) const;
 
-    std::expected<utility::spawn_result, generic_error> container_exec(const docker_container_id& id,
-                                                                       const std::vector<std::string>& cmd) const;
+    std::expected<utility::SpawnResult, GenericError> container_exec(const DockerContainerId& id,
+                                                                     const std::vector<std::string>& cmd) const;
 
-    std::expected<void, generic_error> container_start(const docker_container_id& id) const;
-    std::expected<void, generic_error> container_kill(const docker_container_id& id) const;
+    std::expected<void, GenericError> container_start(const DockerContainerId& id) const;
+    std::expected<void, GenericError> container_kill(const DockerContainerId& id) const;
 
-    std::expected<int, generic_error> container_run(const std::string& name, const std::string& image,
-                                                    const std::vector<std::string>& cmd,
-                                                    utility::spawn_options options) const;
+    std::expected<int, GenericError> container_run(const std::string& name, const std::string& image,
+                                                   const std::vector<std::string>& cmd,
+                                                   utility::SpawnOptions options) const;
 
-    std::expected<utility::spawn_result, generic_error> container_run(const std::string& name, const std::string& image,
-                                                                      const std::vector<std::string>& cmd) const;
+    std::expected<utility::SpawnResult, GenericError> container_run(const std::string& name, const std::string& image,
+                                                                    const std::vector<std::string>& cmd) const;
 
-    std::expected<bool, generic_error> container_is_running(const docker_container_id& id) const;
+    std::expected<bool, GenericError> container_is_running(const DockerContainerId& id) const;
 
-    std::expected<void, generic_error> container_cp_into(const docker_container_id& id,
-                                                         const std::filesystem::path& local_path,
-                                                         const std::string& remote_path) const;
+    std::expected<void, GenericError> container_cp_into(const DockerContainerId& id,
+                                                        const std::filesystem::path& local_path,
+                                                        const std::string& remote_path) const;
 };
 
 } // namespace ls_gitea_runner

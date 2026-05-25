@@ -66,11 +66,11 @@ void register_startsWith(js_State* jss) {
 
 } // namespace builtin_fn
 
-class expression_evaluator::impl final {
+class ExpressionEvaluator::Impl final {
 public:
     using value_t = std::variant<std::string, bool, double, std::nullptr_t>;
 
-    impl(const std::vector<std::pair<std::string, std::string>>& global_objects)
+    Impl(const std::vector<std::pair<std::string, std::string>>& global_objects)
             : m_jss{js_newstate(nullptr, nullptr, JS_STRICT)} {
         js_setreport(
             m_jss,
@@ -81,11 +81,11 @@ public:
         add_global_objects(global_objects);
     }
 
-    ~impl() { js_freestate(m_jss); }
+    ~Impl() { js_freestate(m_jss); }
 
-    std::expected<value_t, generic_error> eval(const std::string& expr) {
+    std::expected<value_t, GenericError> eval(const std::string& expr) {
         if (js_ploadstring(m_jss, "[script]", expr.c_str())) {
-            return std::unexpected{generic_error{std::format("Failed to load expression <{}>", expr)}};
+            return std::unexpected{GenericError{std::format("Failed to load expression <{}>", expr)}};
         }
 
         // Push the "this" value
@@ -94,10 +94,10 @@ public:
         if (js_pcall(m_jss, 0)) {
             // Pop the "this" value?
             js_pop(m_jss, 1);
-            return std::unexpected{generic_error{std::format("Evaluation of expression <{}> failed", expr)}};
+            return std::unexpected{GenericError{std::format("Evaluation of expression <{}> failed", expr)}};
         }
 
-        std::expected<value_t, generic_error> eval_result;
+        std::expected<value_t, GenericError> eval_result;
 
         if (js_isboolean(m_jss, -1)) {
             eval_result = js_toboolean(m_jss, -1) != 0;
@@ -109,7 +109,7 @@ public:
             eval_result = nullptr;
         } else {
             return std::unexpected{
-                generic_error{std::format("Evaluation of expression <{}> resulted in unsupported type", expr)}};
+                GenericError{std::format("Evaluation of expression <{}> resulted in unsupported type", expr)}};
         }
 
         // TODO: object, array, NaN?
@@ -119,7 +119,7 @@ public:
         return eval_result;
     }
 
-    std::expected<bool, generic_error> eval_true(const std::string& expr) {
+    std::expected<bool, GenericError> eval_true(const std::string& expr) {
         const auto expr_{std::format("!!({})", expr)};
         return eval(expr_).transform([](auto res) {
             auto bool_res{std::get<bool>(res)};
@@ -140,35 +140,35 @@ private:
     js_State* m_jss{};
 };
 
-expression_evaluator::expression_evaluator(const std::vector<std::pair<std::string, std::string>>& global_objects)
-        : m_impl{std::make_unique<impl>(global_objects)} {}
+ExpressionEvaluator::ExpressionEvaluator(const std::vector<std::pair<std::string, std::string>>& global_objects)
+        : m_impl{std::make_unique<Impl>(global_objects)} {}
 
-expression_evaluator::~expression_evaluator() {}
+ExpressionEvaluator::~ExpressionEvaluator() {}
 
-std::expected<expression_evaluator::value_t, generic_error> expression_evaluator::eval(const std::string& expr) {
+std::expected<ExpressionEvaluator::value_t, GenericError> ExpressionEvaluator::eval(const std::string& expr) {
     return m_impl->eval(expr);
 }
 
-std::expected<bool, generic_error> expression_evaluator::eval_true(const std::string& expr) {
+std::expected<bool, GenericError> ExpressionEvaluator::eval_true(const std::string& expr) {
     return m_impl->eval_true(expr);
 }
 
-apply_string_substitutions_visitor::apply_string_substitutions_visitor(std::string& result) : m_result{result} {}
+ApplyStringSubstitutionsVisitor::ApplyStringSubstitutionsVisitor(std::string& result) : m_result{result} {}
 
-std::string apply_string_substitutions_visitor::operator()(std::nullptr_t) { return m_result = "null"; }
-std::string apply_string_substitutions_visitor::operator()(bool v) { return m_result = v ? "true" : "false"; }
-std::string apply_string_substitutions_visitor::operator()(double v) { return m_result = std::format("{}", v); }
-std::string apply_string_substitutions_visitor::operator()(const std::string& v) { return m_result = v; }
+std::string ApplyStringSubstitutionsVisitor::operator()(std::nullptr_t) { return m_result = "null"; }
+std::string ApplyStringSubstitutionsVisitor::operator()(bool v) { return m_result = v ? "true" : "false"; }
+std::string ApplyStringSubstitutionsVisitor::operator()(double v) { return m_result = std::format("{}", v); }
+std::string ApplyStringSubstitutionsVisitor::operator()(const std::string& v) { return m_result = v; }
 
 std::string apply_string_substitutions(std::string script_str,
                                        const std::vector<std::pair<std::string, std::string>>& contexts) {
     static const std::regex pattern{R"re(\$\{\{\s*(.*?)\s*}})re"};
     script_str = utility::regex_replace_callable(script_str, pattern, [&](const std::smatch& m) -> std::string {
-        scripting::expression_evaluator expr_eval{contexts};
+        scripting::ExpressionEvaluator expr_eval{contexts};
         const auto& expr{m[1].str()};
         if (auto eval_result{expr_eval.eval(expr)}) {
             std::string result_value;
-            std::visit(apply_string_substitutions_visitor{result_value}, *eval_result);
+            std::visit(ApplyStringSubstitutionsVisitor{result_value}, *eval_result);
             return result_value;
         }
         // TODO: report error

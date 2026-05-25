@@ -12,14 +12,14 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_log_reporter final : public log_reporter {
-    struct entry_t {
+class GiteaLogReporter final : public LogReporter {
+    struct Entry {
         google::protobuf::Timestamp timestamp;
         std::string content;
     };
 
 public:
-    gitea_log_reporter(const gitea_runner_service_client& client, const ::runner::v1::Task& task);
+    GiteaLogReporter(const GiteaRunnerServiceClient& client, const ::runner::v1::Task& task);
     void add(std::string message) override;
     void flush() override;
     void close();
@@ -28,11 +28,11 @@ public:
 private:
     bool flush_internal();
 
-    std::reference_wrapper<const gitea_runner_service_client> m_client;
+    std::reference_wrapper<const GiteaRunnerServiceClient> m_client;
     std::int64_t m_task_id{};
     std::int64_t m_bulk_index{};
     std::int64_t m_head{};
-    std::vector<entry_t> m_entries;
+    std::vector<Entry> m_entries;
     bool m_done{};
     mutable std::mutex m_mutex;
 };

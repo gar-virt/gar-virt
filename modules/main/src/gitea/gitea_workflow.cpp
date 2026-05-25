@@ -18,7 +18,7 @@
 
 namespace ls_gitea_runner::gitea {
 
-std::vector<std::pair<std::string, std::string>> wf_run_contexts::to_list() const {
+std::vector<std::pair<std::string, std::string>> WfRunContexts::to_list() const {
     std::vector<std::pair<std::string, std::string>> result;
     result.emplace_back("gitea", main);
     result.emplace_back("github", "gitea");
@@ -29,13 +29,13 @@ std::vector<std::pair<std::string, std::string>> wf_run_contexts::to_list() cons
     return result;
 }
 
-std::vector<wf_step> wf_load_steps(const YAML::Node& yaml_steps, const wf_run_contexts& contexts) {
+std::vector<WfStep> wf_load_steps(const YAML::Node& yaml_steps, const WfRunContexts& contexts) {
     const auto sub{scripting::apply_string_substitutions};
     const auto& contexts_list{contexts.to_list()};
-    std::vector<wf_step> steps;
+    std::vector<WfStep> steps;
     for (auto& yaml_step : yaml_steps) {
         steps.push_back([&] {
-            wf_step s;
+            WfStep s;
             if (auto& condition{yaml_step["if"]}) {
                 s.condition = sub(condition.as<std::string>(), contexts_list);
             }
@@ -48,7 +48,7 @@ std::vector<wf_step> wf_load_steps(const YAML::Node& yaml_steps, const wf_run_co
                                       : std::nullopt};
             if (auto& run{yaml_step["run"]}) {
                 auto& yaml_shell{yaml_step["shell"]};
-                s.run = std::make_optional(wf_step_run{
+                s.run = std::make_optional(WfStepRun{
                     .shell = yaml_shell ? std::make_optional(sub(yaml_shell.as<std::string>(), contexts_list))
                                         : std::nullopt,
                     .script = sub(run.as<std::string>(), contexts_list),
@@ -57,10 +57,10 @@ std::vector<wf_step> wf_load_steps(const YAML::Node& yaml_steps, const wf_run_co
             }
             // Does "uses" also use working directory?
             if (auto& uses{yaml_step["uses"]}) {
-                s.uses = std::make_optional(wf_step_uses{.url = sub(uses.as<std::string>(), contexts_list)});
+                s.uses = std::make_optional(WfStepUses{.url = sub(uses.as<std::string>(), contexts_list)});
             }
             if (!s.run && !s.uses) {
-                throw generic_error{"Missing run/uses in workflow step"};
+                throw GenericError{"Missing run/uses in workflow step"};
             }
             s.yaml = yaml_step.as<YAML::Node>();
             return s;
@@ -69,52 +69,52 @@ std::vector<wf_step> wf_load_steps(const YAML::Node& yaml_steps, const wf_run_co
     return steps;
 }
 
-std::expected<YAML::Node, generic_error> wf_load_yaml(const std::string& yaml_str) noexcept {
+std::expected<YAML::Node, GenericError> wf_load_yaml(const std::string& yaml_str) noexcept {
     try {
         return YAML::Load(yaml_str);
     } catch (const std::exception&) {
-        return std::unexpected{generic_error{"Failed to parse workflow YAML"}};
+        return std::unexpected{GenericError{"Failed to parse workflow YAML"}};
     }
 }
 
-std::expected<YAML::Node, generic_error> wf_find_job_with_name_in_yaml(const YAML::Node& yaml,
-                                                                       const std::string& name) noexcept {
+std::expected<YAML::Node, GenericError> wf_find_job_with_name_in_yaml(const YAML::Node& yaml,
+                                                                      const std::string& name) noexcept {
     try {
         const auto& yaml_jobs{yaml["jobs"]};
         if (!yaml_jobs) {
-            return std::unexpected{generic_error{"Missing jobs in workflow YAML"}};
+            return std::unexpected{GenericError{"Missing jobs in workflow YAML"}};
         }
         const auto& yaml_job{yaml_jobs[name]};
         if (!yaml_job) {
-            return std::unexpected{generic_error{std::format("Missing job named \"{}\" in workflow YAML", name)}};
+            return std::unexpected{GenericError{std::format("Missing job named \"{}\" in workflow YAML", name)}};
         }
         return yaml_job;
     } catch (const std::exception& ex) {
         return std::unexpected{
-            generic_error{std::format("Error while looking for job in workflow YAML: {}", ex.what())}};
+            GenericError{std::format("Error while looking for job in workflow YAML: {}", ex.what())}};
     }
 }
 
-std::expected<wf_job, generic_error> wf_load_job_with_name(const YAML::Node& yaml, const std::string& name,
-                                                           const wf_run_contexts& contexts) noexcept {
+std::expected<WfJob, GenericError> wf_load_job_with_name(const YAML::Node& yaml, const std::string& name,
+                                                         const WfRunContexts& contexts) noexcept {
     try {
         const auto& yaml_job{wf_find_job_with_name_in_yaml(yaml, name)};
         if (!yaml_job) {
-            return std::unexpected{generic_error{std::format("Couldn't find job named \"{}\" in workflow YAML", name)}};
+            return std::unexpected{GenericError{std::format("Couldn't find job named \"{}\" in workflow YAML", name)}};
         }
         const auto& yaml_steps{(*yaml_job)["steps"]};
-        wf_job job{.steps = wf_load_steps(yaml_steps, contexts)};
+        WfJob job{.steps = wf_load_steps(yaml_steps, contexts)};
         return job;
     } catch (const std::exception& ex) {
         return std::unexpected{
-            generic_error{std::format("Error while loading job named \"{}\" in workflow YAML: {}", name, ex.what())}};
+            GenericError{std::format("Error while loading job named \"{}\" in workflow YAML: {}", name, ex.what())}};
     }
 }
 
-std::expected<std::string, generic_error> wf_get_label_from_job_yaml(const YAML::Node& yaml) noexcept {
+std::expected<std::string, GenericError> wf_get_label_from_job_yaml(const YAML::Node& yaml) noexcept {
     const auto& runs_on{yaml["runs-on"]};
     if (!runs_on) {
-        return std::unexpected{generic_error{"Couldn't find runs-on key in YAML workflow job"}};
+        return std::unexpected{GenericError{"Couldn't find runs-on key in YAML workflow job"}};
     }
     return runs_on.as<std::string>();
 }
@@ -150,7 +150,7 @@ std::string wf_load_matrix_context_from_job_yaml(const YAML::Node& yaml) {
     return boost::json::serialize(json);
 }
 
-std::string wf_create_runner_context(const std::string& name, const config::runner_environment_config& config) {
+std::string wf_create_runner_context(const std::string& name, const config::RunnerEnvironmentConfig& config) {
     // TODO: tool_cache, debug, environment
     boost::json::object j = {
         {"name", name},
@@ -161,7 +161,7 @@ std::string wf_create_runner_context(const std::string& name, const config::runn
     return boost::json::serialize(j);
 }
 
-wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const wf_run_contexts& contexts) {
+wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars env, const WfRunContexts& contexts) {
     if (!env) {
         env = std::make_shared<wf_env_vars::element_type>();
     }
@@ -187,7 +187,7 @@ wf_env_vars wf_load_and_derive_env_from_yaml(const YAML::Node& yaml, wf_env_vars
     return env_copy;
 }
 
-std::expected<wf_env_vars, generic_error> wf_create_initial_env(const wf_run_contexts& contexts) {
+std::expected<wf_env_vars, GenericError> wf_create_initial_env(const WfRunContexts& contexts) {
     try {
         const auto main_ctx{boost::json::parse(contexts.main)};
         const auto runner_ctx{boost::json::parse(contexts.runner)};
@@ -243,7 +243,7 @@ std::expected<wf_env_vars, generic_error> wf_create_initial_env(const wf_run_con
         };
         return env_ptr;
     } catch (const std::exception& ex) {
-        return std::unexpected{generic_error{"Unable to generate initial environment variables"}};
+        return std::unexpected{GenericError{"Unable to generate initial environment variables"}};
     }
 }
 

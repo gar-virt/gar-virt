@@ -10,20 +10,20 @@
 
 namespace ls_gitea_runner::utility {
 
-class thread_pool_executor final {
-    using ulock_t = std::unique_lock<std::mutex>;
-    using lock_t = std::lock_guard<std::mutex>;
+class ThreadPoolExecutor final {
+    using ULock = std::unique_lock<std::mutex>;
+    using Lock = std::lock_guard<std::mutex>;
 
 public:
-    using task_fn = std::function<void()>;
+    using TaskFn = std::function<void()>;
 
-    thread_pool_executor(std::optional<size_t> thread_count = std::nullopt) {
+    ThreadPoolExecutor(std::optional<size_t> thread_count = std::nullopt) {
         add_workers(thread_count.value_or(std::thread::hardware_concurrency()));
     }
 
-    ~thread_pool_executor() {
+    ~ThreadPoolExecutor() {
         {
-            lock_t lock{m_mutex};
+            Lock lock{m_mutex};
             m_stop = true;
         }
         m_cv.notify_all();
@@ -34,7 +34,7 @@ public:
 
     void cancel() {
         {
-            lock_t lock{m_mutex};
+            Lock lock{m_mutex};
             m_cancel = true;
         }
         m_cv.notify_all();
@@ -42,7 +42,7 @@ public:
 
     template <typename F, typename... Args> void put(F&& work, Args&&... args) {
         {
-            lock_t lock{m_mutex};
+            Lock lock{m_mutex};
             if (m_stop) {
                 return;
             }
@@ -52,16 +52,16 @@ public:
     }
 
     size_t get_thread_count() const {
-        lock_t lock{m_mutex};
+        Lock lock{m_mutex};
         return m_workers.size();
     }
 
 private:
     void worker_fn() {
         while (true) {
-            task_fn task;
+            TaskFn task;
             {
-                ulock_t lock{m_mutex};
+                ULock lock{m_mutex};
                 m_cv.wait(lock, [this] { return m_cancel || m_stop || !m_queue.empty(); });
                 if (m_cancel || (m_stop && m_queue.empty())) {
                     return;
@@ -81,7 +81,7 @@ private:
     }
 
     void add_workers(size_t count) {
-        lock_t lock{m_mutex};
+        Lock lock{m_mutex};
         while (m_workers.size() < count) {
             add_worker();
         }
@@ -95,7 +95,7 @@ private:
     std::condition_variable m_cv;
     bool m_stop{};
     bool m_cancel{};
-    std::queue<task_fn> m_queue;
+    std::queue<TaskFn> m_queue;
     std::vector<std::jthread> m_workers;
 };
 

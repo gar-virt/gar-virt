@@ -9,17 +9,17 @@
 
 namespace ls_gitea_runner {
 
-class docker_machine_manager final : public machine_manager {
+class DockerMachineManager final : public MachineManager {
 public:
-    docker_machine_manager();
-    ~docker_machine_manager();
+    DockerMachineManager();
+    ~DockerMachineManager();
 
-    std::expected<std::unique_ptr<machine>, generic_error> spawn(machine::info_t info,
-                                                                 const std::string& details) override;
+    std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info,
+                                                                const std::string& details) override;
 
 private:
-    class impl;
-    std::unique_ptr<impl> m_impl;
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace ls_gitea_runner

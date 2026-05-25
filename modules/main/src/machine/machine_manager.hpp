@@ -7,11 +7,11 @@
 
 namespace ls_gitea_runner {
 
-class machine_manager {
+class MachineManager {
 public:
-    virtual ~machine_manager() = default;
-    virtual std::expected<std::unique_ptr<machine>, generic_error> spawn(machine::info_t info,
-                                                                         const std::string& details) = 0;
+    virtual ~MachineManager() = default;
+    virtual std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info,
+                                                                        const std::string& details) = 0;
 };
 
 } // namespace ls_gitea_runner

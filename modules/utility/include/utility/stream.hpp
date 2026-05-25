@@ -14,18 +14,18 @@
 
 namespace ls_gitea_runner::utility {
 
-class ishared_stream_operations {
+class SharedStreamOperations {
 public:
-    virtual ~ishared_stream_operations() = default;
+    virtual ~SharedStreamOperations() = default;
 
     virtual bool good() const = 0;
     virtual void close() = 0;
     virtual bool is_slow() const = 0;
 };
 
-class iinput_stream : public virtual ishared_stream_operations {
+class InputStream : public virtual SharedStreamOperations {
 public:
-    virtual ~iinput_stream() = default;
+    virtual ~InputStream() = default;
 
     virtual bool eof() const = 0;
     virtual intptr_t tell() = 0;
@@ -35,20 +35,20 @@ public:
     virtual uintptr_t get_size() const = 0;
 };
 
-class ioutput_stream : public virtual ishared_stream_operations {
+class OutputStream : public virtual SharedStreamOperations {
 public:
-    virtual ~ioutput_stream() = default;
+    virtual ~OutputStream() = default;
 
     virtual void write(const void* buffer, uintptr_t count) = 0;
 };
 
-using input_stream_ptr = std::unique_ptr<iinput_stream>;
-using output_stream_ptr = std::unique_ptr<ioutput_stream>;
+using InputStreamPtr = std::unique_ptr<InputStream>;
+using OutputStreamPtr = std::unique_ptr<OutputStream>;
 
-template <typename T> class std_input_stream : public iinput_stream {
+template <typename T> class StdInputStream : public InputStream {
 public:
     template <typename T_>
-    std_input_stream(T_&& stream, std::optional<uintptr_t> size, bool slow)
+    StdInputStream(T_&& stream, std::optional<uintptr_t> size, bool slow)
             : m_stream{std::forward<T_>(stream)}, m_slow{slow}, m_size{size ? size : try_get_stream_size(m_stream)},
               m_initial_position{m_stream.tellg()} {}
 
@@ -116,10 +116,9 @@ private:
     std::streampos m_initial_position{};
 };
 
-template <typename T> class std_output_stream : public ioutput_stream {
+template <typename T> class StdOutputStream : public OutputStream {
 public:
-    template <typename T_>
-    std_output_stream(T_&& stream, bool slow) : m_stream{std::forward<T_>(stream)}, m_slow{slow} {}
+    template <typename T_> StdOutputStream(T_&& stream, bool slow) : m_stream{std::forward<T_>(stream)}, m_slow{slow} {}
 
     bool good() const override { return m_stream.good(); }
 
@@ -138,9 +137,9 @@ private:
     bool m_slow{};
 };
 
-class string_input_stream : public iinput_stream {
+class StringInputStream : public InputStream {
 public:
-    string_input_stream(std::string value) : m_value{std::move(value)}, m_stream{m_value.data(), m_value.size()} {}
+    StringInputStream(std::string value) : m_value{std::move(value)}, m_stream{m_value.data(), m_value.size()} {}
 
     bool good() const override { return m_stream.good(); }
     bool eof() const override { return m_stream.eof(); }
@@ -166,30 +165,30 @@ public:
 
 private:
     std::string m_value;
-    imemstream<char> m_stream;
+    MemoryInputStream<char> m_stream;
 };
 
-template <typename T> input_stream_ptr make_std_input_stream(T&& stream, std::optional<uintptr_t> size, bool slow) {
-    return input_stream_ptr{new std_input_stream<T>(std::forward<T>(stream), size, slow)};
+template <typename T> InputStreamPtr make_std_input_stream(T&& stream, std::optional<uintptr_t> size, bool slow) {
+    return InputStreamPtr{new StdInputStream<T>(std::forward<T>(stream), size, slow)};
 }
 
-template <typename T> output_stream_ptr make_std_output_stream(T&& stream, bool slow) {
-    return output_stream_ptr{new std_output_stream<T>(std::forward<T>(stream), slow)};
+template <typename T> OutputStreamPtr make_std_output_stream(T&& stream, bool slow) {
+    return OutputStreamPtr{new StdOutputStream<T>(std::forward<T>(stream), slow)};
 }
 
-inline input_stream_ptr make_string_input_stream(std::string value) {
-    return input_stream_ptr{new string_input_stream(std::move(value))};
+inline InputStreamPtr make_string_input_stream(std::string value) {
+    return InputStreamPtr{new StringInputStream(std::move(value))};
 }
 
-class file_input_stream : public iinput_stream {
+class FileInputStream : public InputStream {
 public:
-    virtual ~file_input_stream() = default;
+    virtual ~FileInputStream() = default;
 
     bool good() const override { return m_stream.good(); }
     bool eof() const override { return m_stream.eof(); }
     intptr_t tell() override { return m_stream.tellg(); }
 
-    file_input_stream(const std::filesystem::path& file_path)
+    FileInputStream(const std::filesystem::path& file_path)
             : m_stream{make_file_path_string(file_path)}, m_size{std::filesystem::file_size(file_path)} {}
 
     intptr_t read(void* buffer, uintptr_t count) override {
@@ -221,13 +220,13 @@ private:
     size_t m_size{};
 };
 
-class file_output_stream : public ioutput_stream {
+class FileOutputStream : public OutputStream {
 public:
-    virtual ~file_output_stream() = default;
+    virtual ~FileOutputStream() = default;
 
     bool good() const override { return m_stream.good(); }
 
-    file_output_stream(const std::filesystem::path& file_path) : m_stream{make_file_path_string(file_path)} {}
+    FileOutputStream(const std::filesystem::path& file_path) : m_stream{make_file_path_string(file_path)} {}
 
     void write(const void* buffer, uintptr_t count) override {
         m_stream.write(static_cast<const char*>(buffer), safe_cast_int<std::streamsize>(count));
@@ -248,69 +247,69 @@ private:
     mutable std::ofstream m_stream;
 };
 
-inline input_stream_ptr make_file_input_stream(const std::filesystem::path& file_path) {
-    return input_stream_ptr{new file_input_stream(file_path)};
+inline InputStreamPtr make_file_input_stream(const std::filesystem::path& file_path) {
+    return InputStreamPtr{new FileInputStream(file_path)};
 }
 
-inline output_stream_ptr make_file_output_stream(const std::filesystem::path& file_path) {
-    return output_stream_ptr{new file_output_stream(file_path)};
+inline OutputStreamPtr make_file_output_stream(const std::filesystem::path& file_path) {
+    return OutputStreamPtr{new FileOutputStream(file_path)};
 }
 
-class string_streambuf : public std::streambuf {
+class StringStreambuf : public std::streambuf {
 public:
-    string_streambuf(const char* data, size_t length) noexcept {
+    StringStreambuf(const char* data, size_t length) noexcept {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
         auto* p{const_cast<char*>(data)};
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         setg(p, p, p + length);
     }
 
-    string_streambuf(const string_streambuf&) = delete;
+    StringStreambuf(const StringStreambuf&) = delete;
 
-    string_streambuf(string_streambuf&& other) noexcept { setg(other.eback(), other.gptr(), other.egptr()); }
+    StringStreambuf(StringStreambuf&& other) noexcept { setg(other.eback(), other.gptr(), other.egptr()); }
 
-    string_streambuf& operator=(const string_streambuf&) = delete;
-    string_streambuf& operator=(string_streambuf&&) = delete;
-    ~string_streambuf() override = default;
+    StringStreambuf& operator=(const StringStreambuf&) = delete;
+    StringStreambuf& operator=(StringStreambuf&&) = delete;
+    ~StringStreambuf() override = default;
 };
 
-class string_istream_data {
+class StringIstreamData {
 public:
-    string_istream_data(const char* data, size_t length) noexcept : m_buf{data, length} {}
+    StringIstreamData(const char* data, size_t length) noexcept : m_buf{data, length} {}
 
-    explicit string_istream_data(const std::string& s) noexcept : string_istream_data{s.data(), s.size()} {}
+    explicit StringIstreamData(const std::string& s) noexcept : StringIstreamData{s.data(), s.size()} {}
 
-    explicit string_istream_data(std::string&& s) noexcept
+    explicit StringIstreamData(std::string&& s) noexcept
             : m_owned_data{std::move(s)}, m_buf{m_owned_data.data(), m_owned_data.size()} {}
 
-    string_istream_data(const string_istream_data&) = delete;
+    StringIstreamData(const StringIstreamData&) = delete;
 
-    string_istream_data(string_istream_data&& other) noexcept
+    StringIstreamData(StringIstreamData&& other) noexcept
             : m_owned_data{std::move(other.m_owned_data)}, m_buf{std::move(other.m_buf)} {}
 
-    string_istream_data& operator=(const string_istream_data&) = delete;
-    string_istream_data& operator=(string_istream_data&& other) = delete;
-    ~string_istream_data() = default;
+    StringIstreamData& operator=(const StringIstreamData&) = delete;
+    StringIstreamData& operator=(StringIstreamData&& other) = delete;
+    ~StringIstreamData() = default;
 
-    string_streambuf* get_buf() noexcept { return &m_buf; }
+    StringStreambuf* get_buf() noexcept { return &m_buf; }
 
 private:
     std::string m_owned_data;
-    string_streambuf m_buf;
+    StringStreambuf m_buf;
 };
 
-class string_istream : private string_istream_data, public std::istream {
+class string_istream : private StringIstreamData, public std::istream {
 public:
     explicit string_istream(const char* data, size_t length) noexcept
-            : string_istream_data{data, length}, std::istream{get_buf()} {}
+            : StringIstreamData{data, length}, std::istream{get_buf()} {}
 
     explicit string_istream(const std::string& s) noexcept : string_istream{s.data(), s.size()} {}
 
-    explicit string_istream(std::string&& s) noexcept : string_istream_data{std::move(s)}, std::istream{get_buf()} {}
+    explicit string_istream(std::string&& s) noexcept : StringIstreamData{std::move(s)}, std::istream{get_buf()} {}
 
     string_istream(const string_istream&) = delete;
 
-    string_istream(string_istream&& other) noexcept : string_istream_data{std::move(other)}, std::istream{get_buf()} {}
+    string_istream(string_istream&& other) noexcept : StringIstreamData{std::move(other)}, std::istream{get_buf()} {}
 
     string_istream& operator=(const string_istream&) = delete;
     string_istream& operator=(string_istream&&) = delete;
@@ -323,7 +322,7 @@ template <typename Container> inline string_istream make_istream(Container&& dat
     return string_istream{std::forward<Container>(data)};
 }
 
-inline std::optional<std::string> read_stream_as_string(utility::input_stream_ptr& stream, size_t max_length) noexcept {
+inline std::optional<std::string> read_stream_as_string(utility::InputStreamPtr& stream, size_t max_length) noexcept {
     if (!stream->is_size_known()) {
         return std::nullopt;
     }
@@ -341,7 +340,7 @@ inline std::optional<std::string> read_stream_as_string(utility::input_stream_pt
     return data;
 }
 
-inline std::optional<std::string> read_line(utility::iinput_stream& stream) {
+inline std::optional<std::string> read_line(utility::InputStream& stream) {
     enum class state_t { cr, lf, done };
     auto state{state_t::cr};
     std::string line;

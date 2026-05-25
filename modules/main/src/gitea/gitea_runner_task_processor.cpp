@@ -20,12 +20,12 @@ std::string make_unique_name_workspace_name_for_task(const ::runner::v1::Task& t
 }
 } // namespace
 
-class gitea_runner_task_processor::impl final {
+class GiteaRunnerTaskProcessor::Impl final {
 public:
-    impl(const gitea_runner_service_client& client, const config::runner_config& config)
+    Impl(const GiteaRunnerServiceClient& client, const config::RunnerConfig& config)
             : m_client{client}, m_config{config} {}
 
-    std::expected<void, generic_error> process(::runner::v1::Task task) noexcept {
+    std::expected<void, GenericError> process(::runner::v1::Task task) noexcept {
         using namespace std::literals;
         try {
 
@@ -49,12 +49,11 @@ public:
 
             const auto& machine_env{m_config.get().find_environment_by_label(*runs_on_label)};
             if (!machine_env) {
-                return std::unexpected{
-                    generic_error{std::format("No environment found for label: {}", *runs_on_label)}};
+                return std::unexpected{GenericError{std::format("No environment found for label: {}", *runs_on_label)}};
             }
             const auto& [machine_type, machine_config]{*machine_env};
 
-            auto machine_manager_factory_res{machine_manager_factory_selector::get_factory(machine_type)};
+            auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(machine_type)};
             if (!machine_manager_factory_res) {
                 return std::unexpected{machine_manager_factory_res.error()};
             }
@@ -62,7 +61,7 @@ public:
             auto machine_manager_factory{std::move(*machine_manager_factory_res)};
             auto machine_manager{machine_manager_factory->create()};
             auto machine_res{machine_manager->spawn(
-                machine::info_t{
+                Machine::Info{
                     .os = machine_config.os,
                     .arch = machine_config.arch,
                     .temp_dir = machine_config.temp_dir,
@@ -75,7 +74,7 @@ public:
 
             auto machine{std::move(*machine_res)};
             if (!machine->wait_until_ready(60s)) {
-                return std::unexpected{generic_error{
+                return std::unexpected{GenericError{
                     std::format("Timed out while waiting for machine to become ready: {}", machine->get_id())}};
             }
 
@@ -91,7 +90,7 @@ public:
                 }
             }
 
-            wf_run_contexts wf_contexts;
+            WfRunContexts wf_contexts;
             try {
                 wf_contexts.main = boost::json::serialize(protobuf::protobuf_to_json(modified_main_context));
                 wf_contexts.vars = boost::json::serialize(protobuf::protobuf_to_json(task.vars()));
@@ -100,7 +99,7 @@ public:
                 wf_contexts.matrix = wf_load_matrix_context_from_job_yaml(*yaml_job);
             } catch (const std::exception& ex) {
                 return std::unexpected{
-                    generic_error{std::format("Failed to build contexts for task #{}: {}", task.id(), ex.what())}};
+                    GenericError{std::format("Failed to build contexts for task #{}: {}", task.id(), ex.what())}};
             }
 
             const auto initial_env{wf_create_initial_env(wf_contexts)};
@@ -116,26 +115,26 @@ public:
                 return std::unexpected{wf_job.error()};
             }
 
-            gitea_workflow_executor executor{m_client.get(),     task,         *wf_job, job_env, wf_contexts,
-                                             std::move(machine), workspace_dir};
+            GiteaWorkflowExecutor executor{m_client.get(),     task,         *wf_job, job_env, wf_contexts,
+                                           std::move(machine), workspace_dir};
             return executor.run();
         } catch (const std::exception& ex) {
-            return std::unexpected{generic_error{std::format("Failed to process task #{}: {}", task.id(), ex.what())}};
+            return std::unexpected{GenericError{std::format("Failed to process task #{}: {}", task.id(), ex.what())}};
         }
     }
 
 private:
-    std::reference_wrapper<const gitea_runner_service_client> m_client;
-    std::reference_wrapper<const config::runner_config> m_config;
+    std::reference_wrapper<const GiteaRunnerServiceClient> m_client;
+    std::reference_wrapper<const config::RunnerConfig> m_config;
 };
 
-gitea_runner_task_processor::gitea_runner_task_processor(const gitea_runner_service_client& client,
-                                                         const config::runner_config& config)
-        : m_impl{std::make_unique<impl>(client, config)} {}
+GiteaRunnerTaskProcessor::GiteaRunnerTaskProcessor(const GiteaRunnerServiceClient& client,
+                                                   const config::RunnerConfig& config)
+        : m_impl{std::make_unique<Impl>(client, config)} {}
 
-gitea_runner_task_processor::~gitea_runner_task_processor() {}
+GiteaRunnerTaskProcessor::~GiteaRunnerTaskProcessor() {}
 
-std::expected<void, generic_error> gitea_runner_task_processor::process(::runner::v1::Task task) noexcept {
+std::expected<void, GenericError> GiteaRunnerTaskProcessor::process(::runner::v1::Task task) noexcept {
     return m_impl->process(task);
 }
 

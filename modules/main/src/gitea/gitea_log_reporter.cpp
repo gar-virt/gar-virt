@@ -5,10 +5,10 @@
 
 namespace ls_gitea_runner::gitea {
 
-gitea_log_reporter::gitea_log_reporter(const gitea_runner_service_client& client, const ::runner::v1::Task& task)
+GiteaLogReporter::GiteaLogReporter(const GiteaRunnerServiceClient& client, const ::runner::v1::Task& task)
         : m_client{client}, m_task_id{task.id()} {}
 
-void gitea_log_reporter::add(std::string message) {
+void GiteaLogReporter::add(std::string message) {
     utility::string_split(message, '\n', [&](auto token) {
         std::scoped_lock lock{m_mutex};
         m_entries.emplace_back(protobuf::current_timestamp(), std::string{utility::string_trim(token)});
@@ -16,23 +16,23 @@ void gitea_log_reporter::add(std::string message) {
     });
 }
 
-void gitea_log_reporter::flush() {
+void GiteaLogReporter::flush() {
     std::scoped_lock lock{m_mutex};
     flush_internal();
 }
 
-void gitea_log_reporter::close() {
+void GiteaLogReporter::close() {
     std::scoped_lock lock{m_mutex};
     m_done = true;
     flush_internal();
 }
 
-std::int64_t gitea_log_reporter::head() const {
+std::int64_t GiteaLogReporter::head() const {
     std::scoped_lock lock{m_mutex};
     return m_head;
 }
 
-bool gitea_log_reporter::flush_internal() {
+bool GiteaLogReporter::flush_internal() {
     if (m_entries.empty()) {
         return true;
     }

@@ -8,39 +8,39 @@
 
 namespace ls_gitea_runner {
 
-docker_engine_client::docker_engine_client() {}
+DockerEngineClient::DockerEngineClient() {}
 
-docker_engine_client::~docker_engine_client() {}
+DockerEngineClient::~DockerEngineClient() {}
 
-std::expected<docker_container_id, generic_error>
-docker_engine_client::container_create(const std::string& name, const std::string& image,
-                                       const std::vector<std::string>& cmd) const {
+std::expected<DockerContainerId, GenericError>
+DockerEngineClient::container_create(const std::string& name, const std::string& image,
+                                     const std::vector<std::string>& cmd) const {
     std::vector<std::string> docker_cmd = {"docker", "container", "create", "--rm", "--name", name, image};
     std::copy(cmd.begin(), cmd.end(), std::back_inserter(docker_cmd));
     auto res{utility::spawn_cmd(docker_cmd)};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     utility::string_trim_right(std::in_place, res->output);
-    return docker_container_id{std::move(res->output)};
+    return DockerContainerId{std::move(res->output)};
 }
 
-std::expected<int, generic_error> docker_engine_client::container_exec(const docker_container_id& id,
-                                                                       const std::vector<std::string>& cmd,
-                                                                       utility::spawn_options options) const {
+std::expected<int, GenericError> DockerEngineClient::container_exec(const DockerContainerId& id,
+                                                                    const std::vector<std::string>& cmd,
+                                                                    utility::SpawnOptions options) const {
     std::vector<std::string> docker_cmd = {"docker", "container", "exec", "--interactive", id.value};
     std::copy(cmd.begin(), cmd.end(), std::back_inserter(docker_cmd));
     auto res{utility::spawn_cmd(docker_cmd, std::move(options))};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     return *res;
 }
 
-std::expected<utility::spawn_result, generic_error>
-docker_engine_client::container_exec(const docker_container_id& id, const std::vector<std::string>& cmd) const {
-    utility::spawn_result result;
-    utility::spawn_options options{.stdout_reader = [&](const char* buffer, int length) {
+std::expected<utility::SpawnResult, GenericError>
+DockerEngineClient::container_exec(const DockerContainerId& id, const std::vector<std::string>& cmd) const {
+    utility::SpawnResult result;
+    utility::SpawnOptions options{.stdout_reader = [&](const char* buffer, int length) {
         result.output.append(buffer, static_cast<size_t>(length));
         return length;
     }};
@@ -52,42 +52,42 @@ docker_engine_client::container_exec(const docker_container_id& id, const std::v
     }
 }
 
-std::expected<void, generic_error> docker_engine_client::container_start(const docker_container_id& id) const {
+std::expected<void, GenericError> DockerEngineClient::container_start(const DockerContainerId& id) const {
     const std::vector<std::string> docker_cmd = {"docker", "container", "start", id.value};
     auto res{utility::spawn_cmd(docker_cmd)};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     return {};
 }
 
-std::expected<void, generic_error> docker_engine_client::container_kill(const docker_container_id& id) const {
+std::expected<void, GenericError> DockerEngineClient::container_kill(const DockerContainerId& id) const {
     const std::vector<std::string> docker_cmd = {"docker", "container", "kill", id.value};
     auto res{utility::spawn_cmd(docker_cmd)};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     return {};
 }
 
-std::expected<int, generic_error> docker_engine_client::container_run(const std::string& name, const std::string& image,
-                                                                      const std::vector<std::string>& cmd,
-                                                                      utility::spawn_options options) const {
+std::expected<int, GenericError> DockerEngineClient::container_run(const std::string& name, const std::string& image,
+                                                                   const std::vector<std::string>& cmd,
+                                                                   utility::SpawnOptions options) const {
     std::vector<std::string> docker_cmd = {"docker", "container", "run", "--interactive",
                                            "--rm",   "--name",    name,  image};
     std::copy(cmd.begin(), cmd.end(), std::back_inserter(docker_cmd));
     auto res{utility::spawn_cmd(docker_cmd, std::move(options))};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     return {};
 }
 
-std::expected<utility::spawn_result, generic_error>
-docker_engine_client::container_run(const std::string& name, const std::string& image,
-                                    const std::vector<std::string>& cmd) const {
-    utility::spawn_result result;
-    utility::spawn_options options{.stdout_reader = [&](const char* buffer, int length) {
+std::expected<utility::SpawnResult, GenericError>
+DockerEngineClient::container_run(const std::string& name, const std::string& image,
+                                  const std::vector<std::string>& cmd) const {
+    utility::SpawnResult result;
+    utility::SpawnOptions options{.stdout_reader = [&](const char* buffer, int length) {
         result.output.append(buffer, static_cast<size_t>(length));
         return length;
     }};
@@ -99,17 +99,17 @@ docker_engine_client::container_run(const std::string& name, const std::string& 
     }
 }
 
-std::expected<bool, generic_error> docker_engine_client::container_is_running(const docker_container_id& id) const {
+std::expected<bool, GenericError> DockerEngineClient::container_is_running(const DockerContainerId& id) const {
     const std::vector<std::string> docker_cmd = {"docker", "container", "inspect", "--format", "json", id.value};
     auto res{utility::spawn_cmd(docker_cmd)};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     try {
         const auto j{boost::json::parse(std::move(res->output))};
         const auto& j_items{j.as_array()};
         if (j_items.empty()) {
-            return std::unexpected{generic_error{std::format("No such container: {}", id.value)}};
+            return std::unexpected{GenericError{std::format("No such container: {}", id.value)}};
         }
         const auto& j_first_item = j_items.at(0).as_object();
         const auto& j_state{j_first_item.at("State").as_object()};
@@ -126,9 +126,9 @@ std::expected<bool, generic_error> docker_engine_client::container_is_running(co
     }
 }
 
-std::expected<void, generic_error> docker_engine_client::container_cp_into(const docker_container_id& id,
-                                                                           const std::filesystem::path& local_path,
-                                                                           const std::string& remote_path) const {
+std::expected<void, GenericError> DockerEngineClient::container_cp_into(const DockerContainerId& id,
+                                                                        const std::filesystem::path& local_path,
+                                                                        const std::string& remote_path) const {
     const std::vector<std::string> docker_cmd = {"docker",
                                                  "container",
                                                  "cp",
@@ -137,7 +137,7 @@ std::expected<void, generic_error> docker_engine_client::container_cp_into(const
                                                  std::format("{}:{}", id.value, remote_path)};
     auto res{utility::spawn_cmd(docker_cmd)};
     if (!res) {
-        return std::unexpected{generic_error{res.error().what()}};
+        return std::unexpected{GenericError{res.error().what()}};
     }
     return {};
 }

@@ -8,36 +8,36 @@
 
 namespace ls_gitea_runner {
 
-class docker_machine_manager::impl final {
+class DockerMachineManager::Impl final {
 public:
-    std::expected<std::unique_ptr<machine>, generic_error> spawn(machine::info_t info, const std::string& details) {
-        const auto parsed_options{docker_machine_options::load(details)};
+    std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info, const std::string& details) {
+        const auto parsed_options{DockerMachineOptions::load(details)};
         if (!parsed_options) {
             return std::unexpected{parsed_options.error()};
         }
 
         const auto name{std::format("ga_runner-{}", utility::uuid())};
 
-        docker_engine_client docker;
-        docker_container_id id;
-        std::unique_ptr<docker_machine> machine;
+        DockerEngineClient docker;
+        DockerContainerId id;
+        std::unique_ptr<DockerMachine> machine;
 
         return docker.container_create(name, parsed_options->image, {"/usr/bin/sh", "-c", "sleep 10800"})
             .and_then([&](auto res) {
                 id = std::move(res);
-                machine = std::make_unique<docker_machine>(id, std::move(info));
+                machine = std::make_unique<DockerMachine>(id, std::move(info));
                 return docker.container_start(id);
             })
             .transform([&] { return std::move(machine); });
     }
 };
 
-docker_machine_manager::docker_machine_manager() : m_impl{std::make_unique<impl>()} {}
+DockerMachineManager::DockerMachineManager() : m_impl{std::make_unique<Impl>()} {}
 
-docker_machine_manager::~docker_machine_manager() {}
+DockerMachineManager::~DockerMachineManager() {}
 
-std::expected<std::unique_ptr<machine>, generic_error> docker_machine_manager::spawn(machine::info_t info,
-                                                                                     const std::string& details) {
+std::expected<std::unique_ptr<Machine>, GenericError> DockerMachineManager::spawn(Machine::Info info,
+                                                                                  const std::string& details) {
     return m_impl->spawn(std::move(info), details);
 }
 

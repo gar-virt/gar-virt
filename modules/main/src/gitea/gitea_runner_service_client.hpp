@@ -11,34 +11,33 @@
 
 namespace ls_gitea_runner::gitea {
 
-class gitea_runner_service_client final {
+class GiteaRunnerServiceClient final {
 public:
-    gitea_runner_service_client(const std::string& instance_url);
+    GiteaRunnerServiceClient(const std::string& instance_url);
 
-    void set_credentials(gitea_runner_credentials credentials);
+    void set_credentials(GiteaRunnerCredentials credentials);
 
-    std::expected<::ping::v1::PingResponse, generic_error> ping(::ping::v1::PingRequest req) const noexcept;
+    std::expected<::ping::v1::PingResponse, GenericError> ping(::ping::v1::PingRequest req) const noexcept;
 
-    std::expected<::runner::v1::RegisterResponse, generic_error>
+    std::expected<::runner::v1::RegisterResponse, GenericError>
     register_(::runner::v1::RegisterRequest req) const noexcept;
 
-    std::expected<::runner::v1::DeclareResponse, generic_error>
-    declare(::runner::v1::DeclareRequest req) const noexcept;
+    std::expected<::runner::v1::DeclareResponse, GenericError> declare(::runner::v1::DeclareRequest req) const noexcept;
 
-    std::expected<::runner::v1::FetchTaskResponse, generic_error>
+    std::expected<::runner::v1::FetchTaskResponse, GenericError>
     fetch_task(::runner::v1::FetchTaskRequest req) const noexcept;
 
-    std::expected<::runner::v1::UpdateTaskResponse, generic_error>
+    std::expected<::runner::v1::UpdateTaskResponse, GenericError>
     update_task(::runner::v1::UpdateTaskRequest req) const noexcept;
 
-    std::expected<::runner::v1::UpdateLogResponse, generic_error>
+    std::expected<::runner::v1::UpdateLogResponse, GenericError>
     update_log(::runner::v1::UpdateLogRequest req) const noexcept;
 
 private:
-    class gitea_api_header_source;
+    class GiteaApiHeaderSource;
 
-    std::shared_ptr<gitea_api_header_source> m_header_source;
-    http_client m_client;
+    std::shared_ptr<GiteaApiHeaderSource> m_header_source;
+    HttpClient m_client;
 };
 
 } // namespace ls_gitea_runner::gitea

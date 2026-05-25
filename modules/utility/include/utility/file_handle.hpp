@@ -4,14 +4,14 @@
 
 namespace ls_gitea_runner::utility {
 
-class file_handle {
+class FileHandle {
 public:
-    file_handle(FILE* fp);
-    ~file_handle();
-    file_handle(const file_handle&) = delete;
-    file_handle(file_handle&& other) noexcept;
-    file_handle& operator=(const file_handle&) = delete;
-    file_handle& operator=(file_handle&& other) noexcept;
+    FileHandle(FILE* fp);
+    ~FileHandle();
+    FileHandle(const FileHandle&) = delete;
+    FileHandle(FileHandle&& other) noexcept;
+    FileHandle& operator=(const FileHandle&) = delete;
+    FileHandle& operator=(FileHandle&& other) noexcept;
     FILE* get_native_handle() const noexcept;
 
 private:

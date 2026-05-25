@@ -7,10 +7,10 @@
 
 namespace ls_gitea_runner {
 
-struct docker_machine_options {
+struct DockerMachineOptions {
     std::string image;
 
-    static std::expected<docker_machine_options, generic_error> load(const std::string& json_str);
+    static std::expected<DockerMachineOptions, GenericError> load(const std::string& json_str);
 };
 
 } // namespace ls_gitea_runner

@@ -15,15 +15,15 @@
 
 namespace ls_gitea_runner::fs {
 
-class temporary_file {
+class TemporaryFile {
 public:
-    temporary_file() : m_path{fs::temporary_file_path()} { open(); }
+    TemporaryFile() : m_path{fs::temporary_file_path()} { open(); }
 
-    temporary_file(const temporary_file&) = delete;
-    temporary_file(temporary_file&& other) noexcept { *this = std::move(other); }
-    temporary_file& operator=(const temporary_file&) = delete;
+    TemporaryFile(const TemporaryFile&) = delete;
+    TemporaryFile(TemporaryFile&& other) noexcept { *this = std::move(other); }
+    TemporaryFile& operator=(const TemporaryFile&) = delete;
 
-    temporary_file& operator=(temporary_file&& other) noexcept {
+    TemporaryFile& operator=(TemporaryFile&& other) noexcept {
         if (this == &other) {
             return *this;
         }
@@ -34,7 +34,7 @@ public:
         return *this;
     }
 
-    ~temporary_file() {
+    ~TemporaryFile() {
         if (!m_valid) {
             return;
         }
@@ -67,12 +67,12 @@ public:
         m_moved = true;
     }
 
-    utility::input_stream_ptr create_input_stream() {
+    utility::InputStreamPtr create_input_stream() {
         auto ptr{utility::make_std_input_stream(std::move(m_file), std::nullopt, true)};
         return ptr;
     }
 
-    utility::output_stream_ptr create_output_stream() {
+    utility::OutputStreamPtr create_output_stream() {
         auto ptr{utility::make_std_output_stream(std::move(m_file), true)};
         return ptr;
     }

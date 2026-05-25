@@ -4,7 +4,7 @@
 
 namespace ls_gitea_runner {
 
-struct docker_container_id {
+struct DockerContainerId {
     std::string value;
 };
 

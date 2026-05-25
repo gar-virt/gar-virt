@@ -30,31 +30,32 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
 }
 } // namespace
 
-HttpClient::HttpClient(const std::string& base_url, std::shared_ptr<HttpHeaderSource> header_source)
-        : m_base_url{base_url}, m_header_source{std::move(header_source)} {
+HttpClient::HttpClient(const std::string& base_url) : m_base_url{base_url} {
     if (!m_base_url.ends_with('/')) {
         m_base_url += '/';
     }
     m_base_url += "api/actions";
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::post(const std::string& path,
-                                                           const std::vector<std::byte>& payload) const noexcept {
-    const auto url{m_base_url + path};
+std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const noexcept {
+    for (auto& req_middleware : m_req_middlewares) {
+        if (!req_middleware(req)) {
+            break;
+        }
+    }
+
+    const auto url{m_base_url + req.path};
 
     std::string response_headers;
     std::vector<std::byte> response_body;
 
     curl_slist* headers{};
-    headers = curl_slist_append(headers, "Accept: application/proto");
-    headers = curl_slist_append(headers, "Content-Type: application/proto");
-
-    m_header_source->set_headers([&](const std::string& name, const std::string& value) {
-        std::string header{name};
+    for (auto& h : req.headers) {
+        std::string header{h.first};
         header += ": ";
-        header += value;
+        header += h.second;
         headers = curl_slist_append(headers, header.c_str());
-    });
+    }
 
     CURLcode curl_code{CURLE_OK};
     long response_code{};
@@ -71,8 +72,8 @@ std::expected<HttpResponse, GenericError> HttpClient::post(const std::string& pa
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.data());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload.size());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req.payload.data());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req.payload.size());
         curl_code = curl_easy_perform(curl);
         if (curl_code == CURLE_OK) {
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
@@ -89,6 +90,19 @@ std::expected<HttpResponse, GenericError> HttpClient::post(const std::string& pa
     }
 
     return HttpResponse{.body = response_body};
+}
+
+std::expected<HttpResponse, GenericError> HttpClient::post(std::string path,
+                                                           std::vector<std::byte> payload) const noexcept {
+    return send(HttpRequest{
+        .method = HttpMethod::post,
+        .path = std::move(path),
+        .payload = std::move(payload),
+    });
+}
+
+void HttpClient::add_request_middleware(HttpRequestMiddleware middleware) {
+    m_req_middlewares.push_back(std::move(middleware));
 }
 
 } // namespace ls_gitea_runner

@@ -32,32 +32,28 @@ std::expected<Response, GenericError> send_post_request(const HttpClient& client
         .and_then([](auto res) { return decode_payload<Response>(res.body); });
 }
 
-class GiteaRunnerServiceClient::GiteaApiHeaderSource : public HttpHeaderSource {
-public:
-    void set_headers(std::function<auto(const std::string& name, const std::string& value)->void> cb) {
-        if (!m_uuid.empty()) {
-            cb("X-Runner-UUID", m_uuid);
+GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url) : m_client{instance_url} {
+    m_client.add_request_middleware([this](auto& req) {
+        if (req.method == HttpMethod::post) {
+            req.headers.emplace("Content-Type", "application/proto");
         }
 
-        if (!m_token.empty()) {
-            cb("X-Runner-Token", m_token);
+        req.headers.emplace("Accept", "application/proto");
+
+        if (!m_credentials.uuid.empty()) {
+            req.headers.emplace("X-Runner-UUID", m_credentials.uuid);
         }
-    }
 
-    void set_uuid(const std::string& uuid) { m_uuid = uuid; }
-    void set_token(const std::string& token) { m_token = token; }
+        if (!m_credentials.token.empty()) {
+            req.headers.emplace("X-Runner-Token", m_credentials.token);
+        }
 
-private:
-    std::string m_uuid;
-    std::string m_token;
-};
-
-GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url)
-        : m_header_source{std::make_shared<GiteaApiHeaderSource>()}, m_client{instance_url, m_header_source} {}
+        return true;
+    });
+}
 
 void GiteaRunnerServiceClient::set_credentials(GiteaRunnerCredentials credentials) {
-    m_header_source->set_uuid(credentials.uuid);
-    m_header_source->set_token(credentials.token);
+    m_credentials = std::move(credentials);
 }
 
 std::expected<::ping::v1::PingResponse, GenericError>

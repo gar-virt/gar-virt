@@ -2,12 +2,11 @@
 
 #include "../error.hpp"
 #include "../http.hpp"
-#include "runner_credentials.hpp"
 #include "ping/v1/messages.pb.h"
 #include "runner/v1/messages.pb.h"
+#include "runner_credentials.hpp"
 
 #include <expected>
-#include <memory>
 
 namespace ls_gitea_runner::gitea {
 
@@ -34,9 +33,7 @@ public:
     update_log(::runner::v1::UpdateLogRequest req) const noexcept;
 
 private:
-    class GiteaApiHeaderSource;
-
-    std::shared_ptr<GiteaApiHeaderSource> m_header_source;
+    GiteaRunnerCredentials m_credentials;
     HttpClient m_client;
 };
 

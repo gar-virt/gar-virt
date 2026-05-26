@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 4.0...4.3)
 project(gitea_runner)
 
 set(CMAKE_CXX_STANDARD 23)

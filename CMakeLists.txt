@@ -25,8 +25,8 @@ set(FETCHCONTENT_QUIET OFF)
 set(BOOST_INCLUDE_LIBRARIES)
 FetchContent_Declare(
   Boost
-  URL https://github.com/boostorg/boost/releases/download/boost-1.89.0/boost-1.89.0-cmake.7z
-  URL_HASH SHA256=252149f583054515b10688855b24ca1c16072b5118e603b8fe017894d319c262
+  URL https://github.com/boostorg/boost/releases/download/boost-1.91.0-1/boost-1.91.0-1-cmake.7z
+  URL_HASH SHA256=29c7d4f4ac36ad853b6765d03571ea60d90286775df026b4efd9f3281131972b
   EXCLUDE_FROM_ALL
   SYSTEM
   OVERRIDE_FIND_PACKAGE

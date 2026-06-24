@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../machine/machine.hpp"
-#include "../machine/machine_manager.hpp"
+#include "virt/machine.hpp"
+#include "virt/machine_manager.hpp"
 
 #include "utility/error.hpp"
 

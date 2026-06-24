@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../machine/machine.hpp"
+#include "virt/machine.hpp"
 #include "libvirt.hpp"
 
 #include <memory>

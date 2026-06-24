@@ -9,12 +9,6 @@
 
 namespace ls_gitea_runner::config {
 
-struct LibvirtConfig {
-    std::string hypervisor_uri;
-    std::filesystem::path volume_template_path;
-    std::string storage_pool_name;
-};
-
 struct MachinePoolConfig {
     std::string provider;
     int64_t capacity{};
@@ -23,7 +17,6 @@ struct MachinePoolConfig {
     std::string temp_dir;
     std::string workspaces_dir;
     std::string runner_exe_path;
-    // std::variant<LibvirtConfig> details;
     std::string details_as_json;
 };
 

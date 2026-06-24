@@ -1,4 +1,4 @@
-#include "runner_service_client.hpp"
+#include "gitea/runner_service_client.hpp"
 
 #include <cstddef>
 #include <string>
@@ -48,7 +48,7 @@ DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskRequest)
 DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskResponse)
 
 template <typename Request, typename Response>
-std::expected<Response, GenericError> send_post_request(const HttpClient& client, const std::string& path,
+std::expected<Response, GenericError> send_post_request(const utility::HttpClient& client, const std::string& path,
                                                         const Request& req) noexcept {
     return encode_payload(req)
         .and_then([&](auto payload) { return client.post(path, payload); })
@@ -57,7 +57,7 @@ std::expected<Response, GenericError> send_post_request(const HttpClient& client
 
 GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url) : m_client{instance_url} {
     m_client.add_request_middleware([this](auto& req) {
-        if (req.method == HttpMethod::post) {
+        if (req.method == utility::HttpMethod::post) {
             req.headers.emplace("Content-Type", "application/proto");
         }
 

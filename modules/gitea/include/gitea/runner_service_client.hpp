@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../error.hpp"
-#include "../http.hpp"
 #include "ping/v1/messages.pb.h"
 #include "runner/v1/messages.pb.h"
 #include "runner_credentials.hpp"
+
+#include "utility/error.hpp"
+#include "utility/http.hpp"
 
 #include <expected>
 
@@ -37,7 +38,7 @@ public:
 
 private:
     GiteaRunnerCredentials m_credentials;
-    HttpClient m_client;
+    utility::HttpClient m_client;
 };
 
 } // namespace ls_gitea_runner::gitea

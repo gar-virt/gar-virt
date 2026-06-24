@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner {
+namespace ls_gitea_runner::utility {
 
 enum class HttpMethod { get, post };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../error.hpp"
+#include "utility/error.hpp"
 #include "../machine/machine_pool_details.hpp"
 
 #include <expected>

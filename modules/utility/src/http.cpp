@@ -1,11 +1,11 @@
-#include "http.hpp"
+#include "utility/http.hpp"
 
 #include <curl/curl.h>
 
 #include <cstring>
 #include <format>
 
-namespace ls_gitea_runner {
+namespace ls_gitea_runner::utility {
 
 namespace {
 size_t write_header_fn(const char* buffer, size_t size, size_t count, std::string* output) noexcept {

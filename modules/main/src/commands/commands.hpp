@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../config.hpp"
-#include "../error.hpp"
+
+#include "utility/error.hpp"
 
 #include <expected>
 

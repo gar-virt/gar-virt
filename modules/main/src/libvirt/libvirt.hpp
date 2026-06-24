@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../error.hpp"
+#include "utility/error.hpp"
 #include "utility/spawn.hpp"
 
 #include <cstddef>

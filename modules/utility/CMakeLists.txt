@@ -7,14 +7,14 @@ endif()
 add_library(utility)
 target_sources(utility PRIVATE
     src/encoding/base64.cpp
+    src/error.cpp
     src/env.cpp
     src/file_handle.cpp
     src/filesystem.cpp
+    src/http.cpp
     src/spawn.cpp
     src/string.cpp
     src/uuid.cpp
 )
 target_include_directories(utility PUBLIC include)
 target_link_libraries(utility PRIVATE ${UUID_LIBRARIES} cppcodec)
-
-target_sources(utility PUBLIC FILE_SET HEADERS)

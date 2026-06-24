@@ -21,10 +21,8 @@ RUN unzip -d /usr/local/bin dependencies/tools/downloaded/ninja-1.13.1.zip
 # Install development tools and libraries
 RUN apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
-    libmujs-dev \
     libgrpc++-dev \
     libprotobuf-dev \
-    libyaml-cpp-dev \
     protobuf-compiler \
     protobuf-compiler-grpc \
     uuid-dev
@@ -64,10 +62,8 @@ RUN apt-get update \
         ca-certificates \
         libcurl4t64 \
         libgrpc++1.51t64 \
-        libmujs3 \
         libprotobuf-c1 \
         libuuid1 \
-        libyaml-cpp0.8 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 # Install project

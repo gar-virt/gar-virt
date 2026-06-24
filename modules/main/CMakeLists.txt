@@ -4,10 +4,6 @@ find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 find_package(Boost REQUIRED COMPONENTS json program_options CONFIG)
 find_package(CURL REQUIRED)
 find_package(libvirt REQUIRED)
-find_package(yaml-cpp REQUIRED)
-
-#find_package(mujs REQUIRED)
-find_library(MUJS_LIBRARY mujs REQUIRED)
 
 add_library(proto_objects OBJECT)
 target_sources(proto_objects PRIVATE
@@ -61,8 +57,6 @@ target_link_libraries(ga_runner PRIVATE
     CURL::libcurl
     libvirt::virt
     libvirt::qemu
-    yaml-cpp::yaml-cpp
-    ${MUJS_LIBRARY}
     proto_objects
     utility
 )

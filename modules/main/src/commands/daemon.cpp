@@ -139,7 +139,7 @@ std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, c
             .arch = machine_config.arch,
             .temp_dir = machine_config.temp_dir,
         },
-        MachinePoolDetails{config.config_base_dir, machine_config.details_as_json})};
+        MachinePoolDetails{config.config_base_dir, machine_config.details_as_yaml})};
 
     if (!machine_res) {
         return std::unexpected{machine_res.error()};

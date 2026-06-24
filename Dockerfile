@@ -23,6 +23,7 @@ RUN apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libgrpc++-dev \
     libprotobuf-dev \
+    libyaml-cpp-dev \
     protobuf-compiler \
     protobuf-compiler-grpc \
     uuid-dev
@@ -64,6 +65,7 @@ RUN apt-get update \
         libgrpc++1.51t64 \
         libprotobuf-c1 \
         libuuid1 \
+        libyaml-cpp0.8 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 # Install project

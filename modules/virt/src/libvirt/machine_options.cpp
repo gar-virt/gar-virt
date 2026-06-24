@@ -1,6 +1,6 @@
 #include "machine_options.hpp"
 
-#include <boost/json.hpp>
+#include <yaml-cpp/yaml.h>
 
 #include <format>
 
@@ -8,13 +8,12 @@ namespace ls_gitea_runner {
 
 std::expected<LibvirtMachineOptions, GenericError> LibvirtMachineOptions::load(const MachinePoolDetails& details) {
     try {
-        const auto j{boost::json::parse(details.details_as_json)};
-        const auto& j_obj{j.as_object()};
+        const auto y{YAML::Load(details.details_as_yaml)};
         LibvirtMachineOptions options{
-            .hypervisor_uri = std::string{j_obj.at("hypervisor_uri").as_string()},
-            .domain_template_path = std::string{j_obj.at("domain_template_path").as_string()},
-            .volume_template_path = std::string{j_obj.at("volume_template_path").as_string()},
-            .storage_pool_name = std::string{j_obj.at("storage_pool_name").as_string()},
+            .hypervisor_uri = y["hypervisor_uri"].as<std::string>(),
+            .domain_template_path = y["domain_template_path"].as<std::string>(),
+            .volume_template_path = y["volume_template_path"].as<std::string>(),
+            .storage_pool_name = y["storage_pool_name"].as<std::string>(),
         };
         if (options.domain_template_path.is_relative()) {
             options.domain_template_path = details.config_dir / options.domain_template_path;

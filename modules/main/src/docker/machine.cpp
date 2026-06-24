@@ -79,6 +79,10 @@ public:
         return m_docker.container_cp_into(m_id, local_path, remote_path);
     }
 
+    std::expected<void, GenericError> write_file(const std::string& remote_path, std::span<const std::byte> content) {
+        std::abort();
+    }
+
     const Machine::Info& info() const { return m_info; }
 
 private:
@@ -110,6 +114,11 @@ bool DockerMachine::wait_until_ready(std::chrono::seconds timeout) { return m_im
 std::expected<void, GenericError> DockerMachine::copy_file_into(const std::filesystem::path& local_path,
                                                                 const std::string& remote_path) {
     return m_impl->copy_file_into(local_path, remote_path);
+}
+
+std::expected<void, GenericError> DockerMachine::write_file(const std::string& remote_path,
+                                                            std::span<const std::byte> content) {
+    return m_impl->write_file(remote_path, content);
 }
 
 const Machine::Info& DockerMachine::info() const { return m_impl->info(); }

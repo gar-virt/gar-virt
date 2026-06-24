@@ -6,17 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 
-#include(cmake/CPM.cmake)
-#CPMAddPackage("gh:grpc/grpc#v1.75.1")
-
-#include(FetchContent)
-#FetchContent_Declare(
-#  gRPC
-#  GIT_REPOSITORY https://github.com/grpc/grpc
-#  GIT_TAG        v1.75.1
-#)
-#set(FETCHCONTENT_QUIET OFF)
-#FetchContent_MakeAvailable(gRPC)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 include(GNUInstallDirs)
 include(FetchContent)
@@ -31,6 +21,14 @@ FetchContent_Declare(
   SYSTEM
   OVERRIDE_FIND_PACKAGE
 )
-FetchContent_MakeAvailable(Boost)
+FetchContent_Declare(
+  cppcodec
+  GIT_REPOSITORY https://github.com/tplgy/cppcodec.git
+  GIT_TAG 8019b8b580f8573c33c50372baec7039dfe5a8ce
+  GIT_SUBMODULES ""
+  SYSTEM
+  OVERRIDE_FIND_PACKAGE
+)
+FetchContent_MakeAvailable(Boost cppcodec)
 
 add_subdirectory(modules)

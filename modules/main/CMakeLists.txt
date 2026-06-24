@@ -3,6 +3,7 @@ find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 
 find_package(Boost REQUIRED COMPONENTS json program_options CONFIG)
 find_package(CURL REQUIRED)
+find_package(libvirt REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 #find_package(mujs REQUIRED)
@@ -38,7 +39,6 @@ protobuf_generate(
 add_executable(ga_runner)
 target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
-    src/commands/register.cpp
     src/config.cpp
     src/docker/engine_client.cpp
     src/docker/machine.cpp
@@ -48,16 +48,15 @@ target_sources(ga_runner PRIVATE
     src/error.cpp
     src/gitea/log_reporter.cpp
     src/gitea/runner_service_client.cpp
-    src/gitea/runner_task_poller.cpp
-    src/gitea/runner_task_processor.cpp
-    src/gitea/workflow.cpp
-    src/gitea/workflow_executor.cpp
     src/http.cpp
+    src/libvirt/libvirt.cpp
+    src/libvirt/machine.cpp
+    src/libvirt/machine_manager.cpp
+    src/libvirt/machine_manager_factory.cpp
+    src/libvirt/machine_options.cpp
     src/machine/machine_manager_factory_selector.cpp
     src/main.cpp
     src/protobuf_helper.cpp
-    src/scripting.cpp
-    src/state.cpp
 )
 target_link_libraries(ga_runner PRIVATE
     protobuf::libprotobuf
@@ -66,6 +65,8 @@ target_link_libraries(ga_runner PRIVATE
     Boost::json
     Boost::program_options
     CURL::libcurl
+    libvirt::virt
+    libvirt::qemu
     yaml-cpp::yaml-cpp
     ${MUJS_LIBRARY}
     proto_objects

@@ -7,6 +7,7 @@
 #include <expected>
 #include <functional>
 #include <map>
+#include <memory>
 #include <print>
 #include <string>
 #include <vector>
@@ -32,6 +33,13 @@ using HttpRequestMiddleware = std::function<bool(HttpRequest& req)>;
 class HttpClient {
 public:
     HttpClient(const std::string& base_url);
+    ~HttpClient();
+
+    HttpClient(const HttpClient&) = delete;
+    HttpClient(HttpClient&&) noexcept;
+
+    HttpClient& operator=(const HttpClient& other) = delete;
+    HttpClient& operator=(HttpClient&& other) noexcept;
 
     std::expected<HttpResponse, GenericError> send(HttpRequest req) const noexcept;
 
@@ -40,6 +48,8 @@ public:
     void add_request_middleware(HttpRequestMiddleware middleware);
 
 private:
+    struct Private;
+    std::unique_ptr<Private> m_priv;
     std::string m_base_url;
     std::vector<HttpRequestMiddleware> m_req_middlewares;
 };

@@ -10,6 +10,9 @@
 
 namespace ls_gitea_runner::gitea {
 
+template <typename T> std::expected<std::vector<std::byte>, GenericError> encode_payload(const T& msg) noexcept;
+template <typename T> std::expected<T, GenericError> decode_payload(const std::vector<std::byte>& payload) noexcept;
+
 class GiteaRunnerServiceClient final {
 public:
     GiteaRunnerServiceClient(const std::string& instance_url);

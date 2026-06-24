@@ -4,44 +4,43 @@
 
 #include <expected>
 #include <filesystem>
-#include <map>
-#include <optional>
 #include <string>
-#include <tuple>
 #include <vector>
 
 namespace ls_gitea_runner::config {
 
 struct DockerConfig {
     std::string image;
-    std::string tag;
 };
 
-struct QemuConfig {
-    std::string image;
-    std::string cpu;
-    std::size_t memory;
+struct LibvirtConfig {
+    std::string hypervisor_uri;
+    std::filesystem::path volume_template_path;
+    std::string storage_pool_name;
 };
 
-struct RunnerEnvironmentConfig {
-    std::vector<std::string> labels;
+struct MachinePoolConfig {
+    std::string provider;
+    int64_t capacity{};
     std::string os;
     std::string arch;
     std::string temp_dir;
     std::string workspaces_dir;
-    std::variant<DockerConfig, QemuConfig> details;
+    std::string runner_exe_path;
+    // std::variant<DockerConfig, LibvirtConfig> details;
     std::string details_as_json;
 };
 
 struct RunnerConfig {
+    std::filesystem::path config_base_dir;
     std::string instance_url;
-    std::string name;
     std::string token;
+    std::string name;
+    std::vector<std::string> labels;
     bool ephemeral{};
-    std::map<std::string, RunnerEnvironmentConfig> environments;
+    MachinePoolConfig machine_pool;
 
-    std::optional<std::tuple<std::string, RunnerEnvironmentConfig>>
-    find_environment_by_label(const std::string_view search_label) const noexcept;
+    std::vector<std::string> get_label_names() const;
 };
 
 std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept;

@@ -1,16 +1,16 @@
 #pragma once
 
-#include "container_id.hpp"
 #include "../machine/machine.hpp"
+#include "libvirt.hpp"
 
 #include <memory>
 
 namespace ls_gitea_runner {
 
-class DockerMachine final : public Machine {
+class LibvirtMachine final : public Machine {
 public:
-    DockerMachine(const DockerContainerId& id, Info info);
-    ~DockerMachine();
+    LibvirtMachine(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info);
+    ~LibvirtMachine();
 
     const std::string& get_id() const override;
     std::expected<void, GenericError> terminate() override;
@@ -20,8 +20,7 @@ public:
     bool wait_until_ready(std::chrono::seconds timeout) override;
     std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
                                                      const std::string& remote_path) override;
-    std::expected<void, GenericError> write_file(const std::string& remote_path,
-                                                 std::span<const std::byte> content) override;
+    std::expected<void, GenericError> write_file(const std::string& remote_path, std::span<const std::byte>) override;
     const Info& info() const override;
 
 private:

@@ -2,6 +2,7 @@
 
 #include "../error.hpp"
 #include "machine.hpp"
+#include "machine_pool_details.hpp"
 
 #include <memory>
 
@@ -11,7 +12,7 @@ class MachineManager {
 public:
     virtual ~MachineManager() = default;
     virtual std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info,
-                                                                        const std::string& details) = 0;
+                                                                        MachinePoolDetails details) = 0;
 };
 
 } // namespace ls_gitea_runner

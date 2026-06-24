@@ -9,10 +9,10 @@
 
 namespace ls_gitea_runner {
 
-class DockerMachineManager final : public MachineManager {
+class LibvirtMachineManager final : public MachineManager {
 public:
-    DockerMachineManager();
-    ~DockerMachineManager();
+    LibvirtMachineManager();
+    ~LibvirtMachineManager();
 
     std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info,
                                                                 MachinePoolDetails details) override;

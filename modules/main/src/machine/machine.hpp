@@ -5,8 +5,10 @@
 #include <utility/spawn.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <expected>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -29,6 +31,8 @@ public:
     virtual bool wait_until_ready(std::chrono::seconds timeout) = 0;
     virtual std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
                                                              const std::string& remote_path) = 0;
+    virtual std::expected<void, GenericError> write_file(const std::string& remote_path,
+                                                         std::span<const std::byte> content) = 0;
     virtual const Info& info() const = 0;
 };
 

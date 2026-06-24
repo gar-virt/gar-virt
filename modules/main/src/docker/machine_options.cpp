@@ -6,9 +6,9 @@
 
 namespace ls_gitea_runner {
 
-std::expected<DockerMachineOptions, GenericError> DockerMachineOptions::load(const std::string& json_str) {
+std::expected<DockerMachineOptions, GenericError> DockerMachineOptions::load(const MachinePoolDetails& details) {
     try {
-        const auto j{boost::json::parse(json_str)};
+        const auto j{boost::json::parse(details.details_as_json)};
         const auto& j_obj{j.as_object()};
         return DockerMachineOptions{.image = std::string{j_obj.at("image").as_string()}};
     } catch (const std::exception& ex) {

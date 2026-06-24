@@ -1,0 +1,510 @@
+#include "libvirt.hpp"
+
+#include "utility/defer.hpp"
+#include "utility/encoding/base64.hpp"
+#include "utility/spawn.hpp"
+#include "utility/string.hpp"
+#include "utility/uuid.hpp"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <format>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <unordered_map>
+
+#include <boost/json.hpp>
+#include <libvirt/libvirt-qemu.h>
+#include <libvirt/libvirt.h>
+#include <libvirt/virterror.h>
+
+#include <format>
+
+namespace ls_gitea_runner::libvirt {
+
+struct ConnectDeleter {
+    void operator()(virConnectPtr p) { virConnectClose(p); }
+};
+
+struct StoragePoolDeleter {
+    void operator()(virStoragePoolPtr p) { virStoragePoolFree(p); }
+};
+
+struct StorageVolDeleter {
+    void operator()(virStorageVolPtr p) { virStorageVolFree(p); }
+};
+
+struct StorageVolResourceDeleter {
+    void operator()(virStorageVolPtr p) { virStorageVolDelete(p, VIR_STORAGE_VOL_DELETE_NORMAL); }
+};
+
+struct DomainDeleter {
+    void operator()(virDomainPtr p) { virDomainFree(p); }
+};
+
+using ConnectPtr = std::unique_ptr<virConnect, ConnectDeleter>;
+using StoragePoolPtr = std::unique_ptr<virStoragePool, StoragePoolDeleter>;
+using StorageVolPtr = std::unique_ptr<virStorageVol, StorageVolDeleter>;
+using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
+
+std::string expand_libvirt_xml_template(std::string_view xml,
+                                        const std::unordered_map<std::string_view, std::string>& params) {
+    std::string result{xml};
+    for (auto& entry : params) {
+        const auto pattern{std::format("${{{}}}", entry.first)};
+        result = utility::string_replace(result, pattern, entry.second);
+    }
+    return result;
+}
+
+class MachineImpl {
+public:
+    MachineImpl(std::string name, DomainPtr domain, StorageVolPtr volume)
+            : m_name{std::move(name)}, m_domain{std::move(domain)}, m_volume{std::move(volume)} {}
+
+    ~MachineImpl() {
+        if (m_volume) {
+            // const std::string name{virStorageVolGetName(volume.get())};
+            if (virStorageVolDelete(m_volume.get(), VIR_STORAGE_VOL_DELETE_NORMAL) < 0) {
+                // logger.error("Failed to delete volume \"{}\".", name);
+            }
+        }
+    }
+
+    MachineImpl(const MachineImpl&) = delete;
+    MachineImpl(MachineImpl&&) = delete;
+
+    MachineImpl& operator=(const MachineImpl&) = delete;
+    MachineImpl& operator=(MachineImpl&&) = delete;
+
+    std::string get_name() const noexcept { return m_name; }
+
+    std::expected<void, GenericError> wait() noexcept {
+        std::unique_lock lock{m_quit_mutex};
+        m_quit_cv.wait(lock, [&] -> bool { return m_quit; });
+        return {};
+    }
+
+    std::expected<void, GenericError> wait_until_ready() noexcept {
+        std::unique_lock lock{m_ready_mutex};
+        m_ready_cv.wait(lock, [&] -> bool { return m_ready; });
+        return {};
+    }
+
+    std::expected<void, GenericError> resume() {
+        if (virDomainResume(m_domain.get()) < 0) {
+            return std::unexpected{GenericError{std::format("Failed to resume domain \"{}\"", m_name)}};
+        }
+        return {};
+    }
+
+    std::expected<void, GenericError> kill() {
+        if (virDomainDestroy(m_domain.get()) < 0) {
+            return std::unexpected{GenericError{std::format("Failed to kill domain \"{}\"", m_name)}};
+        }
+        return {};
+    }
+
+    std::expected<bool, GenericError> is_ready() const noexcept { return !!m_ready; }
+
+    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content) {
+        std::optional<int> file_handle;
+        std::optional<GenericError> error;
+        utility::Deferred file_closer{[&] {
+            if (!file_handle) {
+                return;
+            }
+            try {
+                const auto req{boost::json::serialize(boost::json::value{{"execute", "guest-file-close"},
+                                                                         {
+                                                                             "arguments",
+                                                                             {
+                                                                                 {"handle", *file_handle},
+                                                                             },
+                                                                         }})};
+                auto* res{
+                    virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
+                if (!res) {
+                    error = std::make_optional<GenericError>("Failed to close file on machine");
+                }
+            } catch (const std::exception& ex) {
+                error = std::make_optional<GenericError>(
+                    std::format("Error while attempting to close file on machine: {}", ex.what()));
+            }
+        }};
+        try {
+            auto req{boost::json::serialize(boost::json::value{{"execute", "guest-file-open"},
+                                                               {
+                                                                   "arguments",
+                                                                   {
+                                                                       {"path", file_path},
+                                                                       {"mode", "w"},
+                                                                   },
+                                                               }})};
+            auto* res{virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
+
+            if (res) {
+                file_handle = std::make_optional(boost::json::parse(res).as_object().at("return").as_int64());
+                req = boost::json::serialize(boost::json::value{{"execute", "guest-file-write"},
+                                                                {
+                                                                    "arguments",
+                                                                    {
+                                                                        {"handle", *file_handle},
+                                                                        {"buf-b64", utility::base64_encode(content)},
+                                                                    },
+                                                                }});
+                res = virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
+                if (!res) {
+                    error = std::make_optional<GenericError>("Failed to write file to machine");
+                }
+            } else {
+                error = std::make_optional<GenericError>("Failed to open file on machine");
+            }
+        } catch (const std::exception& ex) {
+            error = std::make_optional<GenericError>(
+                std::format("Error while attempting to write file to machine: {}", ex.what()));
+        }
+        if (error) {
+            return std::unexpected{*std::move(error)};
+        }
+        return {};
+    }
+
+    std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) noexcept {
+        using namespace std::chrono_literals;
+        // TODO: options
+        try {
+            const auto& exe{cmd.at(0)};
+            boost::json::array args{};
+            for (size_t i{1}; i < cmd.size(); ++i) {
+                args.emplace_back(cmd[i]);
+            }
+            auto req{boost::json::serialize(boost::json::value{{"execute", "guest-exec"},
+                                                               {
+                                                                   "arguments",
+                                                                   {
+                                                                       {"path", exe},
+                                                                       {"arg", args},
+                                                                       {"capture-output", true},
+                                                                   },
+                                                               }})};
+            auto* res{virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
+            if (!res) {
+                return std::unexpected{GenericError{"Failed to execute command in machine"}};
+            }
+
+            const auto pid{boost::json::parse(res).as_object().at("return").as_object().at("pid").as_int64()};
+
+            bool exited{};
+            int exit_code{};
+            while (!exited) {
+                req = boost::json::serialize(boost::json::value{{"execute", "guest-exec-status"},
+                                                                {
+                                                                    "arguments",
+                                                                    {
+                                                                        {"pid", pid},
+                                                                    },
+                                                                }});
+                res = virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
+                if (!res) {
+                    return std::unexpected{GenericError{"Failed to get command execution status from machine"}};
+                }
+
+                const auto status_res{boost::json::parse(res).as_object().at("return").as_object()};
+                exited = status_res.at("exited").as_bool();
+                if (!exited) {
+                    std::this_thread::sleep_for(250ms);
+                    continue;
+                }
+
+                exit_code = static_cast<int>(status_res.at("exitcode").as_int64());
+            }
+
+            return utility::SpawnResult{.exit_code = exit_code};
+        } catch (const std::exception& ex) {
+            return std::unexpected{
+                GenericError{std::format("Error while attempting to execute command in machine: {}", ex.what())}};
+        }
+    }
+
+    std::expected<int, GenericError> shell_exec(const std::vector<std::string>& cmd,
+                                                utility::SpawnOptions options) noexcept {
+        std::abort(); // TODO
+    }
+
+    void notify_bad_state() {
+        m_quit = true;
+        m_quit_cv.notify_all();
+    }
+
+    void notify_ready() {
+        m_ready = true;
+        m_ready_cv.notify_all();
+    }
+
+private:
+    std::string m_name;
+    virConnectPtr m_conn{};
+    DomainPtr m_domain;
+    StorageVolPtr m_volume;
+    std::atomic_bool m_quit{};
+    std::condition_variable m_quit_cv;
+    std::mutex m_quit_mutex;
+    std::atomic_bool m_ready{};
+    std::condition_variable m_ready_cv;
+    std::mutex m_ready_mutex;
+};
+
+Machine::Machine(std::unique_ptr<MachineImpl> impl) : m_impl{std::move(impl)} {}
+
+Machine::~Machine() = default;
+
+Machine::Machine(Machine&&) noexcept = default;
+Machine& Machine::operator=(Machine&&) noexcept = default;
+
+std::string Machine::get_name() const noexcept { return m_impl->get_name(); }
+
+std::expected<void, GenericError> Machine::wait() noexcept { return m_impl->wait(); }
+
+std::expected<void, GenericError> Machine::write_file(const std::string& file_path,
+                                                      std::span<const std::byte> content) noexcept {
+    return m_impl->write_file(file_path, std::move(content));
+}
+
+std::expected<utility::SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd) noexcept {
+    return m_impl->shell_exec(cmd);
+}
+
+std::expected<int, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
+                                                     utility::SpawnOptions options) noexcept {
+    return m_impl->shell_exec(cmd, std::move(options));
+}
+
+std::expected<void, GenericError> Machine::resume() noexcept { return m_impl->resume(); }
+std::expected<void, GenericError> Machine::kill() noexcept { return m_impl->kill(); }
+std::expected<bool, GenericError> Machine::is_ready() const noexcept { return m_impl->is_ready(); }
+
+void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
+void Machine::notify_ready() { m_impl->notify_ready(); }
+
+std::expected<void, GenericError> Machine::wait_until_ready() { return m_impl->wait_until_ready(); }
+
+class HypervisorImpl {
+public:
+    HypervisorImpl(ConnectPtr conn) : m_conn{std::move(conn)}, m_loop_thread{[this] { run_loop(); }} {}
+
+    ~HypervisorImpl() {
+        stop_loop();
+        if (m_loop_thread.joinable()) {
+            m_loop_thread.join();
+        }
+        unregister_event_handlers();
+    }
+
+    HypervisorImpl(const HypervisorImpl&) = delete;
+    HypervisorImpl(HypervisorImpl&&) = delete;
+
+    HypervisorImpl& operator=(const HypervisorImpl&) = delete;
+    HypervisorImpl& operator=(HypervisorImpl&&) = delete;
+
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options) noexcept {
+        const auto domain_name{utility::uuid()};
+
+        std::unordered_map<std::string_view, std::string> xml_template_params = {
+            {"DOMAIN_NAME", domain_name},
+        };
+
+        const std::string storage_pool_name{options.storage_pool};
+        const auto volume_xml{expand_libvirt_xml_template(options.volume, xml_template_params)};
+        auto volume{create_volume(volume_xml, storage_pool_name)};
+        if (!volume) {
+            return std::unexpected{volume.error()};
+        }
+
+        const auto domain_xml{expand_libvirt_xml_template(options.domain, xml_template_params)};
+
+        auto domain_create_flags{VIR_DOMAIN_START_PAUSED | VIR_DOMAIN_START_AUTODESTROY | VIR_DOMAIN_START_RESET_NVRAM};
+        DomainPtr domain{virDomainCreateXML(m_conn.get(), domain_xml.c_str(), domain_create_flags)};
+        if (!domain) {
+            return std::unexpected{GenericError{std::format("Failed to create domain \"{}\"", domain_name)}};
+        }
+
+        for (const auto lifecycle :
+             {VIR_DOMAIN_LIFECYCLE_POWEROFF, VIR_DOMAIN_LIFECYCLE_REBOOT, VIR_DOMAIN_LIFECYCLE_CRASH}) {
+            const auto action{VIR_DOMAIN_LIFECYCLE_ACTION_DESTROY};
+            if (virDomainSetLifecycleAction(domain.get(), lifecycle, action, VIR_DOMAIN_AFFECT_CURRENT) < 0) {
+                return std::unexpected{
+                    GenericError{std::format("Failed to set lifecycle {} action {} for domain \"{}\"",
+                                             static_cast<int>(lifecycle), static_cast<int>(action), domain_name)}};
+            }
+        }
+
+        std::shared_ptr<Machine> machine;
+        {
+            std::scoped_lock lock{m_map_mutex};
+            auto machine_{
+                m_machine_by_domain_ptr.emplace(domain_name, std::make_shared<Machine>(std::make_unique<MachineImpl>(
+                                                                 domain_name, std::move(domain), *std::move(volume))))};
+            machine = machine_.first->second;
+        }
+
+        auto resume_res{machine->resume()};
+        if (!resume_res) {
+            return std::unexpected{resume_res.error()};
+        }
+
+        return machine;
+    }
+
+    static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) noexcept {
+        static std::once_flag initialized;
+        std::call_once(initialized, [] {
+            virInitialize();
+            virEventRegisterDefaultImpl();
+        });
+
+        ConnectPtr conn{virConnectOpen(uri.c_str())};
+        if (!conn) {
+            return std::unexpected{GenericError{"Failed to connect to hypervisor"}};
+        }
+
+        auto impl{std::make_unique<HypervisorImpl>(std::move(conn))};
+
+        auto reg_res{impl->register_event_handlers()};
+        if (!reg_res) {
+            return std::unexpected{GenericError{"Failed to register event handlers"}};
+        }
+
+        return impl;
+    }
+
+private:
+    std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
+                                                             const std::string& pool_name) noexcept {
+        StoragePoolPtr pool{virStoragePoolLookupByName(m_conn.get(), pool_name.c_str())};
+        if (!pool) {
+            return std::unexpected{GenericError{std::format("Failed to find storage pool by name \"{}\"", pool_name)}};
+        }
+
+        StorageVolPtr volume{virStorageVolCreateXML(pool.get(), volume_xml.c_str(), 0)};
+        if (!volume) {
+            auto err{virGetLastError()};
+            if (err && err->code == VIR_ERR_STORAGE_VOL_EXIST) {
+                virStoragePoolRefresh(pool.get(), 0);
+                volume = StorageVolPtr{virStorageVolCreateXML(pool.get(), volume_xml.c_str(), 0)};
+            }
+        }
+        if (!volume) {
+            return std::unexpected{GenericError{"Failed to create volume"}};
+        }
+        return volume;
+    }
+
+    std::expected<void, GenericError> register_event_handlers() {
+        static auto lifecycle_event_cb{
+            +[](virConnectPtr conn, virDomainPtr dom, int event, int detail, HypervisorImpl* user_data) {
+                return user_data->lifecycle_event_handler(conn, dom, event, detail);
+            }};
+
+        auto domain_lifecycle_cb_id{
+            virConnectDomainEventRegisterAny(m_conn.get(), nullptr, VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+                                             VIR_DOMAIN_EVENT_CALLBACK(lifecycle_event_cb), this, nullptr)};
+        if (domain_lifecycle_cb_id < 0) {
+            return std::unexpected{GenericError{"Failed to register domain lifecycle event handler"}};
+        }
+        m_event_handler_ids.push_back(domain_lifecycle_cb_id);
+
+        static auto agent_lifecycle_event_cb{
+            +[](virConnectPtr conn, virDomainPtr dom, int state, int reason, HypervisorImpl* user_data) {
+                return user_data->agent_lifecycle_event_handler(conn, dom, state, reason);
+            }};
+
+        auto agent_lifecycle_cb_id{
+            virConnectDomainEventRegisterAny(m_conn.get(), nullptr, VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE,
+                                             VIR_DOMAIN_EVENT_CALLBACK(agent_lifecycle_event_cb), this, nullptr)};
+        if (agent_lifecycle_cb_id < 0) {
+            return std::unexpected{GenericError{"Failed to register agent lifecycle event handler"}};
+        }
+        m_event_handler_ids.push_back(agent_lifecycle_cb_id);
+
+        return {};
+    }
+
+    void unregister_event_handlers() {
+        for (auto it{m_event_handler_ids.rbegin()}; it != m_event_handler_ids.rend(); ++it) {
+            virConnectDomainEventDeregisterAny(m_conn.get(), *it);
+        }
+    }
+
+    int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) {
+        char uuid[36]{};
+        virDomainGetUUIDString(dom, uuid);
+        if (auto* domain_name{virDomainGetName(dom)}) {
+            if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
+                return 0;
+            }
+            std::scoped_lock lock{m_map_mutex};
+            auto found{m_machine_by_domain_ptr.find(domain_name)};
+            if (found != m_machine_by_domain_ptr.end()) {
+                auto& machine{found->second};
+                machine->notify_bad_state();
+            }
+        }
+        return 0;
+    }
+
+    int agent_lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int state, int reason) {
+        char uuid[36]{};
+        virDomainGetUUIDString(dom, uuid);
+        if (auto* domain_name{virDomainGetName(dom)}) {
+            if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
+                return 0;
+            }
+            std::scoped_lock lock{m_map_mutex};
+            auto found{m_machine_by_domain_ptr.find(domain_name)};
+            if (found != m_machine_by_domain_ptr.end()) {
+                auto& machine{found->second};
+                machine->notify_ready();
+            }
+        }
+        return 0;
+    }
+
+    void run_loop() noexcept {
+        while (!m_stop) {
+            if (virEventRunDefaultImpl() < 0) {
+                m_stop = true;
+                break;
+            }
+        }
+    }
+
+    void stop_loop() noexcept { m_stop = true; }
+
+    std::atomic_bool m_stop{};
+    ConnectPtr m_conn;
+    std::jthread m_loop_thread;
+    std::unordered_map<std::string, std::shared_ptr<Machine>> m_machine_by_domain_ptr;
+    std::mutex m_map_mutex;
+    std::vector<int> m_event_handler_ids;
+};
+
+Hypervisor::~Hypervisor() = default;
+
+Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
+Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
+
+std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(SpawnOptions options) noexcept {
+    return m_impl->spawn(std::move(options));
+}
+
+std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) noexcept {
+    return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
+}
+
+Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
+
+} // namespace ls_gitea_runner::libvirt

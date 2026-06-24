@@ -30,11 +30,51 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
 }
 } // namespace
 
-HttpClient::HttpClient(const std::string& base_url) : m_base_url{base_url} {
+struct HttpClient::Private final {
+    Private() : share{curl_share_init()} {
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_CONNECT);
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_PSL);
+        curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_HSTS);
+    }
+
+    ~Private() {
+        if (share) {
+            curl_share_cleanup(share);
+        }
+    }
+
+    Private(const Private&) = delete;
+    Private(Private&&) = delete;
+
+    Private& operator=(const Private&) = delete;
+    Private& operator=(Private&&) = delete;
+
+    CURLSH* share{};
+};
+
+HttpClient::HttpClient(const std::string& base_url) : m_priv{std::make_unique<Private>()}, m_base_url{base_url} {
     if (!m_base_url.ends_with('/')) {
         m_base_url += '/';
     }
     m_base_url += "api/actions";
+}
+
+HttpClient::~HttpClient() = default;
+
+HttpClient::HttpClient(HttpClient&& other) noexcept
+        : m_priv{std::move(other.m_priv)}, m_base_url{std::move(other.m_base_url)},
+          m_req_middlewares{std::move(other.m_req_middlewares)} {}
+
+HttpClient& HttpClient::operator=(HttpClient&& other) noexcept {
+    if (this != &other) {
+        m_priv = std::move(other.m_priv);
+        m_base_url = std::move(other.m_base_url);
+        m_req_middlewares = std::move(other.m_req_middlewares);
+    }
+    return *this;
 }
 
 std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const noexcept {
@@ -61,6 +101,7 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     long response_code{};
     auto* curl{curl_easy_init()};
     if (curl) {
+        curl_easy_setopt(curl, CURLOPT_SHARE, m_priv->share);
         curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
         curl_easy_setopt(curl, CURLOPT_HEADER, 0);
         curl_easy_setopt(curl, CURLOPT_POST, 1);

@@ -24,6 +24,29 @@ template <typename T> std::expected<T, GenericError> decode_payload(const std::v
     return msg;
 }
 
+#define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
+    template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg) noexcept;             \
+    template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload) noexcept;
+
+DECLARE_PAYLOAD_ENCODING_FN(::ping::v1::PingRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::ping::v1::PingResponse)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::DeclareRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::DeclareResponse)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::FetchTaskRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::FetchTaskResponse)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::LogRow)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::RegisterRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::RegisterResponse)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::Runner)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::StepState)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::Task)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::TaskNeed)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::TaskState)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateLogRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateLogResponse)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskRequest)
+DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskResponse)
+
 template <typename Request, typename Response>
 std::expected<Response, GenericError> send_post_request(const HttpClient& client, const std::string& path,
                                                         const Request& req) noexcept {

@@ -10,7 +10,7 @@ namespace ls_gitea_runner {
 
 class DockerMachineManager::Impl final {
 public:
-    std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info, const std::string& details) {
+    std::expected<std::unique_ptr<Machine>, GenericError> spawn(Machine::Info info, MachinePoolDetails details) {
         const auto parsed_options{DockerMachineOptions::load(details)};
         if (!parsed_options) {
             return std::unexpected{parsed_options.error()};
@@ -37,8 +37,8 @@ DockerMachineManager::DockerMachineManager() : m_impl{std::make_unique<Impl>()} 
 DockerMachineManager::~DockerMachineManager() {}
 
 std::expected<std::unique_ptr<Machine>, GenericError> DockerMachineManager::spawn(Machine::Info info,
-                                                                                  const std::string& details) {
-    return m_impl->spawn(std::move(info), details);
+                                                                                  MachinePoolDetails details) {
+    return m_impl->spawn(std::move(info), std::move(details));
 }
 
 } // namespace ls_gitea_runner

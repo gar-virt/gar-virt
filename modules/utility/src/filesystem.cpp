@@ -1,6 +1,7 @@
 #include <utility/filesystem.hpp>
 
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <random>
 #include <string>
@@ -31,6 +32,22 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
         }
     }
     std::abort();
+}
+
+std::vector<std::byte> read_file(const std::filesystem::path& file_path) {
+    std::ifstream stream{file_path, std::ios_base::binary};
+    stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
+    const auto file_size{std::filesystem::file_size(file_path)};
+    std::vector<std::byte> content;
+    content.resize(file_size);
+    stream.read(reinterpret_cast<char*>(content.data()), file_size);
+    return content;
+}
+
+void write_file(const std::filesystem::path& file_path, std::span<const std::byte> content) {
+    std::ofstream stream{file_path, std::ios_base::binary};
+    stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
+    stream.write(reinterpret_cast<const char*>(content.data()), content.size());
 }
 
 } // namespace ls_gitea_runner::fs

@@ -1,7 +1,6 @@
 #include "commands/commands.hpp"
 #include "config.hpp"
 #include "program_options.hpp"
-#include "state.hpp"
 
 #include <boost/program_options.hpp>
 
@@ -18,11 +17,9 @@ int main(int argc, char* const argv[]) {
 
     try {
         po::options_description options_desc{"Options"};
-        options_desc.add_options()                                                           //
-            ("help", "show help message")                                                    //
-            ("config-file", po::value<std::string>()->required(), "configuration file path") //
-            ("state-file", po::value<std::string>()->required(), "state file path")          //
-            ("command", po::value<std::string>()->required(), "command (register, daemon)");
+        options_desc.add_options()        //
+            ("help", "show help message") //
+            ("config-file", po::value<std::string>()->required(), "configuration file path");
 
         po::positional_options_description positional_desc;
         positional_desc.add("command", 1);
@@ -35,13 +32,7 @@ int main(int argc, char* const argv[]) {
                   vm);
 
         if (vm.contains("help")) {
-            std::cout << "Usage: program [options] command\n"
-                      << "Commands:\n"
-                      << "  register\n"
-                      << "    Register the runner.\n"
-                      << "  daemon\n"
-                      << "    Start taking jobs.\n"
-                      << options_desc << '\n';
+            std::cout << "Usage: program [options]\n" << options_desc << '\n';
             return 0;
         }
 
@@ -49,7 +40,6 @@ int main(int argc, char* const argv[]) {
 
         const ProgramOptions options{
             .config_file = std::filesystem::u8path(vm.at("config-file").as<std::string>()),
-            .state_file = std::filesystem::u8path(vm.at("state-file").as<std::string>()),
         };
 
         auto config{config::load_file(options.config_file)};
@@ -57,25 +47,9 @@ int main(int argc, char* const argv[]) {
             throw config.error();
         }
 
-        const auto& cmd{vm.at("command").as<std::string>()};
-        auto state{RuntimeState::load_file(options.state_file)};
-
-        if (cmd == "register"sv) {
-            if (!state) {
-                state = RuntimeState::create(options.state_file);
-                if (!state) {
-                    throw config.error();
-                }
-            }
-            return cmd_register(std::move(*config), std::move(*state));
-        } else if (cmd == "daemon"sv) {
-            if (!state) {
-                throw config.error();
-            }
-            return cmd_daemon(std::move(*config), std::move(*state));
-        } else {
-            std::println(std::cerr, "Invalid command");
-            return 1;
+        auto cmd_res{cmd_daemon(std::move(*config))};
+        if (!cmd_res) {
+            throw cmd_res.error();
         }
 
         return 0;

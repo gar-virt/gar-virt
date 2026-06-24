@@ -41,7 +41,6 @@ target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
     src/config.cpp
     src/error.cpp
-    src/gitea/log_reporter.cpp
     src/gitea/runner_service_client.cpp
     src/http.cpp
     src/libvirt/libvirt.cpp

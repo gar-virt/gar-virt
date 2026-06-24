@@ -46,7 +46,6 @@ target_sources(ga_runner PRIVATE
     src/libvirt/machine_options.cpp
     src/machine/machine_manager_factory_selector.cpp
     src/main.cpp
-    src/protobuf_helper.cpp
 )
 target_link_libraries(ga_runner PRIVATE
     protobuf::libprotobuf

@@ -40,11 +40,6 @@ add_executable(ga_runner)
 target_sources(ga_runner PRIVATE
     src/commands/daemon.cpp
     src/config.cpp
-    src/docker/engine_client.cpp
-    src/docker/machine.cpp
-    src/docker/machine_manager.cpp
-    src/docker/machine_manager_factory.cpp
-    src/docker/machine_options.cpp
     src/error.cpp
     src/gitea/log_reporter.cpp
     src/gitea/runner_service_client.cpp

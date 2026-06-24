@@ -9,10 +9,6 @@
 
 namespace ls_gitea_runner::config {
 
-struct DockerConfig {
-    std::string image;
-};
-
 struct LibvirtConfig {
     std::string hypervisor_uri;
     std::filesystem::path volume_template_path;
@@ -27,7 +23,7 @@ struct MachinePoolConfig {
     std::string temp_dir;
     std::string workspaces_dir;
     std::string runner_exe_path;
-    // std::variant<DockerConfig, LibvirtConfig> details;
+    // std::variant<LibvirtConfig> details;
     std::string details_as_json;
 };
 

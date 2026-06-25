@@ -52,7 +52,6 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
                                    [](const YAML::Node& l) { return l.as<std::string>(); });
                     return labels;
                 }(),
-            .ephemeral = y["ephemeral"].as<bool>(),
             .machine_pool =
                 [&] {
                     const auto& pool{y["machine_pool"]};

@@ -26,7 +26,6 @@ struct RunnerConfig {
     std::string token;
     std::string name;
     std::vector<std::string> labels;
-    bool ephemeral{};
     MachinePoolConfig machine_pool;
 
     std::vector<std::string> get_label_names() const;

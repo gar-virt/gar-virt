@@ -55,7 +55,8 @@ std::expected<Response, GenericError> send_post_request(const utility::HttpClien
         .and_then([](auto res) { return decode_payload<Response>(res.body); });
 }
 
-GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url) : m_client{instance_url} {
+GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url)
+        : m_client{utility::http_path_join(instance_url, "/api/actions")} {
     m_client.add_request_middleware([this](auto& req) {
         if (req.method == utility::HttpMethod::post) {
             req.headers.emplace("Content-Type", "application/proto");

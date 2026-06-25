@@ -14,6 +14,8 @@
 
 namespace ls_gitea_runner::utility {
 
+std::string http_path_join(const std::string& first, const std::string& second);
+
 enum class HttpMethod { get, post };
 
 struct HttpRequest {
@@ -54,4 +56,4 @@ private:
     std::vector<HttpRequestMiddleware> m_req_middlewares;
 };
 
-} // namespace ls_gitea_runner
+} // namespace ls_gitea_runner::utility

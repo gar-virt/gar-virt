@@ -30,6 +30,18 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
 }
 } // namespace
 
+std::string http_path_join(const std::string& first, const std::string& second) {
+    const auto first_delim{first.ends_with('/')};
+    const auto second_delim{second.starts_with('/')};
+    if (first_delim && second_delim) {
+        return first + second.substr(1);
+    }
+    if (!first_delim && !second_delim) {
+        return first + "/" + second;
+    }
+    return first + second;
+}
+
 struct HttpClient::Private final {
     Private() : share{curl_share_init()} {
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
@@ -55,12 +67,7 @@ struct HttpClient::Private final {
     CURLSH* share{};
 };
 
-HttpClient::HttpClient(const std::string& base_url) : m_priv{std::make_unique<Private>()}, m_base_url{base_url} {
-    if (!m_base_url.ends_with('/')) {
-        m_base_url += '/';
-    }
-    m_base_url += "api/actions";
-}
+HttpClient::HttpClient(const std::string& base_url) : m_priv{std::make_unique<Private>()}, m_base_url{base_url} {}
 
 HttpClient::~HttpClient() = default;
 
@@ -84,7 +91,7 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
         }
     }
 
-    const auto url{m_base_url + req.path};
+    const auto url{http_path_join(m_base_url, req.path)};
 
     std::string response_headers;
     std::vector<std::byte> response_body;
@@ -146,4 +153,4 @@ void HttpClient::add_request_middleware(HttpRequestMiddleware middleware) {
     m_req_middlewares.push_back(std::move(middleware));
 }
 
-} // namespace ls_gitea_runner
+} // namespace ls_gitea_runner::utility

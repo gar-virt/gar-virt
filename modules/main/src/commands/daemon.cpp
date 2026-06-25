@@ -7,6 +7,7 @@
 #include "../log.hpp"
 #include "../version.hpp"
 
+#include "gitea/admin_service_client.hpp"
 #include "gitea/runner_service_client.hpp"
 #include "utility/string.hpp"
 #include "utility/thread_pool_executor.hpp"
@@ -20,7 +21,6 @@
 #include <cstring>
 #include <expected>
 #include <format>
-#include <iostream>
 #include <print>
 #include <string>
 
@@ -38,10 +38,11 @@ std::expected<::ping::v1::PingResponse, GenericError> ping(const gitea::GiteaRun
 }
 
 std::expected<::runner::v1::RegisterResponse, GenericError> register_(const gitea::GiteaRunnerServiceClient& client,
-                                                                      const config::RunnerConfig& config) {
+                                                                      const config::RunnerConfig& config,
+                                                                      const std::string& reg_token) {
     auto reqister_request{::runner::v1::RegisterRequest{}};
     reqister_request.set_name(config.name);
-    reqister_request.set_token(config.token);
+    reqister_request.set_token(reg_token);
     reqister_request.set_version(std::string{runner_version});
     for (auto& label : config.get_label_names()) {
         reqister_request.add_labels(label);
@@ -263,8 +264,15 @@ std::expected<void, GenericError> update_task_on_error(const ::runner::v1::Task&
     });
 }
 
-std::expected<void, GenericError> run_loop_iterate(const config::RunnerConfig& config, std::atomic_bool& stop) {
+std::expected<void, GenericError> run_loop_iterate(const gitea::AdminServiceClient& admin,
+                                                   const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
+
+    const auto reg_token(admin.get_registration_token());
+    if (!reg_token) {
+        return std::unexpected{reg_token.error()};
+    }
+
     gitea::GiteaRunnerServiceClient client{config.instance_url};
 
     auto ping_res{ping(client, config)};
@@ -272,7 +280,7 @@ std::expected<void, GenericError> run_loop_iterate(const config::RunnerConfig& c
         return std::unexpected{ping_res.error()};
     }
 
-    auto register_res{register_(client, config)};
+    auto register_res{register_(client, config, *reg_token)};
     if (!register_res) {
         return std::unexpected{register_res.error()};
     }
@@ -306,10 +314,10 @@ std::expected<void, GenericError> run_loop_iterate(const config::RunnerConfig& c
     return {};
 }
 
-void run_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
+void run_loop(const gitea::AdminServiceClient& admin, const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
     while (!stop) {
-        auto res{run_loop_iterate(config, stop)};
+        auto res{run_loop_iterate(admin, config, stop)};
         if (!res) {
             global_logger().error("Error in run loop iteration: {}", res.error().what());
             std::this_thread::sleep_for(5s);
@@ -329,11 +337,12 @@ std::atomic_bool& install_shutdown_signal_handler() {
 std::expected<void, GenericError> cmd_daemon(const config::RunnerConfig& config) noexcept {
     using namespace std::chrono_literals;
     auto& shutdown{install_shutdown_signal_handler()};
+    gitea::AdminServiceClient admin{config.instance_url, config.token};
     utility::ThreadPoolExecutor executor{config.machine_pool.capacity};
 
     if (auto capacity{config.machine_pool.capacity}; capacity > 0) {
         while (capacity > 0) {
-            executor.put([&] { run_loop(config, shutdown); });
+            executor.put([&] { run_loop(admin, config, shutdown); });
             --capacity;
         }
     }

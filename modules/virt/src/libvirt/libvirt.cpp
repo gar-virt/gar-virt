@@ -88,7 +88,7 @@ public:
         return {};
     }
 
-    std::expected<void, GenericError> wait_until_ready() noexcept {
+    std::expected<void, GenericError> wait_for_guest_agent() noexcept {
         std::unique_lock lock{m_ready_mutex};
         m_ready_cv.wait(lock, [&] -> bool { return m_ready; });
         return {};
@@ -175,7 +175,6 @@ public:
 
     std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) noexcept {
         using namespace std::chrono_literals;
-        // TODO: options
         try {
             const auto& exe{cmd.at(0)};
             boost::json::array args{};
@@ -188,7 +187,7 @@ public:
                                                                    {
                                                                        {"path", exe},
                                                                        {"arg", args},
-                                                                       {"capture-output", true},
+                                                                       {"capture-output", "merged"},
                                                                    },
                                                                }})};
             auto* res{virDomainQemuAgentCommand(m_domain.get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
@@ -200,6 +199,8 @@ public:
 
             bool exited{};
             int exit_code{};
+            std::string output;
+
             while (!exited) {
                 req = boost::json::serialize(boost::json::value{{"execute", "guest-exec-status"},
                                                                 {
@@ -221,9 +222,10 @@ public:
                 }
 
                 exit_code = static_cast<int>(status_res.at("exitcode").as_int64());
+                output = utility::base64_decode_to_string(status_res.at("out-data").as_string());
             }
 
-            return utility::SpawnResult{.exit_code = exit_code};
+            return utility::SpawnResult{.exit_code = exit_code, .output = std::move(output)};
         } catch (const std::exception& ex) {
             return std::unexpected{
                 GenericError{std::format("Error while attempting to execute command in machine: {}", ex.what())}};
@@ -290,7 +292,7 @@ std::expected<bool, GenericError> Machine::is_ready() const noexcept { return m_
 void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
 void Machine::notify_ready() { m_impl->notify_ready(); }
 
-std::expected<void, GenericError> Machine::wait_until_ready() { return m_impl->wait_until_ready(); }
+std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 
 class HypervisorImpl {
 public:
@@ -404,6 +406,14 @@ private:
     }
 
     std::expected<void, GenericError> register_event_handlers() {
+        static auto close_event_cb{+[](virConnectPtr conn, int reason, void* user_data) {
+            auto* self{static_cast<HypervisorImpl*>(user_data)};
+            self->close_event_handler(conn, reason);
+        }};
+        if (virConnectRegisterCloseCallback(m_conn.get(), close_event_cb, this, nullptr) < 0) {
+            return std::unexpected{GenericError{"Failed to register connection closed event handler"}};
+        }
+
         static auto lifecycle_event_cb{
             +[](virConnectPtr conn, virDomainPtr dom, int event, int detail, HypervisorImpl* user_data) {
                 return user_data->lifecycle_event_handler(conn, dom, event, detail);
@@ -437,6 +447,13 @@ private:
         for (auto it{m_event_handler_ids.rbegin()}; it != m_event_handler_ids.rend(); ++it) {
             virConnectDomainEventDeregisterAny(m_conn.get(), *it);
         }
+    }
+
+    void close_event_handler(virConnectPtr conn, int reason) {
+        for (auto& entry : m_machine_by_domain_ptr) {
+            entry.second->notify_bad_state();
+        }
+        stop_loop();
     }
 
     int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) {

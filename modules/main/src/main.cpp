@@ -1,5 +1,6 @@
 #include "commands/commands.hpp"
 #include "config.hpp"
+#include "log.hpp"
 #include "program_options.hpp"
 
 #include <boost/program_options.hpp>
@@ -17,9 +18,10 @@ int main(int argc, char* const argv[]) {
 
     try {
         po::options_description options_desc{"Options"};
-        options_desc.add_options()        //
-            ("help", "show help message") //
-            ("config-file", po::value<std::string>()->required(), "configuration file path");
+        options_desc.add_options()                                                           //
+            ("help", "show help message")                                                    //
+            ("config-file", po::value<std::string>()->required(), "configuration file path") //
+            ("verbose", po::bool_switch(), "Verbose logging");
 
         po::positional_options_description positional_desc;
         positional_desc.add("command", 1);
@@ -38,16 +40,20 @@ int main(int argc, char* const argv[]) {
 
         po::notify(vm);
 
+        if (const auto verbose{vm.at("verbose").as<bool>()}) {
+            global_logger().set_level(utility::LogLevel::verbose);
+        }
+
         const ProgramOptions options{
             .config_file = std::filesystem::u8path(vm.at("config-file").as<std::string>()),
         };
 
-        auto config{config::load_file(options.config_file)};
+        const auto config{config::load_file(options.config_file)};
         if (!config) {
             throw config.error();
         }
 
-        auto cmd_res{cmd_daemon(std::move(*config))};
+        auto cmd_res{cmd_daemon(*config)};
         if (!cmd_res) {
             throw cmd_res.error();
         }

@@ -8,11 +8,17 @@ namespace ls_gitea_runner::utility {
 
 std::string base64_encode(std::span<const std::byte> input) { return cppcodec::base64_rfc4648::encode(input); }
 
-std::vector<std::byte> base64_decode(std::string_view input) {
+std::vector<std::byte> base64_decode_to_bytes(std::string_view input) {
     std::vector<uint8_t> output_u8;
     cppcodec::base64_rfc4648::decode(output_u8, input);
     auto* p{reinterpret_cast<const std::byte*>(output_u8.data())};
     return std::vector<std::byte>{p, p + output_u8.size() * sizeof(output_u8[0])};
+}
+
+std::string base64_decode_to_string(std::string_view input) {
+    std::string output;
+    cppcodec::base64_rfc4648::decode(output, input);
+    return output;
 }
 
 } // namespace ls_gitea_runner::utility

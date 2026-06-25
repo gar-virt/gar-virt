@@ -35,7 +35,7 @@ public:
 
     std::string get_name() const noexcept;
     std::expected<void, GenericError> wait() noexcept;
-    std::expected<void, GenericError> wait_until_ready();
+    std::expected<void, GenericError> wait_for_guest_agent();
 
     std::expected<void, GenericError> write_file(const std::string& file_path,
                                                  std::span<const std::byte> content) noexcept;

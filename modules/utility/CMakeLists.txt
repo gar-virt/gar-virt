@@ -9,9 +9,11 @@ target_sources(utility PRIVATE
     src/encoding/base64.cpp
     src/error.cpp
     src/env.cpp
+    src/datetime.cpp
     src/file_handle.cpp
     src/filesystem.cpp
     src/http.cpp
+    src/log/stdout.cpp
     src/spawn.cpp
     src/string.cpp
     src/uuid.cpp

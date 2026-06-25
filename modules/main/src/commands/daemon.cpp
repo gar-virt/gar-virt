@@ -4,13 +4,16 @@
 #include "runner/v1/messages.pb.h"
 
 #include "../config.hpp"
+#include "../log.hpp"
 #include "../version.hpp"
 
 #include "gitea/runner_service_client.hpp"
+#include "utility/string.hpp"
 #include "utility/thread_pool_executor.hpp"
 #include "virt/machine_manager_factory_selector.hpp"
 
 #include <boost/json.hpp>
+#include <boost/url.hpp>
 
 #include <atomic>
 #include <csignal>
@@ -118,6 +121,68 @@ std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectab
         .and_then([&] { return machine.write_file("/tmp/runner_task", injectables.encoded_task); });
 }
 
+std::expected<std::vector<std::string>, GenericError> make_ping_command(const std::string& target_os,
+                                                                        const std::string& host) {
+    std::vector<std::string> cmd = {"ping"};
+    if (utility::string_compare_ci(target_os, "linux")) {
+        // Count
+        cmd.emplace_back("-c");
+        cmd.emplace_back("1");
+        // Timeout in seconds
+        cmd.emplace_back("-W");
+        cmd.emplace_back("2");
+    } else if (utility::string_compare_ci(target_os, "macos")) {
+        // Count
+        cmd.emplace_back("-c");
+        cmd.emplace_back("1");
+        // Timeout in milliseconds
+        cmd.emplace_back("-W");
+        cmd.emplace_back("2000");
+    } else if (utility::string_compare_ci(target_os, "windows")) {
+        // Count
+        cmd.emplace_back("-n");
+        cmd.emplace_back("1");
+        // Timeout in seconds
+        cmd.emplace_back("-w");
+        cmd.emplace_back("2");
+    } else {
+        return std::unexpected{GenericError{std::format("Ping command not implemented for target OS {}", target_os)}};
+    }
+    cmd.push_back(host);
+    return cmd;
+}
+
+std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
+                                                                      std::chrono::seconds timeout) {
+    using namespace std::literals;
+    const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
+    const auto& host{parsed_instance_url->host()};
+
+    const auto cmd{make_ping_command(machine.info().os, host)};
+    if (!cmd) {
+        return std::unexpected{cmd.error()};
+    }
+
+    utility::SpawnResult spawn_res;
+    auto start_time{std::chrono::steady_clock::now()};
+    while (start_time - std::chrono::steady_clock::now() < timeout) {
+        auto res{machine.shell_exec(*cmd)};
+        if (!res) {
+            return std::unexpected{
+                GenericError{std::format("Failed to execute ping command for host {} in machine {}: {}", host,
+                                         machine.get_id(), res.error().what())}};
+        }
+        spawn_res = *res;
+        if (spawn_res.exit_code == 0) {
+            return {};
+        }
+        std::this_thread::sleep_for(2s);
+    }
+
+    return std::unexpected{GenericError{std::format("Ping timeout for host {} in machine {}, with output: {}", host,
+                                                    machine.get_id(), spawn_res.output)}};
+}
+
 std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, const ::runner::v1::Runner& runner,
                                                const config::RunnerConfig& config) {
     using namespace std::literals;
@@ -133,6 +198,9 @@ std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, c
 
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
+
+    global_logger().verbose("Spawning new machine for task #{} via {}.", task.id(), machine_provider);
+
     auto machine_res{machine_manager->spawn(
         Machine::Info{
             .os = machine_config.os,
@@ -146,20 +214,36 @@ std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, c
     }
 
     auto machine{*std::move(machine_res)};
-    if (!machine->wait_until_ready(120s)) {
+
+    global_logger().verbose("New machine spawned with ID {} for task #{}.", machine->get_id(), task.id());
+
+    global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
+    if (!machine->wait_for_guest_agent(120s)) {
         return std::unexpected{
-            GenericError{std::format("Timed out while waiting for machine to become ready: {}", machine->get_id())}};
+            GenericError{std::format("Timed out while waiting for machine {} guest agent.", machine->get_id())}};
     }
+
+    global_logger().verbose("Waiting for machine {} network.", machine->get_id());
+    if (!wait_until_gitea_instance_available(*machine, config.instance_url, 120s)) {
+        return std::unexpected{GenericError{std::format(
+            "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
+    }
+
+    global_logger().verbose("Preparing environment for machine {}.", machine->get_id());
 
     return Injectables::generate(task, runner, config)
         .and_then([&](auto res) { return inject_runner_files(*machine, std::move(res)); })
         .and_then([&] {
+            global_logger().verbose("Executing task #{} in machine {}.", task.id(), machine->get_id());
             return machine
                 ->shell_exec({machine_config.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml",
                               "--task", "/tmp/runner_task"})
-                .and_then([](auto res) -> std::expected<void, GenericError> {
+                .and_then([&](auto res) -> std::expected<void, GenericError> {
+                    global_logger().verbose("Task #{} execution exited with code {} and output: {}", task.id(),
+                                            res.exit_code, res.output);
                     if (res.exit_code != 0) {
-                        return std::unexpected{GenericError{std::format("Gitea Runner returned {}", res.exit_code)}};
+                        return std::unexpected{GenericError{
+                            std::format("Task #{} execution failed with code {}", task.id(), res.exit_code)}};
                     }
                     return {};
                 });
@@ -194,6 +278,7 @@ std::expected<void, GenericError> run_loop_iterate(const config::RunnerConfig& c
     }
 
     auto& runner{register_res->runner()};
+    global_logger().verbose("Registered runner with ID {}.", runner.id());
     client.set_credentials(gitea::GiteaRunnerCredentials{.uuid = runner.uuid(), .token = runner.token()});
 
     auto declare_res{declare(client, config)};
@@ -213,6 +298,7 @@ std::expected<void, GenericError> run_loop_iterate(const config::RunnerConfig& c
         }
 
         const auto& task{res->task()};
+        global_logger().verbose("Fetched task with ID {}.", task.id());
 
         return update_task_on_error(task, client, [&] { return process_task(task, runner, config); });
     }
@@ -225,7 +311,7 @@ void run_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
     while (!stop) {
         auto res{run_loop_iterate(config, stop)};
         if (!res) {
-            std::println(std::cerr, "Error: {}", res.error().what());
+            global_logger().error("Error in run loop iteration: {}", res.error().what());
             std::this_thread::sleep_for(5s);
             continue;
         }
@@ -240,10 +326,18 @@ std::atomic_bool& install_shutdown_signal_handler() {
     return flag;
 }
 
-std::expected<void, GenericError> cmd_daemon(config::RunnerConfig config) noexcept {
+std::expected<void, GenericError> cmd_daemon(const config::RunnerConfig& config) noexcept {
+    using namespace std::chrono_literals;
     auto& shutdown{install_shutdown_signal_handler()};
     utility::ThreadPoolExecutor executor{config.machine_pool.capacity};
-    executor.put([&] { run_loop(config, shutdown); });
+
+    if (auto capacity{config.machine_pool.capacity}; capacity > 0) {
+        while (capacity > 0) {
+            executor.put([&] { run_loop(config, shutdown); });
+            --capacity;
+        }
+    }
+
     return {};
 }
 

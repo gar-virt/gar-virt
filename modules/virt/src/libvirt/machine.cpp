@@ -60,7 +60,7 @@ public:
         return m_underlying_machine->shell_exec(cmd);
     }
 
-    bool wait_until_ready(std::chrono::milliseconds timeout) {
+    bool wait_for_guest_agent(std::chrono::milliseconds timeout) {
         using namespace std::literals;
         const auto start_time{std::chrono::steady_clock::now()};
         while (auto res{m_underlying_machine->is_ready()}) {
@@ -113,7 +113,9 @@ LibvirtMachine::shell_exec(const std::vector<std::string>& cmd) const {
     return m_impl->shell_exec(cmd);
 }
 
-bool LibvirtMachine::wait_until_ready(std::chrono::seconds timeout) { return m_impl->wait_until_ready(timeout); }
+bool LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout) {
+    return m_impl->wait_for_guest_agent(timeout);
+}
 
 std::expected<void, GenericError> LibvirtMachine::copy_file_into(const std::filesystem::path& local_path,
                                                                  const std::string& remote_path) {

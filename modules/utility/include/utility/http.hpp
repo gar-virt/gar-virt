@@ -16,7 +16,7 @@ namespace ls_gitea_runner::utility {
 
 std::string http_path_join(const std::string& first, const std::string& second);
 
-enum class HttpMethod { get, post };
+enum class HttpMethod { get, post, del };
 
 struct HttpRequest {
     HttpMethod method;
@@ -46,6 +46,7 @@ public:
     std::expected<HttpResponse, GenericError> send(HttpRequest req) const noexcept;
 
     std::expected<HttpResponse, GenericError> post(std::string path, std::vector<std::byte> payload) const noexcept;
+    std::expected<HttpResponse, GenericError> del(std::string path) const noexcept;
 
     void add_request_middleware(HttpRequestMiddleware middleware);
 

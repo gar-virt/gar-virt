@@ -39,4 +39,8 @@ std::expected<std::string, GenericError> AdminServiceClient::get_registration_to
     }
 }
 
+std::expected<void, GenericError> AdminServiceClient::remove_runner(uint64_t runner_id) const noexcept {
+    return m_client.del(std::format("/actions/runners/{}", runner_id)).transform([](auto) {});
+}
+
 } // namespace ls_gitea_runner::gitea

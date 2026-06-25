@@ -9,6 +9,7 @@
 
 #include "gitea/admin_service_client.hpp"
 #include "gitea/runner_service_client.hpp"
+#include "utility/defer.hpp"
 #include "utility/string.hpp"
 #include "utility/thread_pool_executor.hpp"
 #include "virt/machine_manager_factory_selector.hpp"
@@ -287,6 +288,14 @@ std::expected<void, GenericError> run_loop_iterate(const gitea::AdminServiceClie
 
     auto& runner{register_res->runner()};
     global_logger().verbose("Registered runner with ID {}.", runner.id());
+
+    utility::Deferred unregister_runner{[&] {
+        global_logger().verbose("Unregistering runner with ID {}.", runner.id());
+        if (auto res{admin.remove_runner(runner.id())}; !res) {
+            global_logger().error("Failed to unregister runner with ID {}: {}", runner.id(), res.error().what());
+        }
+    }};
+
     client.set_credentials(gitea::GiteaRunnerCredentials{.uuid = runner.uuid(), .token = runner.token()});
 
     auto declare_res{declare(client, config)};
@@ -314,8 +323,9 @@ std::expected<void, GenericError> run_loop_iterate(const gitea::AdminServiceClie
     return {};
 }
 
-void run_loop(const gitea::AdminServiceClient& admin, const config::RunnerConfig& config, std::atomic_bool& stop) {
+void run_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
+    gitea::AdminServiceClient admin{config.instance_url, config.token};
     while (!stop) {
         auto res{run_loop_iterate(admin, config, stop)};
         if (!res) {
@@ -337,12 +347,11 @@ std::atomic_bool& install_shutdown_signal_handler() {
 std::expected<void, GenericError> cmd_daemon(const config::RunnerConfig& config) noexcept {
     using namespace std::chrono_literals;
     auto& shutdown{install_shutdown_signal_handler()};
-    gitea::AdminServiceClient admin{config.instance_url, config.token};
     utility::ThreadPoolExecutor executor{config.machine_pool.capacity};
 
     if (auto capacity{config.machine_pool.capacity}; capacity > 0) {
         while (capacity > 0) {
-            executor.put([&] { run_loop(admin, config, shutdown); });
+            executor.put([&] { run_loop(config, shutdown); });
             --capacity;
         }
     }

@@ -3,6 +3,7 @@
 #include "utility/error.hpp"
 #include "utility/http.hpp"
 
+#include <cstdint>
 #include <expected>
 
 namespace ls_gitea_runner::gitea {
@@ -12,6 +13,7 @@ public:
     AdminServiceClient(const std::string& instance_url, const std::string& token);
 
     std::expected<std::string, GenericError> get_registration_token() const noexcept;
+    std::expected<void, GenericError> remove_runner(uint64_t runner_id) const noexcept;
 
 private:
     std::string m_token;

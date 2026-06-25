@@ -1,4 +1,5 @@
 #include "utility/http.hpp"
+#include "utility/algorithm.hpp"
 
 #include <curl/curl.h>
 
@@ -105,13 +106,12 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     }
 
     CURLcode curl_code{CURLE_OK};
-    long response_code{};
+    long status_code{};
     auto* curl{curl_easy_init()};
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_SHARE, m_priv->share);
-        curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+        curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0);
         curl_easy_setopt(curl, CURLOPT_HEADER, 0);
-        curl_easy_setopt(curl, CURLOPT_POST, 1);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
         curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_header_fn);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_body_fn);
@@ -120,11 +120,18 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req.payload.data());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req.payload.size());
+
+        if (req.method == HttpMethod::post) {
+            curl_easy_setopt(curl, CURLOPT_POST, 1);
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req.payload.data());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req.payload.size());
+        } else if (req.method == HttpMethod::del) {
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+        }
+
         curl_code = curl_easy_perform(curl);
         if (curl_code == CURLE_OK) {
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code);
         }
         curl_easy_cleanup(curl);
     }
@@ -132,12 +139,17 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     curl_slist_free_all(headers);
 
     if (!curl || curl_code != CURLE_OK) {
-        return std::unexpected{
-            GenericError{std::format("HTTP request to \"{}\" failed (cURL error code: {}; HTTP status code: {})", url,
-                                     static_cast<long>(curl_code), response_code)}};
+        return std::unexpected{GenericError{
+            std::format("HTTP request to \"{}\" failed (cURL error code: {})", url, static_cast<long>(curl_code))}};
     }
 
-    return HttpResponse{.body = response_body};
+    const auto is_ok_already_deleted{status_code == 404 && req.method == HttpMethod::del};
+    if (status_code >= 400 && !is_ok_already_deleted) {
+        return std::unexpected{
+            GenericError{std::format("HTTP request to \"{}\" failed with status code {}", url, status_code)}};
+    }
+
+    return HttpResponse{.status = utility::safe_cast_int<int>(status_code), .body = response_body};
 }
 
 std::expected<HttpResponse, GenericError> HttpClient::post(std::string path,
@@ -146,6 +158,13 @@ std::expected<HttpResponse, GenericError> HttpClient::post(std::string path,
         .method = HttpMethod::post,
         .path = std::move(path),
         .payload = std::move(payload),
+    });
+}
+
+std::expected<HttpResponse, GenericError> HttpClient::del(std::string path) const noexcept {
+    return send(HttpRequest{
+        .method = HttpMethod::del,
+        .path = std::move(path),
     });
 }
 

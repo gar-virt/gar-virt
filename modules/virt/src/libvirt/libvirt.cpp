@@ -347,9 +347,9 @@ public:
         std::shared_ptr<Machine> machine;
         {
             std::scoped_lock lock{m_map_mutex};
-            auto machine_{
-                m_machine_by_domain_ptr.emplace(domain_name, std::make_shared<Machine>(std::make_unique<MachineImpl>(
-                                                                 domain_name, std::move(domain), *std::move(volume))))};
+            auto machine_{m_machine_by_domain_name.emplace(
+                domain_name, std::make_shared<Machine>(
+                                 std::make_unique<MachineImpl>(domain_name, std::move(domain), *std::move(volume))))};
             machine = machine_.first->second;
         }
 
@@ -450,23 +450,18 @@ private:
     }
 
     void close_event_handler(virConnectPtr conn, int reason) {
-        for (auto& entry : m_machine_by_domain_ptr) {
+        for (auto& entry : m_machine_by_domain_name) {
             entry.second->notify_bad_state();
         }
         stop_loop();
     }
 
     int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) {
-        char uuid[36]{};
-        virDomainGetUUIDString(dom, uuid);
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
             }
-            std::scoped_lock lock{m_map_mutex};
-            auto found{m_machine_by_domain_ptr.find(domain_name)};
-            if (found != m_machine_by_domain_ptr.end()) {
-                auto& machine{found->second};
+            if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_bad_state();
             }
         }
@@ -474,16 +469,11 @@ private:
     }
 
     int agent_lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int state, int reason) {
-        char uuid[36]{};
-        virDomainGetUUIDString(dom, uuid);
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;
             }
-            std::scoped_lock lock{m_map_mutex};
-            auto found{m_machine_by_domain_ptr.find(domain_name)};
-            if (found != m_machine_by_domain_ptr.end()) {
-                auto& machine{found->second};
+            if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_ready();
             }
         }
@@ -501,11 +491,20 @@ private:
 
     void stop_loop() noexcept { m_stop = true; }
 
+    std::shared_ptr<Machine> find_tracked_machine_by_name(const std::string& name) const noexcept {
+        std::scoped_lock lock{m_map_mutex};
+        auto found{m_machine_by_domain_name.find(name)};
+        if (found != m_machine_by_domain_name.end()) {
+            return found->second;
+        }
+        return {};
+    }
+
     std::atomic_bool m_stop{};
     ConnectPtr m_conn;
     std::jthread m_loop_thread;
-    std::unordered_map<std::string, std::shared_ptr<Machine>> m_machine_by_domain_ptr;
-    std::mutex m_map_mutex;
+    std::unordered_map<std::string, std::shared_ptr<Machine>> m_machine_by_domain_name;
+    mutable std::mutex m_map_mutex;
     std::vector<int> m_event_handler_ids;
 };
 

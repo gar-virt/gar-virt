@@ -25,6 +25,9 @@
 #include <print>
 #include <string>
 
+#define LOG_SELECT(true_level, false_level, cond, ...)                                                                 \
+    global_logger().log((cond) ? (utility::LogLevel::true_level) : (utility::LogLevel::false_level), __VA_ARGS__);
+
 namespace ls_gitea_runner {
 
 std::expected<::ping::v1::PingResponse, GenericError> ping(const gitea::GiteaRunnerServiceClient& client,
@@ -220,9 +223,8 @@ std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, c
     global_logger().verbose("New machine spawned with ID {} for task #{}.", machine->get_id(), task.id());
 
     global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
-    if (!machine->wait_for_guest_agent(120s)) {
-        return std::unexpected{
-            GenericError{std::format("Timed out while waiting for machine {} guest agent.", machine->get_id())}};
+    if (auto res{machine->wait_for_guest_agent(120s)}; !res) {
+        return std::unexpected{res.error()};
     }
 
     global_logger().verbose("Waiting for machine {} network.", machine->get_id());
@@ -241,12 +243,9 @@ std::expected<void, GenericError> process_task(const ::runner::v1::Task& task, c
                 ->shell_exec({machine_config.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml",
                               "--task", "/tmp/runner_task"})
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
-                    global_logger().verbose("Task #{} execution exited with code {} and output: {}", task.id(),
-                                            res.exit_code, res.output);
-                    if (res.exit_code != 0) {
-                        return std::unexpected{GenericError{
-                            std::format("Task #{} execution failed with code {}", task.id(), res.exit_code)}};
-                    }
+                    LOG_SELECT(verbose, error, res.exit_code == 0,
+                               "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,
+                               res.output);
                     return {};
                 });
         });

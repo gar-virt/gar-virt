@@ -60,19 +60,24 @@ public:
         return m_underlying_machine->shell_exec(cmd);
     }
 
-    bool wait_for_guest_agent(std::chrono::milliseconds timeout) {
+    std::expected<void, GenericError> wait_for_guest_agent(std::chrono::milliseconds timeout) {
         using namespace std::literals;
         const auto start_time{std::chrono::steady_clock::now()};
-        while (auto res{m_underlying_machine->is_ready()}) {
-            if (auto ready{*res}) {
-                return ready;
+        while (true) {
+            auto ready_res{m_underlying_machine->is_ready()};
+            if (!ready_res) {
+                return std::unexpected{ready_res.error()};
+            }
+            if (*ready_res) {
+                return {};
             }
             if (std::chrono::steady_clock::now() - start_time >= timeout) {
                 break;
             }
             std::this_thread::sleep_for(200ms);
         }
-        return false;
+        return std::unexpected{
+            GenericError{std::format("Timed out while waiting for machine {} guest agent.", get_id())}};
     }
 
     std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
@@ -113,7 +118,7 @@ LibvirtMachine::shell_exec(const std::vector<std::string>& cmd) const {
     return m_impl->shell_exec(cmd);
 }
 
-bool LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout) {
+std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout) {
     return m_impl->wait_for_guest_agent(timeout);
 }
 

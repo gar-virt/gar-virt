@@ -71,7 +71,7 @@ std::u8string u8string_from_string(std::string_view from) {
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
-const std::string_view string_trim_left(const std::string_view s, const std::set<char> chars) {
+std::string_view string_trim_left(std::string_view s, std::set<char> chars) {
     for (std::size_t i{}; i < s.size(); ++i) {
         if (!chars.contains(s[i])) {
             return s.substr(i, s.size() - i);
@@ -80,7 +80,7 @@ const std::string_view string_trim_left(const std::string_view s, const std::set
     return s;
 }
 
-const std::string_view string_trim_right(const std::string_view s, const std::set<char> chars) {
+std::string_view string_trim_right(std::string_view s, std::set<char> chars) {
     for (std::size_t i{}; i < s.size(); ++i) {
         const auto j{s.size() - i};
         if (!chars.contains(s[j - 1])) {
@@ -90,11 +90,11 @@ const std::string_view string_trim_right(const std::string_view s, const std::se
     return s;
 }
 
-const std::string_view string_trim(const std::string_view s, const std::set<char> chars) {
+std::string_view string_trim(std::string_view s, std::set<char> chars) {
     return string_trim_left(string_trim_right(s, chars), chars);
 }
 
-void string_trim_right(std::in_place_t, std::string& s, const std::set<char> chars) {
+void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
         if (!chars.contains(*it)) {
@@ -111,7 +111,7 @@ void string_trim_right(std::in_place_t, std::string& s, char c) {
     return string_trim_right(std::in_place, s, std::set<char>{c});
 }
 
-bool string_contains_ci(const std::string_view needle, const std::string_view haystack) {
+bool string_contains_ci(std::string_view needle, std::string_view haystack) {
     if (needle.empty() && haystack.empty()) {
         return true;
     }
@@ -123,7 +123,7 @@ bool string_contains_ci(const std::string_view needle, const std::string_view ha
     return match != haystack.end();
 }
 
-int string_compare_ci(const std::string_view first, const std::string_view second) {
+int string_compare_ci(std::string_view first, std::string_view second) {
     const auto length{std::min(first.size(), second.size())};
     for (size_t i{}; i < length; ++i) {
         const auto a{std::toupper(first[i])};
@@ -144,17 +144,17 @@ int string_compare_ci(const std::string_view first, const std::string_view secon
     return 0;
 }
 
-bool string_compare_less_ci(const std::string_view first, const std::string_view second) {
+bool string_compare_less_ci(std::string_view first, std::string_view second) {
     return std::lexicographical_compare(first.begin(), first.end(), second.begin(), second.end(),
                                         [](auto a, auto b) { return std::toupper(a) < std::toupper(b); });
 }
 
-bool string_equals_ci(const std::string_view first, const std::string_view second) {
+bool string_equals_ci(std::string_view first, std::string_view second) {
     return std::equal(first.begin(), first.end(), second.begin(), second.end(),
                       [](auto a, auto b) { return std::toupper(a) == std::toupper(b); });
 }
 
-bool string_starts_with(const std::string_view haystack, const std::string_view needle) {
+bool string_starts_with(std::string_view haystack, std::string_view needle) {
     if (haystack.size() < needle.size()) {
         return false;
     }
@@ -169,7 +169,7 @@ bool string_starts_with(const std::string_view haystack, const std::string_view 
     return true;
 }
 
-bool string_ends_with(const std::string_view haystack, const std::string_view needle) {
+bool string_ends_with(std::string_view haystack, std::string_view needle) {
     if (haystack.size() < needle.size()) {
         return false;
     }
@@ -184,7 +184,7 @@ bool string_ends_with(const std::string_view haystack, const std::string_view ne
     return true;
 }
 
-void string_split(const std::string_view input, char separator, std::function<void(const std::string_view token)> cb) {
+void string_split(std::string_view input, char separator, std::function<void(std::string_view token)> cb) {
     std::string::size_type a{}, b{};
     for (; (b = input.find_first_of(separator, b)) != std::string::npos; a = ++b) {
         cb(input.substr(a, b - a));
@@ -194,7 +194,7 @@ void string_split(const std::string_view input, char separator, std::function<vo
     }
 }
 
-std::vector<std::string> string_split(const std::string_view input, char separator) {
+std::vector<std::string> string_split(std::string_view input, char separator) {
     std::vector<std::string> items;
     std::string::size_type a{}, b{};
     for (; (b = input.find_first_of(separator, b)) != std::string::npos; a = ++b) {
@@ -206,8 +206,7 @@ std::vector<std::string> string_split(const std::string_view input, char separat
     return items;
 }
 
-std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(const std::string_view input,
-                                                                              char separator) {
+std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(std::string_view input, char separator) {
     std::vector<std::string> items;
     std::string remainder;
     std::string::size_type a{}, b{};

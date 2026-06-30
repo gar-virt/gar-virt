@@ -24,18 +24,17 @@ std::string narrow_string(const std::wstring& input);
 
 std::u8string u8string_from_string(const std::string& from);
 std::u8string u8string_from_string(std::string_view from);
-const std::string_view string_trim_left(const std::string_view s,
-                                        const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-const std::string_view string_trim_right(const std::string_view s,
-                                         const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-const std::string_view string_trim(const std::string_view s,
-                                   const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-void string_trim_right(std::in_place_t, std::string& s, const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
+std::string string_from_u8string(const std::u8string& from);
+std::string string_from_u8string(std::u8string_view from);
+std::string_view string_trim_left(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
+std::string_view string_trim_right(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
+std::string_view string_trim(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
+void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
 void string_trim_right(std::in_place_t, std::string& s, char c);
 
 template <typename Container>
-    requires(!std::is_convertible_v<Container, const std::string_view>)
-std::string string_join(const std::string_view glue, const Container& container) {
+    requires(!std::is_convertible_v<Container, std::string_view>)
+std::string string_join(std::string_view glue, const Container& container) {
     std::string joined;
     for (auto i = size_t{}; i < container.size(); ++i) {
         if (i > 0) {
@@ -47,8 +46,8 @@ std::string string_join(const std::string_view glue, const Container& container)
 }
 
 template <typename... Ts>
-    requires(... && std::is_convertible_v<Ts, const std::string_view>)
-std::string string_join(const std::string_view glue, Ts&... pieces) {
+    requires(... && std::is_convertible_v<Ts, std::string_view>)
+std::string string_join(std::string_view glue, Ts&... pieces) {
     std::string joined;
     size_t i{};
     (
@@ -62,16 +61,15 @@ std::string string_join(const std::string_view glue, Ts&... pieces) {
     return joined;
 }
 
-bool string_contains_ci(const std::string_view needle, const std::string_view haystack);
-int string_compare_ci(const std::string_view first, const std::string_view second);
-bool string_compare_less_ci(const std::string_view first, const std::string_view second);
-bool string_equals_ci(const std::string_view first, const std::string_view second);
-bool string_starts_with(const std::string_view haystack, const std::string_view needle);
-bool string_ends_with(const std::string_view haystack, const std::string_view needle);
-void string_split(const std::string_view input, char separator, std::function<void(const std::string_view token)> cb);
-std::vector<std::string> string_split(const std::string_view input, char separator);
-std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(const std::string_view input,
-                                                                              char separator);
+bool string_contains_ci(std::string_view needle, std::string_view haystack);
+int string_compare_ci(std::string_view first, std::string_view second);
+bool string_compare_less_ci(std::string_view first, std::string_view second);
+bool string_equals_ci(std::string_view first, std::string_view second);
+bool string_starts_with(std::string_view haystack, std::string_view needle);
+bool string_ends_with(std::string_view haystack, std::string_view needle);
+void string_split(std::string_view input, char separator, std::function<void(std::string_view token)> cb);
+std::vector<std::string> string_split(std::string_view input, char separator);
+std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(std::string_view input, char separator);
 std::string string_replace(std::string_view input, std::string_view pattern, std::string_view replacement);
 
 std::string regex_replace_callable(const std::string& text, const std::regex& pattern,

@@ -59,13 +59,16 @@ std::string narrow_string(const wchar_t* data, size_t length) {
 std::string narrow_string(const std::wstring& input) { return narrow_string(input.data(), input.size()); }
 #endif
 
-std::string string_from_u8string(const std::u8string_view from) {
-    std::string result;
-    result.reserve(from.size());
-    for (auto c : from) {
-        result.push_back(static_cast<char>(c));
-    }
-    return result;
+std::string string_from_u8string(const std::u8string& from) { return string_from_u8string(std::u8string_view{from}); }
+
+std::string string_from_u8string(std::u8string_view from) {
+    return {reinterpret_cast<const char*>(from.data()), from.size()};
+}
+
+std::u8string u8string_from_string(const std::string& from) { return u8string_from_string(std::string_view{from}); }
+
+std::u8string u8string_from_string(std::string_view from) {
+    return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
 const std::string_view string_trim_left(const std::string_view s, const std::set<char> chars) {

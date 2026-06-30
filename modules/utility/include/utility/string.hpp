@@ -22,7 +22,8 @@ std::string narrow_string(const wchar_t* data, size_t length);
 std::string narrow_string(const std::wstring& input);
 #endif
 
-std::string string_from_u8string(std::u8string_view const from);
+std::u8string u8string_from_string(const std::string& from);
+std::u8string u8string_from_string(std::string_view from);
 const std::string_view string_trim_left(const std::string_view s,
                                         const std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
 const std::string_view string_trim_right(const std::string_view s,

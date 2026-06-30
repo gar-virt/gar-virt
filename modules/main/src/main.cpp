@@ -3,9 +3,10 @@
 #include "log.hpp"
 #include "program_options.hpp"
 
+#include "utility/string.hpp"
+
 #include <boost/program_options.hpp>
 
-#include <filesystem>
 #include <iostream>
 #include <print>
 #include <string>
@@ -45,7 +46,7 @@ int main(int argc, char* const argv[]) {
         }
 
         const ProgramOptions options{
-            .config_file = std::filesystem::u8path(vm.at("config-file").as<std::string>()),
+            .config_file = utility::u8string_from_string(vm.at("config-file").as<std::string>()),
         };
 
         const auto config{config::load_file(options.config_file)};

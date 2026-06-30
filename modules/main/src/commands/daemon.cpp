@@ -96,13 +96,17 @@ struct Injectables {
         if (!encode_payload) {
             return std::unexpected{encode_payload.error()};
         }
+        boost::json::array labels;
+        for (auto label : config.labels) {
+            labels.emplace_back(label);
+        }
         return Injectables{
             .runner_state_json = boost::json::serialize(boost::json::object{
                 {"id", runner.id()},
                 {"uuid", runner.uuid()},
                 {"token", runner.token()},
                 {"address", config.instance_url},
-                {"labels", config.labels},
+                {"labels", labels},
                 {"ephemeral", true},
             }),
             .runner_config_yaml = std::format(R"(runner:

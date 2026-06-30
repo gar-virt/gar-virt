@@ -19,7 +19,7 @@ public:
             return std::unexpected{parsed_options.error()};
         }
 
-        const auto name{std::format("ga_runner-{}", utility::uuid())};
+        const auto name{std::format("gar-virt-{}", utility::uuid())};
 
         /*LibvirtContainerId id;
         std::unique_ptr<LibvirtMachine> machine;

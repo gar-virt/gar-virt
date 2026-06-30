@@ -1,0 +1,12 @@
+<volume>
+  <name>${DOMAIN_NAME}.qcow2</name>
+  <allocation>0</allocation>
+  <capacity unit="G">40</capacity>
+  <target>
+    <format type="qcow2"/>
+  </target>
+  <backingStore>
+    <path>[path to base image].qcow2</path>
+    <format type="qcow2"/>
+  </backingStore>
+</volume>

@@ -1,5 +1,5 @@
 find_package(Boost REQUIRED COMPONENTS json program_options url CONFIG)
-find_package(yaml-cpp REQUIRED)
+find_package(yaml-cpp REQUIRED CONFIG)
 
 add_executable(gar_virt)
 set_target_properties(gar_virt PROPERTIES

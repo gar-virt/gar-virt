@@ -576,15 +576,6 @@ private:
         }
     }
 
-#if 0
-    void close_event_handler(virConnectPtr conn, int reason) {
-        for (auto& entry : m_machine_by_domain_name) {
-            entry.second->notify_bad_state();
-        }
-        stop_loop();
-    }
-#endif
-
     int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) {
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {

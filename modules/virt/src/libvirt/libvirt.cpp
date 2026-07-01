@@ -405,17 +405,155 @@ void Machine::notify_ready() { m_impl->notify_ready(); }
 
 std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 
-class HypervisorImpl {
-public:
-    HypervisorImpl(std::shared_ptr<ConnectionImpl> conn) noexcept : m_conn{std::move(conn)} {}
+class EventLoopImpl final {
+private:
+    struct PrivateCtor {};
 
-    ~HypervisorImpl() {
+public:
+    EventLoopImpl(PrivateCtor) noexcept {}
+
+    ~EventLoopImpl() {
         stop_loop();
         if (m_loop_thread.joinable()) {
             m_loop_thread.join();
         }
         unregister_event_handlers();
     }
+
+    EventLoopImpl(const EventLoopImpl&) = delete;
+    EventLoopImpl(EventLoopImpl&&) = delete;
+
+    EventLoopImpl& operator=(const EventLoopImpl&) = delete;
+    EventLoopImpl& operator=(EventLoopImpl&&) = delete;
+
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() noexcept {
+        // Use weak pointer to allow the shared instance to be deleted sooner than app termination
+        static std::weak_ptr<EventLoopImpl> weak_instance;
+        static std::mutex m;
+        std::scoped_lock lock{m};
+        if (auto instance{weak_instance.lock()}) {
+            return instance;
+        }
+        auto create_res{create()};
+        if (create_res) {
+            weak_instance = *create_res;
+        }
+        return create_res;
+    }
+
+private:
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() noexcept {
+        static std::once_flag initialized;
+        std::call_once(initialized, [] {
+            virInitialize();
+            virEventRegisterDefaultImpl();
+        });
+
+        std::shared_ptr<EventLoopImpl> impl;
+        try {
+            impl = std::make_shared<EventLoopImpl>(PrivateCtor{});
+        } catch (const std::bad_alloc& ex) {
+            return std::unexpected{GenericError{ex.what()}};
+        }
+
+        auto reg_res{impl->register_event_handlers()};
+        if (!reg_res) {
+            return std::unexpected{reg_res.error()};
+        }
+
+        auto start_res{impl->start()};
+        if (!start_res) {
+            return std::unexpected{start_res.error()};
+        }
+
+        return impl;
+    }
+
+    std::expected<void, GenericError> start() noexcept {
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::starting;
+        }
+        try {
+            m_loop_thread = std::jthread{[this] { run_loop(); }};
+            return {};
+        } catch (const std::exception& ex) {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
+        }
+    }
+
+    std::expected<void, GenericError> register_event_handlers() {
+        if (const auto id{virEventAddTimeout(1000, +[](int timer, void* opaque) {}, nullptr, nullptr)}; id < 0) {
+            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
+        } else {
+            m_stop_event_id = id;
+        }
+        return {};
+    }
+
+    void unregister_event_handlers() {
+        if (const auto id{m_stop_event_id.exchange(-1)}; id >= 0) {
+            virEventRemoveTimeout(id);
+        }
+    }
+
+    void run_loop() noexcept {
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            if (m_run_loop_state != RunLoopState::starting) {
+                std::abort();
+            }
+            m_run_loop_state = RunLoopState::running;
+        }
+        m_start_cv.notify_all();
+        while (true) {
+            {
+                std::scoped_lock lock{m_run_loop_state_mutex};
+                if (m_run_loop_state != RunLoopState::running) {
+                    break;
+                }
+            }
+            if (virEventRunDefaultImpl() < 0) {
+                break;
+            }
+        }
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+        }
+        m_stop_cv.notify_all();
+    }
+
+    void stop_loop() noexcept {
+        using namespace std::chrono_literals;
+        {
+            std::unique_lock lock{m_run_loop_state_mutex};
+            m_start_cv.wait(lock, [this] { return m_run_loop_state != RunLoopState::starting; });
+            if (m_run_loop_state == RunLoopState::stopped) {
+                return;
+            }
+            m_run_loop_state = RunLoopState::stopping;
+        }
+        std::unique_lock lock{m_run_loop_state_mutex};
+        m_stop_cv.wait(lock, [this] { return m_run_loop_state == RunLoopState::stopped; });
+    }
+
+    RunLoopState m_run_loop_state{RunLoopState::stopped};
+    std::atomic<int> m_stop_event_id{-1};
+    std::condition_variable m_start_cv;
+    std::condition_variable m_stop_cv;
+    mutable std::mutex m_run_loop_state_mutex;
+    std::jthread m_loop_thread;
+};
+
+class HypervisorImpl final {
+public:
+    HypervisorImpl(std::shared_ptr<ConnectionImpl> conn, std::shared_ptr<EventLoopImpl> loop) noexcept
+            : m_loop{std::move(loop)}, m_conn{std::move(conn)} {}
+
+    ~HypervisorImpl() { unregister_event_handlers(); }
 
     HypervisorImpl(const HypervisorImpl&) = delete;
     HypervisorImpl(HypervisorImpl&&) = delete;
@@ -489,15 +627,14 @@ public:
     }
 
     static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) noexcept {
-        static std::once_flag initialized;
-        std::call_once(initialized, [] {
-            virInitialize();
-            virEventRegisterDefaultImpl();
-        });
+        auto loop_res{EventLoopImpl::get()};
+        if (!loop_res) {
+            return std::unexpected{loop_res.error()};
+        }
 
         std::unique_ptr<HypervisorImpl> impl;
         try {
-            impl = std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri));
+            impl = std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri), *std::move(loop_res));
         } catch (const std::bad_alloc& ex) {
             return std::unexpected{GenericError{ex.what()}};
         }
@@ -507,30 +644,10 @@ public:
             return std::unexpected{reg_res.error()};
         }
 
-        auto start_res{impl->start()};
-        if (!start_res) {
-            return std::unexpected{start_res.error()};
-        }
-
         return impl;
     }
 
 private:
-    std::expected<void, GenericError> start() noexcept {
-        {
-            std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::starting;
-        }
-        try {
-            m_loop_thread = std::jthread{[this] { run_loop(); }};
-            return {};
-        } catch (const std::exception& ex) {
-            std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::stopped;
-            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
-        }
-    }
-
     std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
                                                              const std::string& pool_name) noexcept {
         const auto conn_res{m_conn->get()};
@@ -558,13 +675,7 @@ private:
         return volume;
     }
 
-    std::expected<void, GenericError> register_event_handlers() {
-        if (const auto id{virEventAddTimeout(1000, +[](int timer, void* opaque) {}, nullptr, nullptr)}; id < 0) {
-            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
-        } else {
-            m_stop_event_id = id;
-        }
-
+    std::expected<void, GenericError> register_event_handlers() noexcept {
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -600,10 +711,7 @@ private:
         return {};
     }
 
-    void unregister_event_handlers() {
-        if (const auto id{m_stop_event_id.exchange(-1)}; id >= 0) {
-            virEventRemoveTimeout(id);
-        }
+    void unregister_event_handlers() noexcept {
         for (auto it{m_event_handler_ids.rbegin()}; it != m_event_handler_ids.rend(); ++it) {
             if (auto conn{m_conn->get()}) {
                 virConnectDomainEventDeregisterAny(*conn, *it);
@@ -611,23 +719,26 @@ private:
         }
     }
 
-    int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) {
+    int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) noexcept {
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
             }
+            std::scoped_lock lock{m_map_mutex};
             if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_bad_state();
+                m_machine_by_domain_name.erase(domain_name);
             }
         }
         return 0;
     }
 
-    int agent_lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int state, int reason) {
+    int agent_lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int state, int reason) noexcept {
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;
             }
+            std::scoped_lock lock{m_map_mutex};
             if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_ready();
             }
@@ -635,49 +746,7 @@ private:
         return 0;
     }
 
-    void run_loop() noexcept {
-        {
-            std::scoped_lock lock{m_run_loop_state_mutex};
-            if (m_run_loop_state != RunLoopState::starting) {
-                std::abort();
-            }
-            m_run_loop_state = RunLoopState::running;
-        }
-        m_start_cv.notify_all();
-        while (true) {
-            {
-                std::scoped_lock lock{m_run_loop_state_mutex};
-                if (m_run_loop_state != RunLoopState::running) {
-                    break;
-                }
-            }
-            if (virEventRunDefaultImpl() < 0) {
-                break;
-            }
-        }
-        {
-            std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::stopped;
-        }
-        m_stop_cv.notify_all();
-    }
-
-    void stop_loop() noexcept {
-        using namespace std::chrono_literals;
-        {
-            std::unique_lock lock{m_run_loop_state_mutex};
-            m_start_cv.wait(lock, [this] { return m_run_loop_state != RunLoopState::starting; });
-            if (m_run_loop_state == RunLoopState::stopped) {
-                return;
-            }
-            m_run_loop_state = RunLoopState::stopping;
-        }
-        std::unique_lock lock{m_run_loop_state_mutex};
-        m_stop_cv.wait(lock, [this] { return m_run_loop_state == RunLoopState::stopped; });
-    }
-
     std::shared_ptr<Machine> find_tracked_machine_by_name(const std::string& name) const noexcept {
-        std::scoped_lock lock{m_map_mutex};
         auto found{m_machine_by_domain_name.find(name)};
         if (found != m_machine_by_domain_name.end()) {
             return found->second;
@@ -685,16 +754,11 @@ private:
         return {};
     }
 
+    std::shared_ptr<EventLoopImpl> m_loop;
     std::shared_ptr<ConnectionImpl> m_conn;
     std::unordered_map<std::string, std::shared_ptr<Machine>> m_machine_by_domain_name;
     mutable std::mutex m_map_mutex;
     std::vector<int> m_event_handler_ids;
-    RunLoopState m_run_loop_state{RunLoopState::stopped};
-    std::atomic<int> m_stop_event_id{-1};
-    std::condition_variable m_start_cv;
-    std::condition_variable m_stop_cv;
-    mutable std::mutex m_run_loop_state_mutex;
-    std::jthread m_loop_thread;
 };
 
 Hypervisor::~Hypervisor() = default;

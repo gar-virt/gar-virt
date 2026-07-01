@@ -22,7 +22,7 @@ struct SpawnOptions {
 class MachineImpl;
 class HypervisorImpl;
 
-class Machine {
+class Machine final {
 public:
     Machine(std::unique_ptr<MachineImpl> impl);
     ~Machine();
@@ -55,7 +55,7 @@ private:
     std::unique_ptr<MachineImpl> m_impl;
 };
 
-class Hypervisor {
+class Hypervisor final {
 public:
     Hypervisor(std::unique_ptr<HypervisorImpl> impl);
     ~Hypervisor();

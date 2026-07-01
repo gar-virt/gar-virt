@@ -60,9 +60,11 @@ std::string expand_libvirt_xml_template(std::string_view xml,
     return result;
 }
 
+enum class RunLoopState { stopped, starting, running, stopping };
+
 class ConnectionImpl {
 public:
-    ConnectionImpl(std::string uri) : m_uri{std::move(uri)} {}
+    ConnectionImpl(std::string uri) noexcept : m_uri{std::move(uri)} {}
 
     ~ConnectionImpl() {
         std::scoped_lock lock{*m_mutex};
@@ -405,8 +407,7 @@ std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_imp
 
 class HypervisorImpl {
 public:
-    HypervisorImpl(std::shared_ptr<ConnectionImpl> conn)
-            : m_conn{std::move(conn)}, m_loop_thread{[this] { run_loop(); }} {}
+    HypervisorImpl(std::shared_ptr<ConnectionImpl> conn) noexcept : m_conn{std::move(conn)} {}
 
     ~HypervisorImpl() {
         stop_loop();
@@ -494,17 +495,42 @@ public:
             virEventRegisterDefaultImpl();
         });
 
-        auto impl{std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri))};
+        std::unique_ptr<HypervisorImpl> impl;
+        try {
+            impl = std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri));
+        } catch (const std::bad_alloc& ex) {
+            return std::unexpected{GenericError{ex.what()}};
+        }
 
         auto reg_res{impl->register_event_handlers()};
         if (!reg_res) {
-            return std::unexpected{GenericError{"Failed to register event handlers"}};
+            return std::unexpected{reg_res.error()};
+        }
+
+        auto start_res{impl->start()};
+        if (!start_res) {
+            return std::unexpected{start_res.error()};
         }
 
         return impl;
     }
 
 private:
+    std::expected<void, GenericError> start() noexcept {
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::starting;
+        }
+        try {
+            m_loop_thread = std::jthread{[this] { run_loop(); }};
+            return {};
+        } catch (const std::exception& ex) {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
+        }
+    }
+
     std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
                                                              const std::string& pool_name) noexcept {
         const auto conn_res{m_conn->get()};
@@ -533,6 +559,12 @@ private:
     }
 
     std::expected<void, GenericError> register_event_handlers() {
+        if (const auto id{virEventAddTimeout(1000, +[](int timer, void* opaque) {}, nullptr, nullptr)}; id < 0) {
+            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
+        } else {
+            m_stop_event_id = id;
+        }
+
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -569,6 +601,9 @@ private:
     }
 
     void unregister_event_handlers() {
+        if (const auto id{m_stop_event_id.exchange(-1)}; id >= 0) {
+            virEventRemoveTimeout(id);
+        }
         for (auto it{m_event_handler_ids.rbegin()}; it != m_event_handler_ids.rend(); ++it) {
             if (auto conn{m_conn->get()}) {
                 virConnectDomainEventDeregisterAny(*conn, *it);
@@ -601,15 +636,45 @@ private:
     }
 
     void run_loop() noexcept {
-        while (!m_stop) {
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            if (m_run_loop_state != RunLoopState::starting) {
+                std::abort();
+            }
+            m_run_loop_state = RunLoopState::running;
+        }
+        m_start_cv.notify_all();
+        while (true) {
+            {
+                std::scoped_lock lock{m_run_loop_state_mutex};
+                if (m_run_loop_state != RunLoopState::running) {
+                    break;
+                }
+            }
             if (virEventRunDefaultImpl() < 0) {
-                m_stop = true;
                 break;
             }
         }
+        {
+            std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+        }
+        m_stop_cv.notify_all();
     }
 
-    void stop_loop() noexcept { m_stop = true; }
+    void stop_loop() noexcept {
+        using namespace std::chrono_literals;
+        {
+            std::unique_lock lock{m_run_loop_state_mutex};
+            m_start_cv.wait(lock, [this] { return m_run_loop_state != RunLoopState::starting; });
+            if (m_run_loop_state == RunLoopState::stopped) {
+                return;
+            }
+            m_run_loop_state = RunLoopState::stopping;
+        }
+        std::unique_lock lock{m_run_loop_state_mutex};
+        m_stop_cv.wait(lock, [this] { return m_run_loop_state == RunLoopState::stopped; });
+    }
 
     std::shared_ptr<Machine> find_tracked_machine_by_name(const std::string& name) const noexcept {
         std::scoped_lock lock{m_map_mutex};
@@ -620,12 +685,16 @@ private:
         return {};
     }
 
-    std::atomic_bool m_stop{};
     std::shared_ptr<ConnectionImpl> m_conn;
-    std::jthread m_loop_thread;
     std::unordered_map<std::string, std::shared_ptr<Machine>> m_machine_by_domain_name;
     mutable std::mutex m_map_mutex;
     std::vector<int> m_event_handler_ids;
+    RunLoopState m_run_loop_state{RunLoopState::stopped};
+    std::atomic<int> m_stop_event_id{-1};
+    std::condition_variable m_start_cv;
+    std::condition_variable m_stop_cv;
+    mutable std::mutex m_run_loop_state_mutex;
+    std::jthread m_loop_thread;
 };
 
 Hypervisor::~Hypervisor() = default;

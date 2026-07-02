@@ -1,8 +1,8 @@
 #include "commands/commands.hpp"
 #include "config.hpp"
-#include "log.hpp"
 #include "program_options.hpp"
 
+#include "utility/log/global_logger.hpp"
 #include "utility/string.hpp"
 
 #include <boost/program_options.hpp>

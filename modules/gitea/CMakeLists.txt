@@ -5,6 +5,7 @@ find_package(CURL REQUIRED)
 add_library(gitea)
 target_sources(gitea PRIVATE
     src/admin_service_client.cpp
+    src/runner.cpp
     src/runner_service_client.cpp
 )
 target_include_directories(gitea PUBLIC include)

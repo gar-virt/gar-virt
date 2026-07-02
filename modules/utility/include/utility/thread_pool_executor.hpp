@@ -15,7 +15,7 @@ class ThreadPoolExecutor final {
     using Lock = std::lock_guard<std::mutex>;
 
 public:
-    using TaskFn = std::function<void()>;
+    using TaskFn = std::move_only_function<void()>;
 
     ThreadPoolExecutor(std::optional<size_t> thread_count = std::nullopt) {
         add_workers(thread_count.value_or(std::thread::hardware_concurrency()));
@@ -46,7 +46,9 @@ public:
             if (m_stop) {
                 return;
             }
-            m_queue.push(std::bind(std::forward<F>(work), std::forward<Args>(args)...));
+            m_queue.push([work = std::forward<F>(work), ... args = std::forward<Args>(args)]() mutable {
+                std::invoke(std::move(work), std::move(args)...);
+            });
         }
         m_cv.notify_one();
     }

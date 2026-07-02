@@ -1,5 +1,4 @@
-#include "log.hpp"
-
+#include "utility/log/global_logger.hpp"
 #include "utility/log/log.hpp"
 #include "utility/log/stdout.hpp"
 

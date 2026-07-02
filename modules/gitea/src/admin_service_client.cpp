@@ -23,6 +23,8 @@ AdminServiceClient::AdminServiceClient(const std::string& instance_url, const st
     });
 }
 
+AdminServiceClient::~AdminServiceClient() = default;
+
 std::expected<std::string, GenericError> AdminServiceClient::get_registration_token() const noexcept {
     auto res{m_client.post("/actions/runners/registration-token", {})};
     if (!res) {

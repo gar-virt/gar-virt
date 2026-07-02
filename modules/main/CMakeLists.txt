@@ -8,7 +8,6 @@ set_target_properties(gar_virt PROPERTIES
 target_sources(gar_virt PRIVATE
     src/commands/daemon.cpp
     src/config.cpp
-    src/log.cpp
     src/main.cpp
 )
 target_link_libraries(gar_virt PRIVATE

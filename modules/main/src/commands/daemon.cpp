@@ -8,6 +8,8 @@
 #include "gitea/admin_service_client.hpp"
 #include "gitea/runner.hpp"
 #include "gitea/runner_service_client.hpp"
+#include "utility/algorithm.hpp"
+#include "utility/defer.hpp"
 #include "utility/log/global_logger.hpp"
 #include "utility/string.hpp"
 #include "utility/thread_pool_executor.hpp"
@@ -22,6 +24,7 @@
 #include <cstring>
 #include <expected>
 #include <format>
+#include <optional>
 #include <print>
 #include <string>
 #include <unordered_set>
@@ -223,10 +226,19 @@ void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunn
     std::ignore = client.update_task(update_req);
 }
 
-std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceClient> admin, MachinePool& machine_pool,
-                                            utility::ThreadPoolExecutor& task_executor,
-                                            const config::RunnerConfig& config, std::atomic_bool& stop) noexcept {
+std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminServiceClient> admin,
+                                                  MachinePool& machine_pool, utility::ThreadPoolExecutor& task_executor,
+                                                  const config::RunnerConfig& config, std::atomic_bool& stop,
+                                                  std::counting_semaphore<>& capacity_guard) noexcept {
     using namespace std::literals;
+
+    while (!stop && !capacity_guard.try_acquire()) {
+        std::this_thread::sleep_for(1s);
+    }
+
+    if (stop) {
+        return std::unexpected{GenericError{"Fetch task loop is shutting down"}};
+    }
 
     gitea::RunnerOptions runner_options{
         .instance_url = config.instance_url,
@@ -237,19 +249,16 @@ std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceC
 
     auto runner_res{gitea::Runner::connect(runner_options, std::move(admin))};
     if (!runner_res) {
+        capacity_guard.release();
         return std::unexpected{runner_res.error()};
     }
     auto runner{*std::move(runner_res)};
 
-    while (!stop) {
-        if (machine_pool.at_capacity()) {
-            global_logger().verbose("Machine pool at capacity.");
-            std::this_thread::sleep_for(1s);
-            continue;
-        }
-
+    std::optional<::runner::v1::Task> task;
+    while (!stop && !task.has_value()) {
         auto res{runner.fetch_task()};
         if (!res) {
+            capacity_guard.release();
             return std::unexpected{res.error()};
         }
 
@@ -258,16 +267,19 @@ std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceC
             continue;
         }
 
-        auto task{res->task()};
-        global_logger().verbose("Fetched task with ID {}.", task.id());
+        task = res->task();
+    }
 
+    if (task.has_value()) {
+        global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task->id());
         task_executor.put(
-            [](auto config, auto* machine_pool, auto task, auto runner) {
+            [&capacity_guard](auto config, auto* machine_pool, auto task, auto runner) {
                 // FIXME: configurable timeout
                 auto machine_res{machine_pool->acquire(120s)};
                 if (!machine_res) {
                     global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
                     update_task_on_error(task, runner.client());
+                    capacity_guard.release();
                     return;
                 }
                 auto machine{*std::move(machine_res)};
@@ -278,9 +290,11 @@ std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceC
                                       return {};
                                   });
                 machine_pool->release(machine);
+                capacity_guard.release();
             },
-            config, &machine_pool, std::move(task), std::move(runner));
-        return {};
+            config, &machine_pool, *std::move(task), std::move(runner));
+    } else {
+        capacity_guard.release();
     }
 
     return {};
@@ -289,15 +303,17 @@ std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceC
 void runner_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
     auto admin{std::make_shared<gitea::AdminServiceClient>(config.instance_url, config.token)};
-    utility::ThreadPoolExecutor task_executor{config.machine_pool.capacity};
+    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(config.machine_pool.capacity)};
     MachinePool machine_pool{config.machine_pool.capacity, [&] { return spawn_machine(config); }};
     machine_pool.set_stats_callback([&](auto stats) {
-        global_logger().verbose("MachinePool stats: {} active; {} idle; {} warmup; {} capacity", stats.active,
-                                stats.idle, stats.warming, config.machine_pool.capacity);
+        global_logger().verbose("{} machine pool stats: {} active; {} idle; {} warmup; {} capacity",
+                                config.machine_pool.provider, stats.active, stats.idle, stats.warming,
+                                config.machine_pool.capacity);
     });
+    utility::ThreadPoolExecutor task_executor{config.machine_pool.capacity};
     machine_pool.start();
     while (!stop) {
-        auto res{task_loop(admin, machine_pool, task_executor, config, stop)};
+        auto res{fetch_task_loop(admin, machine_pool, task_executor, config, stop, capacity_guard)};
         if (!res) {
             global_logger().error("Error in run loop iteration: {}", res.error().what());
             std::this_thread::sleep_for(5s);

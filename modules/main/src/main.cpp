@@ -2,8 +2,8 @@
 #include "config.hpp"
 #include "program_options.hpp"
 
-#include "utility/log/global_logger.hpp"
-#include "utility/string.hpp"
+#include <utility/log/global_logger.hpp>
+#include <utility/string.hpp>
 
 #include <boost/program_options.hpp>
 

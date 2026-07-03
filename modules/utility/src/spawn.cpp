@@ -1,4 +1,4 @@
-#include "utility/spawn.hpp"
+#include <utility/spawn.hpp>
 
 #ifdef __linux__
     #include <sys/wait.h>

@@ -1,4 +1,4 @@
-#include "utility/error.hpp"
+#include <utility/error.hpp>
 
 namespace ls_gitea_runner {
 

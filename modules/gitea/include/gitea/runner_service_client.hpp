@@ -1,11 +1,10 @@
 #pragma once
 
-#include "ping/v1/messages.pb.h"
-#include "runner/v1/messages.pb.h"
-#include "runner_credentials.hpp"
-
-#include "utility/error.hpp"
-#include "utility/http.hpp"
+#include <gitea/runner_credentials.hpp>
+#include <ping/v1/messages.pb.h>
+#include <runner/v1/messages.pb.h>
+#include <utility/error.hpp>
+#include <utility/http.hpp>
 
 #include <expected>
 

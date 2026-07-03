@@ -1,7 +1,8 @@
 #pragma once
 
 #include "libvirt.hpp"
-#include "virt/machine.hpp"
+
+#include <virt/machine.hpp>
 
 #include <memory>
 

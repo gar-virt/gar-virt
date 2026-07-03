@@ -1,12 +1,11 @@
-#include "gitea/runner.hpp"
+#include <gitea/runner.hpp>
 
-#include "ping/v1/messages.pb.h"
-#include "runner/v1/messages.pb.h"
+#include <gitea/admin_service_client.hpp>
+#include <gitea/runner_service_client.hpp>
+#include <ping/v1/messages.pb.h>
+#include <runner/v1/messages.pb.h>
 
-#include "gitea/admin_service_client.hpp"
-#include "gitea/runner_service_client.hpp"
-
-#include "utility/log/global_logger.hpp"
+#include <utility/log/global_logger.hpp>
 
 #include <expected>
 #include <format>

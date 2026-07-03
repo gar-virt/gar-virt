@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utility/error.hpp"
-#include "utility/http.hpp"
+#include <utility/error.hpp>
+#include <utility/http.hpp>
 
 #include <cstdint>
 #include <expected>

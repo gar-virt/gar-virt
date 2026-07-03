@@ -1,9 +1,8 @@
 #pragma once
 
-#include "runner/v1/messages.pb.h"
-
-#include "gitea/admin_service_client.hpp"
-#include "gitea/runner_service_client.hpp"
+#include <gitea/admin_service_client.hpp>
+#include <gitea/runner_service_client.hpp>
+#include <runner/v1/messages.pb.h>
 
 #include <expected>
 #include <memory>

@@ -12,6 +12,7 @@
 #include "utility/string.hpp"
 #include "utility/thread_pool_executor.hpp"
 #include "virt/machine_manager_factory_selector.hpp"
+#include "virt/machine_pool.hpp"
 
 #include <boost/json.hpp>
 #include <boost/url.hpp>
@@ -222,156 +223,6 @@ void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunn
     std::ignore = client.update_task(update_req);
 }
 
-class MachinePool final {
-public:
-    struct Stats {
-        size_t active{};
-        size_t idle{};
-        size_t warming{};
-    };
-
-    MachinePool(config::RunnerConfig config) : m_config{std::move(config)} {}
-
-    ~MachinePool() { stop(); }
-
-    MachinePool(const MachinePool&) = delete;
-    MachinePool& operator=(const MachinePool&) = delete;
-
-    MachinePool(MachinePool&&) = delete;
-    MachinePool& operator=(MachinePool&&) = delete;
-
-    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) noexcept {
-        using namespace std::chrono_literals;
-        // TODO: timeout
-        std::unique_lock lock{m_mutex};
-        while (true) {
-            m_cv.wait_for(lock, 500ms, [this] { return m_stop || !m_idle_machines.empty(); });
-            if (m_stop) {
-                return std::unexpected{GenericError{"Shutting down machine pool"}};
-            }
-            if (m_idle_machines.empty()) {
-                continue;
-            }
-            auto machine{std::move(m_idle_machines.front())};
-            m_idle_machines.pop();
-            m_active_machines.emplace(machine);
-            check_stats(lock);
-            return machine;
-        }
-    }
-
-    void release(std::shared_ptr<Machine> machine) noexcept {
-        {
-            std::unique_lock lock{m_mutex};
-            m_active_machines.erase(machine);
-            check_stats(lock);
-        }
-        m_cv.notify_all();
-    }
-
-    void start() {
-        for (size_t i{}; i < m_config.machine_pool.capacity; ++i) {
-            m_workers.emplace_back([this] { work(); });
-        }
-    }
-
-    bool at_capacity() const noexcept {
-        std::scoped_lock lock{m_mutex};
-        return m_active_machines.size() >= m_config.machine_pool.capacity;
-    }
-
-    void set_stats_callback(std::move_only_function<void(Stats)> cb) noexcept {
-        std::scoped_lock lock{m_mutex};
-        m_stats_cb = std::move(cb);
-    }
-
-private:
-    void stop() noexcept {
-        {
-            std::scoped_lock lock{m_mutex};
-            m_stop = true;
-        }
-        m_cv.notify_all();
-        for (auto& t : m_workers) {
-            t.join();
-        }
-    }
-
-    bool at_capacity_internal() const noexcept {
-        return m_active_machines.size() + m_idle_machines.size() + m_warmup_count >= m_config.machine_pool.capacity;
-    }
-
-    void work() noexcept {
-        using namespace std::chrono_literals;
-        while (true) {
-            std::unique_lock lock{m_mutex};
-            if (m_stop) {
-                return;
-            }
-            if (at_capacity_internal()) {
-                lock.unlock();
-                std::this_thread::sleep_for(500ms);
-                continue;
-            }
-            ++m_warmup_count;
-            check_stats(lock);
-            lock.unlock();
-            auto machine_res{spawn_machine(m_config)};
-            if (!machine_res) {
-                lock.lock();
-                --m_warmup_count;
-                global_logger().error("Failed to spawn machine: {}", machine_res.error().what());
-                check_stats(lock);
-                lock.unlock();
-                std::this_thread::sleep_for(5s);
-                continue;
-            }
-            lock.lock();
-            m_idle_machines.emplace(*std::move(machine_res));
-            --m_warmup_count;
-            check_stats(lock);
-            lock.unlock();
-            m_cv.notify_one();
-        }
-    }
-
-    void check_stats(std::unique_lock<std::mutex>& acquired_lock) {
-        if (m_stats.active == m_active_machines.size() && m_stats.idle == m_idle_machines.size() &&
-            m_stats.warming == m_warmup_count) {
-            return;
-        }
-        m_stats.active = m_active_machines.size();
-        m_stats.idle = m_idle_machines.size();
-        m_stats.warming = m_warmup_count;
-        report_stats(acquired_lock);
-    }
-
-    void report_stats(std::unique_lock<std::mutex>& acquired_lock) {
-        if (!m_stats_cb) {
-            return;
-        }
-        auto snapshot{m_stats};
-        acquired_lock.unlock();
-        try {
-            m_stats_cb(std::move(snapshot));
-        } catch (...) {
-            // Ignore exceptions in callback
-        }
-        acquired_lock.lock();
-    }
-
-    config::RunnerConfig m_config;
-    size_t m_warmup_count{};
-    bool m_stop{};
-    std::vector<std::jthread> m_workers;
-    std::queue<std::shared_ptr<Machine>> m_idle_machines;
-    std::unordered_set<std::shared_ptr<Machine>> m_active_machines;
-    mutable std::mutex m_mutex;
-    std::condition_variable m_cv;
-    Stats m_stats;
-    std::move_only_function<void(Stats)> m_stats_cb;
-};
-
 std::expected<void, GenericError> task_loop(std::shared_ptr<gitea::AdminServiceClient> admin, MachinePool& machine_pool,
                                             utility::ThreadPoolExecutor& task_executor,
                                             const config::RunnerConfig& config, std::atomic_bool& stop) noexcept {
@@ -439,7 +290,7 @@ void runner_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
     auto admin{std::make_shared<gitea::AdminServiceClient>(config.instance_url, config.token)};
     utility::ThreadPoolExecutor task_executor{config.machine_pool.capacity};
-    MachinePool machine_pool{config};
+    MachinePool machine_pool{config.machine_pool.capacity, [&] { return spawn_machine(config); }};
     machine_pool.set_stats_callback([&](auto stats) {
         global_logger().verbose("MachinePool stats: {} active; {} idle; {} warmup; {} capacity", stats.active,
                                 stats.idle, stats.warming, config.machine_pool.capacity);

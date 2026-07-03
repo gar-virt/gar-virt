@@ -65,7 +65,7 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
 
                     return MachinePoolConfig{
                         .provider = pool["provider"].as<std::string>(),
-                        .capacity = pool["capacity"].as<int>(),
+                        .capacity = utility::safe_cast_int<size_t>(pool["capacity"].as<int>()),
                         .os = pool["os"].as<std::string>(),
                         .arch = pool["arch"].as<std::string>(),
                         .temp_dir = pool["temp_dir"].as<std::string>(),

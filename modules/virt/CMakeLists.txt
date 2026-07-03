@@ -9,6 +9,7 @@ target_sources(virt PRIVATE
     src/libvirt/machine_manager_factory.cpp
     src/libvirt/machine_options.cpp
     src/machine_manager_factory_selector.cpp
+    src/machine_pool.cpp
 )
 target_include_directories(virt PUBLIC include)
 target_link_libraries(virt PRIVATE

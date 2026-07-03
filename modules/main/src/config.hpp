@@ -11,7 +11,7 @@ namespace ls_gitea_runner::config {
 
 struct MachinePoolConfig {
     std::string provider;
-    int64_t capacity{};
+    size_t capacity{};
     std::string os;
     std::string arch;
     std::string temp_dir;

@@ -68,8 +68,6 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
                         .capacity = utility::safe_cast_int<size_t>(pool["capacity"].as<int>()),
                         .os = pool["os"].as<std::string>(),
                         .arch = pool["arch"].as<std::string>(),
-                        .temp_dir = pool["temp_dir"].as<std::string>(),
-                        .workspaces_dir = pool["workspaces_dir"].as<std::string>(),
                         .runner_exe_path = pool["runner_exe_path"].as<std::string>(),
                         .details_as_yaml = std::move(details_as_yaml),
                     };

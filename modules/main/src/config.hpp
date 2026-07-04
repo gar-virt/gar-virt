@@ -14,8 +14,6 @@ struct MachinePoolConfig {
     size_t capacity{};
     std::string os;
     std::string arch;
-    std::string temp_dir;
-    std::string workspaces_dir;
     std::string runner_exe_path;
     std::string details_as_yaml;
 };

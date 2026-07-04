@@ -160,7 +160,6 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
         Machine::Info{
             .os = machine_config.os,
             .arch = machine_config.arch,
-            .temp_dir = machine_config.temp_dir,
         },
         MachinePoolDetails{config.config_base_dir, machine_config.details_as_yaml})};
 

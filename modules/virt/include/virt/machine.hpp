@@ -18,7 +18,6 @@ public:
     struct Info {
         std::string os;
         std::string arch;
-        std::string temp_dir;
     };
 
     virtual ~Machine() = default;

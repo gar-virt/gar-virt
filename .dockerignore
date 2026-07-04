@@ -1,4 +1,5 @@
-*.md
 .git/
+*.md
+**/Dockerfile
+/.config/
 /build/
-Dockerfile

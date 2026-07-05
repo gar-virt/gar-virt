@@ -1,10 +1,25 @@
-# Gitea instance URL
-instance_url: "[instance URL]"
-# Gitea personal access token with write:admin permission
-# Manage access tokens at [instance URL]/user/settings/applications
-token: "[API token]"
-# Name to use for the Gitea runner registration
-name: "[runner name]"
+config_version: 0
+# Name of the environment running gar-virt
+name: "[name]"
+# Forge configuration
+forge:
+  # Possible values: gitea
+  type: "gitea"
+  # Forge instance URL
+  uri: "https://[hostname]"
+  # Forge access token
+  # Gitea: personal access token with write:admin permission
+  #        Manage access tokens at [instance URL]/user/settings/applications
+  token:
+    # Read from a file
+    source: "file"
+    value: "gitea_token.txt"
+    # Read from an environment variable
+    #source: "env"
+    #value: "GITEA_TOKEN"
+    # Read the inlined token
+    #source: "inline"
+    #value: "[token]"
 # Label mappings
 labels:
   - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"

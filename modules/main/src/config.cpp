@@ -1,6 +1,8 @@
 #include "config.hpp"
 
 #include <utility/algorithm.hpp>
+#include <utility/env.hpp>
+#include <utility/filesystem.hpp>
 #include <utility/string.hpp>
 
 #include <yaml-cpp/yaml.h>
@@ -30,6 +32,42 @@ std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::pa
     }
 }
 
+ForgeTokenConfig load_forge_token(const YAML::Node& from) {
+    return {
+        .source = std::string{from["source"].as<std::string>()},
+        .value = std::string{from["value"].as<std::string>()},
+    };
+}
+
+ForgeConfig load_forge(const YAML::Node& from, const std::filesystem::path& config_base_dir) {
+    ForgeConfig result{
+        .type = std::string{from["type"].as<std::string>()},
+        .uri = std::string{from["uri"].as<std::string>()},
+        .token_config = load_forge_token(from["token"]),
+    };
+    result.token = result.token_config.resolve(config_base_dir);
+    return result;
+}
+
+std::string ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
+    if (source == "inline") {
+        return value;
+    }
+    if (source == "env") {
+        return utility::getenv(value).value();
+    }
+    if (source == "file") {
+        std::filesystem::path file_path{utility::u8string_from_string(value)};
+        if (file_path.is_relative()) {
+            file_path = base_dir / file_path;
+        }
+        auto raw_content{fs::read_file<std::string>(file_path)};
+        auto trimmed_content{utility::string_trim(raw_content)};
+        return raw_content.size() > trimmed_content.size() ? std::string{trimmed_content} : raw_content;
+    }
+    return {};
+}
+
 std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept {
     try {
         const auto config_base_dir{file_path.parent_path()};
@@ -41,9 +79,8 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
         RunnerConfig c{
             .config_base_dir = config_base_dir,
             .config_version = utility::safe_cast_int<size_t>(y["config_version"].as<int>()),
-            .instance_url = std::string{y["instance_url"].as<std::string>()},
-            .token = std::string{y["token"].as<std::string>()},
             .name = std::string{y["name"].as<std::string>()},
+            .forge = load_forge(y["forge"], config_base_dir),
             .labels =
                 [&] {
                     const auto& runner_labels{y["labels"]};

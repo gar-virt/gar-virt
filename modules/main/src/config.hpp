@@ -18,12 +18,25 @@ struct MachinePoolConfig {
     std::string details_as_yaml;
 };
 
+struct ForgeTokenConfig {
+    std::string source; // env, file, inline?
+    std::string value;
+
+    std::string resolve(const std::filesystem::path& base_dir);
+};
+
+struct ForgeConfig {
+    std::string type;
+    std::string uri;
+    ForgeTokenConfig token_config;
+    std::string token;
+};
+
 struct RunnerConfig {
     std::filesystem::path config_base_dir;
     size_t config_version{};
-    std::string instance_url;
-    std::string token;
     std::string name;
+    ForgeConfig forge;
     std::vector<std::string> labels;
     MachinePoolConfig machine_pool;
 

@@ -51,7 +51,7 @@ struct Injectables {
                 {"id", runner.id()},
                 {"uuid", runner.credentials().uuid},
                 {"token", runner.credentials().token},
-                {"address", config.instance_url},
+                {"address", config.forge.uri},
                 {"labels", labels},
                 {"ephemeral", true},
             }),
@@ -180,7 +180,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
     global_logger().verbose("Guest agent is available in machine {}", machine->get_id());
 
     global_logger().verbose("Waiting for machine {} network.", machine->get_id());
-    if (!wait_until_gitea_instance_available(*machine, config.instance_url, 120s)) {
+    if (!wait_until_gitea_instance_available(*machine, config.forge.uri, 120s)) {
         return std::unexpected{GenericError{std::format(
             "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
     }
@@ -237,7 +237,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
     }
 
     gitea::RunnerOptions runner_options{
-        .instance_url = config.instance_url,
+        .instance_url = config.forge.uri,
         .name = config.name,
         .labels = config.labels,
         .version = std::string{runner_version},
@@ -298,7 +298,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
 
 void runner_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
     using namespace std::literals;
-    auto admin{std::make_shared<gitea::AdminServiceClient>(config.instance_url, config.token)};
+    auto admin{std::make_shared<gitea::AdminServiceClient>(config.forge.uri, config.forge.token)};
     std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(config.machine_pool.capacity)};
     MachinePool machine_pool{config.machine_pool.capacity, [&] { return spawn_machine(config); }};
     machine_pool.set_stats_callback([&](auto stats) {

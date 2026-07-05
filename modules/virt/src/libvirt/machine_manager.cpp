@@ -37,12 +37,12 @@ public:
             return std::unexpected{hv.error()};
         }
 
-        auto domain_xml{fs::read_file(parsed_options->domain_template_path)};
-        auto volume_xml{fs::read_file(parsed_options->volume_template_path)};
+        const auto domain_xml{fs::read_file<std::string>(parsed_options->domain_template_path)};
+        const auto volume_xml{fs::read_file<std::string>(parsed_options->volume_template_path)};
 
         auto spawn_res{hv->spawn({
-            .volume = std::string_view{reinterpret_cast<const char*>(volume_xml.data()), volume_xml.size()},
-            .domain = std::string_view{reinterpret_cast<const char*>(domain_xml.data()), domain_xml.size()},
+            .volume = volume_xml,
+            .domain = domain_xml,
             .storage_pool = parsed_options->storage_pool_name,
         })};
         if (!spawn_res) {

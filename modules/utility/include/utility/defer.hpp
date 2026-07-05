@@ -16,13 +16,14 @@ public:
     }
 
     Deferred(const Deferred&) = delete;
+    Deferred(Deferred&& other) noexcept : m_fn{std::exchange(other.m_fn, {})} {}
+
     Deferred& operator=(const Deferred&) = delete;
 
-    Deferred(Deferred&& other) noexcept : m_fn{std::move(other.m_fn)} { other.m_fn = {}; }
-
     Deferred& operator=(Deferred&& other) noexcept {
-        m_fn = std::move(other.m_fn);
-        other.m_fn = {};
+        if (this != &other) {
+            m_fn = std::exchange(other.m_fn, {});
+        }
         return *this;
     }
 

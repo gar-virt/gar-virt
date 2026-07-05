@@ -40,6 +40,7 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
         const auto& y{*yaml_res};
         RunnerConfig c{
             .config_base_dir = config_base_dir,
+            .config_version = utility::safe_cast_int<size_t>(y["config_version"].as<int>()),
             .instance_url = std::string{y["instance_url"].as<std::string>()},
             .token = std::string{y["token"].as<std::string>()},
             .name = std::string{y["name"].as<std::string>()},

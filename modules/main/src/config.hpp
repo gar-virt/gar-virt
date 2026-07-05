@@ -20,6 +20,7 @@ struct MachinePoolConfig {
 
 struct RunnerConfig {
     std::filesystem::path config_base_dir;
+    size_t config_version{};
     std::string instance_url;
     std::string token;
     std::string name;

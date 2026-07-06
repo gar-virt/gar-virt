@@ -142,11 +142,11 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
 std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config::RunnerConfig& config) noexcept {
     using namespace std::literals;
 
-    const auto& machine_config{config.machine_pool};
-    const auto& machine_provider{machine_config.provider};
-    const auto& machine_template{machine_config.machine_template};
+    const auto& pool_config{config.machine_pool};
+    const auto& provider{pool_config.provider};
+    const auto& template_config{pool_config.machine_template};
 
-    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(machine_provider)};
+    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(provider)};
     if (!machine_manager_factory_res) {
         return std::unexpected{machine_manager_factory_res.error()};
     }
@@ -154,15 +154,15 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", machine_provider, machine_template.os,
-                            machine_template.arch);
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", provider, template_config.os,
+                            template_config.arch);
 
     auto machine_res{machine_manager->spawn(
         Machine::Info{
-            .os = machine_template.os,
-            .arch = machine_template.arch,
+            .os = template_config.os,
+            .arch = template_config.arch,
         },
-        MachinePoolDetails{config.config_base_dir, machine_config.details_as_yaml})};
+        pool_config.details_as_yaml, template_config.details_as_yaml, config.config_base_dir)};
 
     if (!machine_res) {
         return std::unexpected{machine_res.error()};
@@ -170,8 +170,8 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
 
     auto machine{*std::move(machine_res)};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", machine_provider,
-                            machine_template.os, machine_template.arch, machine->get_id());
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", provider, template_config.os,
+                            template_config.arch, machine->get_id());
 
     global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
     if (auto res{machine->wait_for_guest_agent(120s)}; !res) {

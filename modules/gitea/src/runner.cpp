@@ -85,15 +85,15 @@ Runner::~Runner() {
 }
 
 Runner::Runner(Runner&& other) noexcept
-        : m_id{other.m_id}, m_credentials{std::move(other.m_credentials)}, m_client{std::move(other.m_client)},
-          m_admin{std::move(other.m_admin)} {
+        : m_id{other.m_id}, m_labels{std::move(other.m_labels)}, m_credentials{std::move(other.m_credentials)},
+          m_client{std::move(other.m_client)}, m_admin{std::move(other.m_admin)} {
     other.m_moved = true;
 }
 
 Runner& Runner::operator=(Runner&& other) noexcept {
     if (this != &other) {
         m_id = other.m_id;
-        m_credentials = std::move(other.m_credentials);
+        m_labels = std::move(other.m_labels), m_credentials = std::move(other.m_credentials);
         m_client = std::move(other.m_client);
         m_admin = std::move(other.m_admin);
         other.m_moved = true;

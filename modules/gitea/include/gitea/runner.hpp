@@ -32,7 +32,7 @@ struct RunnerOptions {
 
 class Runner final {
 public:
-    Runner(int64_t id, gitea::GiteaRunnerCredentials credentials,
+    Runner(int64_t id, std::vector<std::string> labels, gitea::GiteaRunnerCredentials credentials,
            std::shared_ptr<gitea::GiteaRunnerServiceClient> client, std::shared_ptr<gitea::AdminServiceClient> admin);
 
     ~Runner();
@@ -50,10 +50,12 @@ public:
     int64_t id() const noexcept;
     const gitea::GiteaRunnerCredentials& credentials() const noexcept;
     const gitea::GiteaRunnerServiceClient& client() const noexcept;
+    const std::vector<std::string>& labels() const noexcept;
 
 private:
     bool m_moved{};
     int64_t m_id{};
+    std::vector<std::string> m_labels;
     gitea::GiteaRunnerCredentials m_credentials;
     std::shared_ptr<gitea::GiteaRunnerServiceClient> m_client;
     std::shared_ptr<gitea::AdminServiceClient> m_admin;

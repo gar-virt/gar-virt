@@ -9,12 +9,21 @@
 
 namespace ls_gitea_runner::config {
 
-struct MachinePoolConfig {
-    std::string provider;
-    size_t capacity{};
+struct MachineTemplateConfig {
+    std::filesystem::path config_base_dir;
     std::string os;
     std::string arch;
     std::string runner_exe_path;
+    std::vector<std::string> labels;
+    std::string details_as_yaml;
+
+    std::vector<std::string> get_label_names() const;
+};
+
+struct MachinePoolConfig {
+    std::string provider;
+    size_t capacity{};
+    MachineTemplateConfig machine_template;
     std::string details_as_yaml;
 };
 
@@ -37,10 +46,7 @@ struct RunnerConfig {
     size_t config_version{};
     std::string name;
     ForgeConfig forge;
-    std::vector<std::string> labels;
     MachinePoolConfig machine_pool;
-
-    std::vector<std::string> get_label_names() const;
 };
 
 std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept;

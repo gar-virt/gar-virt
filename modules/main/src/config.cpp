@@ -11,7 +11,7 @@
 
 namespace ls_gitea_runner::config {
 
-std::vector<std::string> RunnerConfig::get_label_names() const {
+std::vector<std::string> MachineTemplateConfig::get_label_names() const {
     std::vector<std::string> items;
     for (auto label : labels) {
         auto pos{label.find_first_of(':')};
@@ -32,6 +32,13 @@ std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::pa
     }
 }
 
+std::string to_yaml_string(const YAML::Node& from) {
+    std::stringstream result;
+    YAML::Emitter emitter{result};
+    emitter << from;
+    return std::move(result).str();
+}
+
 ForgeTokenConfig load_forge_token(const YAML::Node& from) {
     return {
         .source = std::string{from["source"].as<std::string>()},
@@ -47,6 +54,25 @@ ForgeConfig load_forge(const YAML::Node& from, const std::filesystem::path& conf
     };
     result.token = result.token_config.resolve(config_base_dir);
     return result;
+}
+
+MachineTemplateConfig load_machine_template(const YAML::Node& from, const std::filesystem::path& config_base_dir) {
+    return {
+        .config_base_dir = config_base_dir,
+        .os = from["os"].as<std::string>(),
+        .arch = from["arch"].as<std::string>(),
+        .runner_exe_path = from["runner_exe_path"].as<std::string>(),
+        .labels =
+            [&] {
+                const auto& runner_labels{from["labels"]};
+                std::vector<std::string> labels;
+                labels.reserve(runner_labels.size());
+                std::transform(runner_labels.begin(), runner_labels.end(), std::back_inserter(labels),
+                               [](const YAML::Node& l) { return l.as<std::string>(); });
+                return labels;
+            }(),
+        .details_as_yaml = to_yaml_string(from["details"]),
+    };
 }
 
 std::string ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
@@ -81,33 +107,15 @@ std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path&
             .config_version = utility::safe_cast_int<size_t>(y["config_version"].as<int>()),
             .name = std::string{y["name"].as<std::string>()},
             .forge = load_forge(y["forge"], config_base_dir),
-            .labels =
-                [&] {
-                    const auto& runner_labels{y["labels"]};
-                    std::vector<std::string> labels;
-                    labels.reserve(runner_labels.size());
-                    std::transform(runner_labels.begin(), runner_labels.end(), std::back_inserter(labels),
-                                   [](const YAML::Node& l) { return l.as<std::string>(); });
-                    return labels;
-                }(),
             .machine_pool =
                 [&] {
                     const auto& pool{y["machine_pool"]};
 
-                    auto details_as_yaml{[&] {
-                        std::stringstream details_as_yaml;
-                        YAML::Emitter details_as_yaml_emitter{details_as_yaml};
-                        details_as_yaml_emitter << pool["details"];
-                        return std::move(details_as_yaml).str();
-                    }()};
-
                     return MachinePoolConfig{
                         .provider = pool["provider"].as<std::string>(),
                         .capacity = utility::safe_cast_int<size_t>(pool["capacity"].as<int>()),
-                        .os = pool["os"].as<std::string>(),
-                        .arch = pool["arch"].as<std::string>(),
-                        .runner_exe_path = pool["runner_exe_path"].as<std::string>(),
-                        .details_as_yaml = std::move(details_as_yaml),
+                        .machine_template = load_machine_template(pool["template"], config_base_dir),
+                        .details_as_yaml = to_yaml_string(pool["details"]),
                     };
                 }(),
         };

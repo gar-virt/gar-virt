@@ -69,10 +69,11 @@ fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) noexcept {
     return *fetch_task_response;
 }
 
-Runner::Runner(int64_t id, gitea::GiteaRunnerCredentials credentials,
+Runner::Runner(int64_t id, std::vector<std::string> labels, gitea::GiteaRunnerCredentials credentials,
                std::shared_ptr<gitea::GiteaRunnerServiceClient> client,
                std::shared_ptr<gitea::AdminServiceClient> admin)
-        : m_id{id}, m_credentials(std::move(credentials)), m_client{std::move(client)}, m_admin{std::move(admin)} {}
+        : m_id{id}, m_labels{std::move(labels)}, m_credentials(std::move(credentials)), m_client{std::move(client)},
+          m_admin{std::move(admin)} {}
 
 Runner::~Runner() {
     if (!m_moved) {
@@ -130,7 +131,7 @@ std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options
         return std::unexpected{declare_res.error()};
     }
 
-    return Runner{runner.id(), std::move(credentials), std::move(client), std::move(admin)};
+    return Runner{runner.id(), options.labels, std::move(credentials), std::move(client), std::move(admin)};
 }
 
 std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() noexcept {
@@ -140,5 +141,6 @@ std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task(
 int64_t Runner::id() const noexcept { return m_id; }
 const gitea::GiteaRunnerCredentials& Runner::credentials() const noexcept { return m_credentials; }
 const gitea::GiteaRunnerServiceClient& Runner::client() const noexcept { return *m_client; }
+const std::vector<std::string>& Runner::labels() const noexcept { return m_labels; }
 
 } // namespace ls_gitea_runner::gitea

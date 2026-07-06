@@ -43,7 +43,7 @@ struct Injectables {
             return std::unexpected{encode_payload.error()};
         }
         boost::json::array labels;
-        for (auto label : config.labels) {
+        for (auto label : runner.labels()) {
             labels.emplace_back(label);
         }
         return Injectables{
@@ -144,6 +144,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
 
     const auto& machine_config{config.machine_pool};
     const auto& machine_provider{machine_config.provider};
+    const auto& machine_template{machine_config.machine_template};
 
     auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(machine_provider)};
     if (!machine_manager_factory_res) {
@@ -153,13 +154,13 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", machine_provider, machine_config.os,
-                            machine_config.arch);
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", machine_provider, machine_template.os,
+                            machine_template.arch);
 
     auto machine_res{machine_manager->spawn(
         Machine::Info{
-            .os = machine_config.os,
-            .arch = machine_config.arch,
+            .os = machine_template.os,
+            .arch = machine_template.arch,
         },
         MachinePoolDetails{config.config_base_dir, machine_config.details_as_yaml})};
 
@@ -169,8 +170,8 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
 
     auto machine{*std::move(machine_res)};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", machine_provider, machine_config.os,
-                            machine_config.arch, machine->get_id());
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", machine_provider,
+                            machine_template.os, machine_template.arch, machine->get_id());
 
     global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
     if (auto res{machine->wait_for_guest_agent(120s)}; !res) {
@@ -203,8 +204,8 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
         .and_then([&] {
             global_logger().verbose("Executing task #{} in machine {}.", task.id(), machine.get_id());
             return machine
-                .shell_exec({config.machine_pool.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml",
-                             "--task", "/tmp/runner_task"})
+                .shell_exec({config.machine_pool.machine_template.runner_exe_path, "run-task", "--config",
+                             "/tmp/runner_config.yml", "--task", "/tmp/runner_task"})
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
                     LOG_SELECT(verbose, error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,
@@ -239,7 +240,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
     gitea::RunnerOptions runner_options{
         .instance_url = config.forge.uri,
         .name = config.name,
-        .labels = config.labels,
+        .labels = config.machine_pool.machine_template.labels,
         .version = std::string{runner_version},
     };
 

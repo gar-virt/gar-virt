@@ -1,13 +1,10 @@
 #include "machine_manager.hpp"
-#include "container_id.hpp"
 #include "libvirt.hpp"
 #include "machine.hpp"
 #include "machine_options.hpp"
 
 #include <utility/filesystem.hpp>
 #include <utility/uuid.hpp>
-
-#include <fstream>
 
 namespace ls_gitea_runner {
 
@@ -19,30 +16,14 @@ public:
             return std::unexpected{parsed_options.error()};
         }
 
-        const auto name{std::format("gar-virt-{}", utility::uuid())};
-
-        /*LibvirtContainerId id;
-        std::unique_ptr<LibvirtMachine> machine;
-
-        return libvirt.container_create(name, parsed_options->image, {"/usr/bin/sh", "-c", "sleep 10800"})
-            .and_then([&](auto res) {
-                id = std::move(res);
-                machine = std::make_unique<LibvirtMachine>(id, std::move(info));
-                return libvirt.container_start(id);
-            })
-            .transform([&] { return std::move(machine); });*/
-
         auto hv{libvirt::Hypervisor::connect(parsed_options->hypervisor_uri)};
         if (!hv) {
             return std::unexpected{hv.error()};
         }
 
-        const auto domain_xml{fs::read_file<std::string>(parsed_options->domain_template_path)};
-        const auto volume_xml{fs::read_file<std::string>(parsed_options->volume_template_path)};
-
         auto spawn_res{hv->spawn({
-            .volume = volume_xml,
-            .domain = domain_xml,
+            .volume = fs::read_file<std::string>(parsed_options->domain_template_path),
+            .domain = fs::read_file<std::string>(parsed_options->volume_template_path),
             .storage_pool = parsed_options->storage_pool_name,
         })};
         if (!spawn_res) {

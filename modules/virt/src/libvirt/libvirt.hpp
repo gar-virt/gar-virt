@@ -8,15 +8,14 @@
 #include <memory>
 #include <span>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace ls_gitea_runner::libvirt {
 
 struct SpawnOptions {
-    std::string_view volume;
-    std::string_view domain;
-    std::string_view storage_pool;
+    std::string volume;
+    std::string domain;
+    std::string storage_pool;
 };
 
 class MachineImpl;

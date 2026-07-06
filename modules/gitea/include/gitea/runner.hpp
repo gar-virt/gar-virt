@@ -12,7 +12,7 @@
 namespace ls_gitea_runner::gitea {
 
 struct RunnerOptions {
-    std::string instance_url;
+    std::string forge_uri;
     std::string name;
     std::vector<std::string> labels;
     std::string version;
@@ -32,8 +32,9 @@ struct RunnerOptions {
 
 class Runner final {
 public:
-    Runner(int64_t id, std::vector<std::string> labels, gitea::GiteaRunnerCredentials credentials,
-           std::shared_ptr<gitea::GiteaRunnerServiceClient> client, std::shared_ptr<gitea::AdminServiceClient> admin);
+    Runner(int64_t id, std::vector<std::string> labels, std::string forge_uri,
+           gitea::GiteaRunnerCredentials credentials, std::shared_ptr<gitea::GiteaRunnerServiceClient> client,
+           std::shared_ptr<gitea::AdminServiceClient> admin);
 
     ~Runner();
 
@@ -51,11 +52,13 @@ public:
     const gitea::GiteaRunnerCredentials& credentials() const noexcept;
     const gitea::GiteaRunnerServiceClient& client() const noexcept;
     const std::vector<std::string>& labels() const noexcept;
+    const std::string& forge_uri() const noexcept;
 
 private:
     bool m_moved{};
     int64_t m_id{};
     std::vector<std::string> m_labels;
+    std::string m_forge_uri;
     gitea::GiteaRunnerCredentials m_credentials;
     std::shared_ptr<gitea::GiteaRunnerServiceClient> m_client;
     std::shared_ptr<gitea::AdminServiceClient> m_admin;

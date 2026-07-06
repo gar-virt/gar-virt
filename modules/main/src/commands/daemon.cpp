@@ -36,8 +36,8 @@ struct Injectables {
     std::string runner_config_yaml;
     std::vector<std::byte> encoded_task;
 
-    static std::expected<Injectables, GenericError>
-    generate(const ::runner::v1::Task& task, const gitea::Runner& runner, const config::RunnerConfig& config) {
+    static std::expected<Injectables, GenericError> generate(const ::runner::v1::Task& task,
+                                                             const gitea::Runner& runner) {
         auto encode_payload{gitea::encode_payload(task)};
         if (!encode_payload) {
             return std::unexpected{encode_payload.error()};
@@ -51,7 +51,7 @@ struct Injectables {
                 {"id", runner.id()},
                 {"uuid", runner.credentials().uuid},
                 {"token", runner.credentials().token},
-                {"address", config.forge.uri},
+                {"address", runner.forge_uri()},
                 {"labels", labels},
                 {"ephemeral", true},
             }),
@@ -139,14 +139,14 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
                                                     machine.get_id(), spawn_res.output)}};
 }
 
-std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config::RunnerConfig& config) noexcept {
+std::expected<std::unique_ptr<Machine>, GenericError>
+spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
+              const config::MachineTemplateConfig& template_config) noexcept {
     using namespace std::literals;
 
-    const auto& pool_config{config.machine_pool};
-    const auto& provider{pool_config.provider};
-    const auto& template_config{pool_config.machine_template};
+    const auto& backend_type{backend_config.type};
 
-    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(provider)};
+    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(backend_type)};
     if (!machine_manager_factory_res) {
         return std::unexpected{machine_manager_factory_res.error()};
     }
@@ -154,7 +154,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", provider, template_config.os,
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os,
                             template_config.arch);
 
     auto machine_res{machine_manager->spawn(
@@ -162,7 +162,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
             .os = template_config.os,
             .arch = template_config.arch,
         },
-        pool_config.details_as_yaml, template_config.details_as_yaml, config.config_base_dir)};
+        backend_config.raw_details, template_config.raw_details, main_config.base_dir)};
 
     if (!machine_res) {
         return std::unexpected{machine_res.error()};
@@ -170,7 +170,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
 
     auto machine{*std::move(machine_res)};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", provider, template_config.os,
+    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
                             template_config.arch, machine->get_id());
 
     global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
@@ -181,7 +181,7 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
     global_logger().verbose("Guest agent is available in machine {}", machine->get_id());
 
     global_logger().verbose("Waiting for machine {} network.", machine->get_id());
-    if (!wait_until_gitea_instance_available(*machine, config.forge.uri, 120s)) {
+    if (!wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s)) {
         return std::unexpected{GenericError{std::format(
             "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
     }
@@ -192,20 +192,20 @@ std::expected<std::unique_ptr<Machine>, GenericError> spawn_machine(const config
 }
 
 std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
-                                                          const config::RunnerConfig& config,
+                                                          const config::MachineTemplateConfig& config,
                                                           Machine& machine) noexcept {
     using namespace std::literals;
     const auto id{task.id()};
 
     global_logger().verbose("Preparing environment for machine {}.", machine.get_id());
 
-    return Injectables::generate(task, runner, config)
+    return Injectables::generate(task, runner)
         .and_then([&](auto res) { return inject_runner_files(machine, std::move(res)); })
         .and_then([&] {
             global_logger().verbose("Executing task #{} in machine {}.", task.id(), machine.get_id());
             return machine
-                .shell_exec({config.machine_pool.machine_template.runner_exe_path, "run-task", "--config",
-                             "/tmp/runner_config.yml", "--task", "/tmp/runner_task"})
+                .shell_exec({config.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml", "--task",
+                             "/tmp/runner_task"})
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
                     LOG_SELECT(verbose, error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,
@@ -225,7 +225,9 @@ void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunn
 
 std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminServiceClient> admin,
                                                   MachinePool& machine_pool, utility::ThreadPoolExecutor& task_executor,
-                                                  const config::RunnerConfig& config, std::atomic_bool& stop,
+                                                  const config::MainConfig& main_config,
+                                                  const config::MachineTemplateConfig& template_config,
+                                                  std::atomic_bool& stop,
                                                   std::counting_semaphore<>& capacity_guard) noexcept {
     using namespace std::literals;
 
@@ -238,9 +240,9 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
     }
 
     gitea::RunnerOptions runner_options{
-        .instance_url = config.forge.uri,
-        .name = config.name,
-        .labels = config.machine_pool.machine_template.labels,
+        .forge_uri = main_config.forge.uri,
+        .name = main_config.name,
+        .labels = template_config.labels,
         .version = std::string{runner_version},
     };
 
@@ -270,7 +272,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
     if (task.has_value()) {
         global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task->id());
         task_executor.put(
-            [&capacity_guard](auto config, auto* machine_pool, auto task, auto runner) {
+            [&capacity_guard](auto template_config, auto* machine_pool, auto task, auto runner) {
                 // FIXME: configurable timeout
                 auto machine_res{machine_pool->acquire(120s)};
                 if (!machine_res) {
@@ -280,7 +282,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
                     return;
                 }
                 auto machine{*std::move(machine_res)};
-                std::ignore = execute_task_in_machine(task, runner, config, *machine)
+                std::ignore = execute_task_in_machine(task, runner, template_config, *machine)
                                   .or_else([&](auto err) -> std::expected<void, GenericError> {
                                       global_logger().error("Error during task execution: {}", err.what());
                                       update_task_on_error(task, runner.client());
@@ -289,7 +291,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
                 machine_pool->release(machine);
                 capacity_guard.release();
             },
-            config, &machine_pool, *std::move(task), std::move(runner));
+            template_config, &machine_pool, *std::move(task), std::move(runner));
     } else {
         capacity_guard.release();
     }
@@ -297,20 +299,23 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
     return {};
 }
 
-void runner_loop(const config::RunnerConfig& config, std::atomic_bool& stop) {
+void runner_loop(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
+                 const config::MachineTemplateConfig& template_config, std::atomic_bool& stop) {
     using namespace std::literals;
-    auto admin{std::make_shared<gitea::AdminServiceClient>(config.forge.uri, config.forge.token)};
-    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(config.machine_pool.capacity)};
-    MachinePool machine_pool{config.machine_pool.capacity, [&] { return spawn_machine(config); }};
+    auto admin{
+        std::make_shared<gitea::AdminServiceClient>(main_config.forge.uri, main_config.forge.token.resolved_token)};
+    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(backend_config.capacity)};
+    MachinePool machine_pool{backend_config.capacity,
+                             [&] { return spawn_machine(main_config, backend_config, template_config); }};
     machine_pool.set_stats_callback([&](auto stats) {
         global_logger().verbose("{} machine pool stats: {} active; {} idle; {} warmup; {} capacity",
-                                config.machine_pool.provider, stats.active, stats.idle, stats.warming,
-                                config.machine_pool.capacity);
+                                backend_config.type, stats.active, stats.idle, stats.warming, backend_config.capacity);
     });
-    utility::ThreadPoolExecutor task_executor{config.machine_pool.capacity};
+    utility::ThreadPoolExecutor task_executor{backend_config.capacity};
     machine_pool.start();
     while (!stop) {
-        auto res{fetch_task_loop(admin, machine_pool, task_executor, config, stop, capacity_guard)};
+        auto res{
+            fetch_task_loop(admin, machine_pool, task_executor, main_config, template_config, stop, capacity_guard)};
         if (!res) {
             global_logger().error("Error in run loop iteration: {}", res.error().what());
             std::this_thread::sleep_for(5s);
@@ -327,12 +332,16 @@ std::atomic_bool& install_shutdown_signal_handler() {
     return flag;
 }
 
-std::expected<void, GenericError> cmd_daemon(const config::RunnerConfig& config) noexcept {
+std::expected<void, GenericError> cmd_daemon(const config::MainConfig& config) noexcept {
     using namespace std::chrono_literals;
+
+    const auto& backend_config{config.backends.at(0)};
+    const auto& template_config(backend_config.templates.at(0));
+
     auto& shutdown{install_shutdown_signal_handler()};
     std::vector<std::jthread> runner_threads;
     // TODO: Create one polling thread per runner - currently just one
-    runner_threads.emplace_back([&] { runner_loop(config, shutdown); });
+    runner_threads.emplace_back([&] { runner_loop(config, backend_config, template_config, shutdown); });
     return {};
 }
 

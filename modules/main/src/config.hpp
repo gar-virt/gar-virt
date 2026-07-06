@@ -10,45 +10,48 @@
 namespace ls_gitea_runner::config {
 
 struct MachineTemplateConfig {
-    std::filesystem::path config_base_dir;
     std::string os;
     std::string arch;
     std::string runner_exe_path;
     std::vector<std::string> labels;
-    std::string details_as_yaml;
+    std::string raw_details;
 
     std::vector<std::string> get_label_names() const;
-};
-
-struct MachinePoolConfig {
-    std::string provider;
-    size_t capacity{};
-    MachineTemplateConfig machine_template;
-    std::string details_as_yaml;
 };
 
 struct ForgeTokenConfig {
     std::string source; // env, file, inline?
     std::string value;
+    std::string resolved_token;
 
-    std::string resolve(const std::filesystem::path& base_dir);
+    void resolve(const std::filesystem::path& base_dir);
 };
 
 struct ForgeConfig {
     std::string type;
     std::string uri;
-    ForgeTokenConfig token_config;
-    std::string token;
+    ForgeTokenConfig token;
+
+    void resolve(const std::filesystem::path& base_dir);
 };
 
-struct RunnerConfig {
-    std::filesystem::path config_base_dir;
+struct BackendConfig {
+    std::string type;
+    size_t capacity{};
+    std::vector<MachineTemplateConfig> templates;
+    std::string raw_details;
+};
+
+struct MainConfig {
+    std::filesystem::path base_dir;
     size_t config_version{};
     std::string name;
     ForgeConfig forge;
-    MachinePoolConfig machine_pool;
+    std::vector<BackendConfig> backends;
+
+    void resolve(const std::filesystem::path& base_dir);
 };
 
-std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept;
+std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept;
 
 } // namespace ls_gitea_runner::config

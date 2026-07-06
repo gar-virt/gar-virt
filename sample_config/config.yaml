@@ -20,30 +20,34 @@ forge:
     # Read the inlined token
     #source: "inline"
     #value: "[token]"
-# Label mappings
-labels:
-  - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
-  - "ubuntu-24.04:docker://docker.gitea.com/runner-images:ubuntu-24.04"
-  - "ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
-machine_pool:
-  provider: "libvirt"
-  # The number of concurrent tasks to handle
-  capacity: 1
-  # One of the following values: Linux, macOS, Windows
-  os: "Linux"
-  # Target CPU architecture (currently unused and values aren't written in stone yet)
-  arch: "X64"
-  # Path of preinstalled Gitea Runner executable in the target environment
-  # For compatible releases, see https://github.com/gar-virt/gitea-runner/releases
-  runner_exe_path: "/usr/local/bin/gitea-runner"
-  # Please refer to libvirt documentation where needed
-  details:
-    # Connection URI such as "qemu:///system" or "qemu+ssh://[user]@[server]/system".
-    # QEMU support is required. See https://libvirt.org/uri.html
-    hypervisor_uri: "[connection URI]"
-    # Domain XML file path
-    domain_template_path: "templates/ubuntu-26.04/domain.xml"
-    # Volume XML file path
-    volume_template_path: "templates/ubuntu-26.04/volume.xml"
-    # Name of the storage pool managing your base image
-    storage_pool_name: "default"
+# Virtualization backends
+backends:
+  - type: "libvirt"
+    # The number of concurrent tasks to handle
+    capacity: 1
+    details:
+      # Connection URI such as "qemu:///system" or "qemu+ssh://[user]@[server]/system".
+      # QEMU support is required. See https://libvirt.org/uri.html
+      hypervisor_uri: "[connection URI]"
+    # Machine templates
+    templates:
+      # One of the following values: Linux, macOS, Windows
+      os: "Linux"
+      # Target CPU architecture (currently unused and values aren't written in stone yet)
+      arch: "X64"
+      # Path of preinstalled Gitea Runner executable in the target environment
+      # For compatible releases, see https://github.com/gar-virt/gitea-runner/releases
+      runner_exe_path: "/usr/local/bin/gitea-runner"
+      # Label mappings
+      labels:
+        - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
+        - "ubuntu-24.04:docker://docker.gitea.com/runner-images:ubuntu-24.04"
+        - "ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
+      # Please refer to libvirt documentation where needed
+      details:
+        # Domain XML file path
+        domain_template_path: "templates/ubuntu-26.04/domain.xml"
+        # Volume XML file path
+        volume_template_path: "templates/ubuntu-26.04/volume.xml"
+        # Name of the storage pool managing your base image
+        storage_pool_name: "default"

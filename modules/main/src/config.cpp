@@ -7,6 +7,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <format>
 #include <fstream>
 
 namespace ls_gitea_runner::config {
@@ -46,19 +47,16 @@ ForgeTokenConfig load_forge_token(const YAML::Node& from) {
     };
 }
 
-ForgeConfig load_forge(const YAML::Node& from, const std::filesystem::path& config_base_dir) {
-    ForgeConfig result{
+ForgeConfig load_forge(const YAML::Node& from) {
+    return {
         .type = std::string{from["type"].as<std::string>()},
         .uri = std::string{from["uri"].as<std::string>()},
-        .token_config = load_forge_token(from["token"]),
+        .token = load_forge_token(from["token"]),
     };
-    result.token = result.token_config.resolve(config_base_dir);
-    return result;
 }
 
-MachineTemplateConfig load_machine_template(const YAML::Node& from, const std::filesystem::path& config_base_dir) {
+MachineTemplateConfig load_template(const YAML::Node& from) {
     return {
-        .config_base_dir = config_base_dir,
         .os = from["os"].as<std::string>(),
         .arch = from["arch"].as<std::string>(),
         .runner_exe_path = from["runner_exe_path"].as<std::string>(),
@@ -71,16 +69,40 @@ MachineTemplateConfig load_machine_template(const YAML::Node& from, const std::f
                                [](const YAML::Node& l) { return l.as<std::string>(); });
                 return labels;
             }(),
-        .details_as_yaml = to_yaml_string(from["details"]),
+        .raw_details = to_yaml_string(from["details"]),
     };
 }
 
-std::string ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
+void load_templates_into(std::vector<MachineTemplateConfig>& to, const YAML::Node& from) {
+    for (auto& from_element : from) {
+        to.push_back(load_template(from_element));
+    }
+}
+
+BackendConfig load_backend(const YAML::Node& from) {
+    BackendConfig c{
+        .type = from["type"].as<std::string>(),
+        .capacity = utility::safe_cast_int<size_t>(from["capacity"].as<int>()),
+        .raw_details = to_yaml_string(from["details"]),
+    };
+    load_templates_into(c.templates, from["templates"]);
+    return c;
+}
+
+void load_backends_into(std::vector<BackendConfig>& to, const YAML::Node& from) {
+    for (auto& from_element : from) {
+        to.push_back(load_backend(from_element));
+    }
+}
+
+void ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
     if (source == "inline") {
-        return value;
+        resolved_token = value;
+        return;
     }
     if (source == "env") {
-        return utility::getenv(value).value();
+        resolved_token = utility::getenv(value).value();
+        return;
     }
     if (source == "file") {
         std::filesystem::path file_path{utility::u8string_from_string(value)};
@@ -89,36 +111,34 @@ std::string ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
         }
         auto raw_content{fs::read_file<std::string>(file_path)};
         auto trimmed_content{utility::string_trim(raw_content)};
-        return raw_content.size() > trimmed_content.size() ? std::string{trimmed_content} : raw_content;
+        resolved_token = raw_content.size() > trimmed_content.size() ? std::string{trimmed_content} : raw_content;
+        return;
     }
-    return {};
+    throw GenericError{std::format("Invalid token source: {}", source)};
 }
 
-std::expected<RunnerConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept {
+void ForgeConfig::resolve(const std::filesystem::path& base_dir) { token.resolve(base_dir); }
+
+void MainConfig::resolve(const std::filesystem::path& base_dir) {
+    this->base_dir = base_dir;
+    forge.resolve(base_dir);
+}
+
+std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept {
     try {
-        const auto config_base_dir{file_path.parent_path()};
+        const auto base_dir{file_path.parent_path()};
         auto yaml_res{load_yaml_file(file_path)};
         if (!yaml_res) {
             return std::unexpected{yaml_res.error()};
         }
         const auto& y{*yaml_res};
-        RunnerConfig c{
-            .config_base_dir = config_base_dir,
+        MainConfig c{
             .config_version = utility::safe_cast_int<size_t>(y["config_version"].as<int>()),
             .name = std::string{y["name"].as<std::string>()},
-            .forge = load_forge(y["forge"], config_base_dir),
-            .machine_pool =
-                [&] {
-                    const auto& pool{y["machine_pool"]};
-
-                    return MachinePoolConfig{
-                        .provider = pool["provider"].as<std::string>(),
-                        .capacity = utility::safe_cast_int<size_t>(pool["capacity"].as<int>()),
-                        .machine_template = load_machine_template(pool["template"], config_base_dir),
-                        .details_as_yaml = to_yaml_string(pool["details"]),
-                    };
-                }(),
+            .forge = load_forge(y["forge"]),
         };
+        load_backends_into(c.backends, y["backends"]);
+        c.resolve(base_dir);
         return c;
     } catch (const std::exception& ex) {
         return std::unexpected{

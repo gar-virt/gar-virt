@@ -304,14 +304,14 @@ void runner_loop(const config::MainConfig& main_config, const config::BackendCon
     using namespace std::literals;
     auto admin{
         std::make_shared<gitea::AdminServiceClient>(main_config.forge.uri, main_config.forge.token.resolved_token)};
-    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(backend_config.capacity)};
-    MachinePool machine_pool{backend_config.capacity,
+    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(template_config.max_concurrency)};
+    MachinePool machine_pool{template_config.idle_target, template_config.max_concurrency,
                              [&] { return spawn_machine(main_config, backend_config, template_config); }};
     machine_pool.set_stats_callback([&](auto stats) {
-        global_logger().verbose("{} machine pool stats: {} active; {} idle; {} warmup; {} capacity",
-                                backend_config.type, stats.active, stats.idle, stats.warming, backend_config.capacity);
+        global_logger().verbose("{} machine pool stats: active: {}; idle: {}/{}; warming: {}", backend_config.type,
+                                stats.active, stats.idle, template_config.idle_target, stats.warming);
     });
-    utility::ThreadPoolExecutor task_executor{backend_config.capacity};
+    utility::ThreadPoolExecutor task_executor{template_config.idle_target, template_config.max_concurrency};
     machine_pool.start();
     while (!stop) {
         auto res{

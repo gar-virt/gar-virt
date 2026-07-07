@@ -59,6 +59,8 @@ MachineTemplateConfig load_template(const YAML::Node& from) {
     return {
         .os = from["os"].as<std::string>(),
         .arch = from["arch"].as<std::string>(),
+        .idle_target = utility::safe_cast_int<size_t>(from["idle_target"].as<int>()),
+        .max_concurrency = utility::safe_cast_int<size_t>(from["max_concurrency"].as<int>()),
         .runner_exe_path = from["runner_exe_path"].as<std::string>(),
         .labels =
             [&] {
@@ -82,7 +84,6 @@ void load_templates_into(std::vector<MachineTemplateConfig>& to, const YAML::Nod
 BackendConfig load_backend(const YAML::Node& from) {
     BackendConfig c{
         .type = from["type"].as<std::string>(),
-        .capacity = utility::safe_cast_int<size_t>(from["capacity"].as<int>()),
         .raw_details = to_yaml_string(from["details"]),
     };
     load_templates_into(c.templates, from["templates"]);

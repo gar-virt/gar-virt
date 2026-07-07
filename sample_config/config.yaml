@@ -23,8 +23,6 @@ forge:
 # Virtualization backends
 backends:
   - type: "libvirt"
-    # The number of concurrent tasks to handle
-    capacity: 1
     details:
       # Connection URI such as "qemu:///system" or "qemu+ssh://[user]@[server]/system".
       # QEMU support is required. See https://libvirt.org/uri.html
@@ -35,6 +33,10 @@ backends:
       os: "Linux"
       # Target CPU architecture (currently unused and values aren't written in stone yet)
       arch: "X64"
+      # Desired number of idle machines
+      idle_target: 2
+      # Maximum concurrent machines
+      max_concurrency: 4
       # Path of preinstalled Gitea Runner executable in the target environment
       # For compatible releases, see https://github.com/gar-virt/gitea-runner/releases
       runner_exe_path: "/usr/local/bin/gitea-runner"

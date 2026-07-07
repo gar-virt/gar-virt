@@ -12,6 +12,8 @@ namespace ls_gitea_runner::config {
 struct MachineTemplateConfig {
     std::string os;
     std::string arch;
+    size_t idle_target{};
+    size_t max_concurrency{};
     std::string runner_exe_path;
     std::vector<std::string> labels;
     std::string raw_details;
@@ -37,7 +39,6 @@ struct ForgeConfig {
 
 struct BackendConfig {
     std::string type;
-    size_t capacity{};
     std::vector<MachineTemplateConfig> templates;
     std::string raw_details;
 };

@@ -274,7 +274,7 @@ std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminSe
         task_executor.put(
             [&capacity_guard](auto template_config, auto* machine_pool, auto task, auto runner) {
                 // FIXME: configurable timeout
-                auto machine_res{machine_pool->acquire(120s)};
+                auto machine_res{machine_pool->acquire(3h)};
                 if (!machine_res) {
                     global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
                     update_task_on_error(task, runner.client());

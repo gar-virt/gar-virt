@@ -21,7 +21,7 @@ namespace ls_gitea_runner {
 class MachinePool::Impl final {
 public:
     Impl(size_t idle_target, size_t max_concurrency,
-         std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner)
+         std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner)
             : m_idle_target{idle_target}, m_max_concurrency{max_concurrency},
               m_machine_spawner{std::move(machine_spawner)}, m_workers{0, max_concurrency} {}
 
@@ -46,7 +46,8 @@ public:
             return std::unexpected{GenericError{"Shutting down machine pool"}};
         }
         if (timed_out) {
-            return std::unexpected{GenericError{"Timed out while waiting to acquire machine"}};
+            // Empty pointer signals timeout
+            return {};
         }
         auto machine{std::move(m_idle_machines.front())};
         m_idle_machines.pop();
@@ -69,7 +70,7 @@ public:
         m_control_worker = std::jthread{[this] { control_loop(); }};
     }
 
-    void set_stats_callback(std::move_only_function<void(MachinePoolStats)> cb) noexcept {
+    void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept {
         std::scoped_lock lock{m_mutex};
         m_stats_cb = std::move(cb);
     }
@@ -90,12 +91,22 @@ private:
         m_workers.stop();
     }
 
-    void add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
+    std::expected<void, GenericError> add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
         ++m_warmup_count;
         check_stats(acquired_lock);
         acquired_lock.unlock();
-        m_workers.put([this] { spawn_one(); });
-        acquired_lock.lock();
+        utility::Deferred relocker{[&] { acquired_lock.lock(); }};
+        // TODO: Can we get rid of the try-catch?
+        try {
+            m_workers.put([this] { spawn_one(); });
+            return {};
+        } catch (const std::exception& ex) {
+            acquired_lock.lock();
+            --m_warmup_count;
+            check_stats(acquired_lock);
+            acquired_lock.unlock();
+            return std::unexpected{GenericError{std::format("Failed to submit spawn task: {}", ex.what())}};
+        }
     }
 
     void spawn_one() {
@@ -145,7 +156,9 @@ private:
             const auto autoscale_action{calculate_autoscale_action()};
             switch (autoscale_action) {
             case AutoscaleAction::upscale: {
-                add_spawner(lock);
+                if (auto res{add_spawner(lock)}; !res) {
+                    global_logger().error("Failed to add spawner: {}", res.error().what());
+                }
                 continue;
             }
             case AutoscaleAction::downscale: {
@@ -154,6 +167,7 @@ private:
                 check_stats(lock);
                 lock.unlock();
                 // Excess machine is destroyed here
+                // TODO: Destroy machine in a separate thread to avoid blocking in case teardown is slow
                 continue;
             }
             case AutoscaleAction::none:
@@ -165,7 +179,7 @@ private:
         }
     }
 
-    void check_stats(std::unique_lock<std::mutex>& acquired_lock) {
+    void check_stats(std::unique_lock<std::mutex>& acquired_lock) noexcept {
         const MachinePoolStats temp_stats{
             .active = m_active_machines.size(),
             .idle = m_idle_machines.size(),
@@ -178,7 +192,7 @@ private:
         report_stats(acquired_lock);
     }
 
-    void report_stats(std::unique_lock<std::mutex>& acquired_lock) {
+    void report_stats(std::unique_lock<std::mutex>& acquired_lock) noexcept {
         if (!m_stats_cb) {
             return;
         }
@@ -203,15 +217,15 @@ private:
     std::condition_variable m_idle_cv;
     std::condition_variable m_control_cv;
     MachinePoolStats m_stats;
-    std::move_only_function<void(MachinePoolStats)> m_stats_cb;
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> m_machine_spawner;
+    std::move_only_function<void(MachinePoolStats) noexcept> m_stats_cb;
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> m_machine_spawner;
     utility::ThreadPoolExecutor m_workers;
     std::jthread m_control_worker;
 };
 
 MachinePool::MachinePool(
     size_t idle_target, size_t max_concurrency,
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner)
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner)
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner))} {}
 
 MachinePool::~MachinePool() = default;
@@ -228,7 +242,7 @@ void MachinePool::release(std::shared_ptr<Machine> machine) noexcept { return m_
 
 void MachinePool::start() { m_impl->start(); }
 
-void MachinePool::set_stats_callback(std::move_only_function<void(MachinePoolStats)> cb) noexcept {
+void MachinePool::set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept {
     m_impl->set_stats_callback(std::move(cb));
 }
 

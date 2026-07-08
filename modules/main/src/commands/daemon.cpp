@@ -276,54 +276,6 @@ struct TemplateState {
         return *std::move(task);
     }
 
-    std::expected<void, GenericError> fetch_and_submit_task() noexcept {
-        using namespace std::literals;
-
-        utility::Deferred capacity_releaser{[&] { backend_state->capacity_guard.release(); }};
-
-        while (!stop.is_signalled() && !backend_state->capacity_guard.try_acquire_for(1s)) {
-            // Do nothing
-        }
-
-        if (stop.is_signalled()) {
-            return std::unexpected{GenericError{"Fetch/Submit task loop is shutting down"}};
-        }
-
-        auto runner_res{create_runner()};
-        if (!runner_res) {
-            return std::unexpected{runner_res.error()};
-        }
-        auto runner{*std::move(runner_res)};
-
-        auto task_res{fetch_task(runner)};
-        if (!task_res) {
-            return std::unexpected{task_res.error()};
-        }
-        auto task{*std::move(task_res)};
-
-        global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
-        task_executor.put([this, capacity_releaser = std::move(capacity_releaser), task = std::move(task),
-                           runner = std::move(runner)] {
-            // FIXME: configurable timeout
-            auto machine_res{machine_pool.acquire(3h)};
-            if (!machine_res) {
-                global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
-                update_task_on_error(task, runner.client());
-                return;
-            }
-            auto machine{*std::move(machine_res)};
-            std::ignore = execute_task_in_machine(task, runner, *template_config, *machine)
-                              .or_else([&](auto err) -> std::expected<void, GenericError> {
-                                  global_logger().error("Error during task execution: {}", err.what());
-                                  update_task_on_error(task, runner.client());
-                                  return {};
-                              });
-            machine_pool.release(machine);
-        });
-
-        return {};
-    }
-
     std::expected<gitea::Runner, GenericError> create_runner() noexcept {
         return gitea::Runner::connect(
             {
@@ -335,6 +287,73 @@ struct TemplateState {
             admin_service);
     }
 
+    void runner_loop() noexcept {
+        while (!stop.is_signalled()) {
+            if (auto res{runner_loop_iteration()}; !res) {
+                global_logger().error("{}", res.error().what());
+            }
+        }
+    }
+
+    std::expected<void, GenericError> runner_loop_iteration() noexcept {
+        using namespace std::literals;
+
+        // FIXME: configurable timeout
+        auto machine_res{machine_pool.acquire(3h)};
+        if (!machine_res) {
+            global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
+            if (!stop.is_signalled()) {
+                std::this_thread::sleep_for(5s);
+            }
+            return {};
+        }
+
+        auto machine{*std::move(machine_res)};
+        if (!machine) {
+            // Timed out
+            if (!stop.is_signalled()) {
+                global_logger().error("Timed out while acquiring machine from pool: {}", machine_res.error().what());
+                std::this_thread::sleep_for(1s);
+            }
+            return {};
+        }
+
+        utility::Deferred machine_releaser{[&] { machine_pool.release(machine); }};
+
+        if (stop.is_signalled()) {
+            return std::unexpected{GenericError{"Runner loop shutting down"}};
+        }
+
+        auto runner_res{create_runner()};
+        if (!runner_res) {
+            return std::unexpected{runner_res.error()};
+        }
+        auto runner{*std::move(runner_res)};
+
+        if (stop.is_signalled()) {
+            return std::unexpected{GenericError{"Runner loop shutting down"}};
+        }
+
+        auto task_res{fetch_task(runner)};
+        if (!task_res) {
+            return std::unexpected{task_res.error()};
+        }
+        auto task{*std::move(task_res)};
+
+        global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
+
+        auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
+                          .or_else([&](auto err) -> std::expected<void, GenericError> {
+                              update_task_on_error(task, runner.client());
+                              return {};
+                          })};
+        if (!exec_res) {
+            return std::unexpected{exec_res.error()};
+        }
+
+        return {};
+    }
+
     std::expected<std::optional<::runner::v1::Task>, GenericError> static try_fetch_task(
         const gitea::Runner& runner) noexcept {
         return runner.fetch_task().transform(
@@ -344,8 +363,8 @@ struct TemplateState {
     static MachinePool create_pool(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
                                    const config::MachineTemplateConfig& template_config) {
         MachinePool machine_pool{template_config.idle_target, template_config.max_concurrency,
-                                 [&] { return spawn_machine(main_config, backend_config, template_config); }};
-        machine_pool.set_stats_callback([&](auto stats) {
+                                 [&] noexcept { return spawn_machine(main_config, backend_config, template_config); }};
+        machine_pool.set_stats_callback([&](auto stats) noexcept {
             global_logger().verbose("{} machine pool stats: active: {}; idle: {}/{}; warming: {}", backend_config.type,
                                     stats.active, stats.idle, template_config.idle_target, stats.warming);
         });
@@ -362,18 +381,14 @@ struct TemplateState {
     }
 };
 
-void work(std::shared_ptr<TemplateState> template_state) {
-    using namespace std::literals;
-    auto& stop{template_state->stop};
-    while (!stop.is_signalled()) {
-        if (auto res{template_state->fetch_and_submit_task()}; !res) {
-            global_logger().error("{}", res.error().what());
-            if (!stop.is_signalled()) {
-                std::this_thread::sleep_for(5s);
-            }
-            continue;
+size_t count_max_concurrency(const config::MainConfig& main_config) noexcept {
+    size_t count{};
+    for (auto& backend_config : main_config.backends) {
+        for (auto& template_config : backend_config.templates) {
+            ++count;
         }
     }
+    return count;
 }
 
 std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) noexcept {
@@ -384,15 +399,21 @@ std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) noe
     std::vector<std::shared_ptr<TemplateState>> template_states;
     std::vector<std::jthread> threads;
 
+    backend_states.reserve(main_config.backends.size());
+    template_states.reserve(count_max_concurrency(main_config));
+
     auto shared_main_config{std::make_shared<config::MainConfig>(std::move(main_config))};
     for (auto& backend_config : shared_main_config->backends) {
         auto shared_backend_config{std::make_shared<config::BackendConfig>(std::move(backend_config))};
-        auto& backend_state{backend_states.emplace_back(BackendState::create(shared_backend_config))};
+        auto backend_state{backend_states.emplace_back(BackendState::create(shared_backend_config))};
         for (auto& template_config : shared_backend_config->templates) {
+            const auto max_concurrency{template_config.max_concurrency};
             auto shared_template_config{std::make_shared<config::MachineTemplateConfig>(std::move(template_config))};
-            auto& template_state{template_states.emplace_back(TemplateState::create(
+            auto template_state{template_states.emplace_back(TemplateState::create(
                 shared_main_config, shared_backend_config, shared_template_config, backend_state, stop))};
-            threads.emplace_back([&] { work(template_state); });
+            for (size_t i{}; i < max_concurrency; ++i) {
+                threads.emplace_back([template_state] { template_state->runner_loop(); });
+            }
         }
     }
 

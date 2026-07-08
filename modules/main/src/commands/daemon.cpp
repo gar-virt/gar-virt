@@ -10,6 +10,7 @@
 #include <utility/algorithm.hpp>
 #include <utility/defer.hpp>
 #include <utility/log/global_logger.hpp>
+#include <utility/shutdown_signal.hpp>
 #include <utility/string.hpp>
 #include <utility/thread_pool_executor.hpp>
 #include <virt/machine_manager_factory_selector.hpp>
@@ -18,8 +19,6 @@
 #include <boost/json.hpp>
 #include <boost/url.hpp>
 
-#include <atomic>
-#include <csignal>
 #include <expected>
 #include <format>
 #include <optional>
@@ -223,125 +222,180 @@ void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunn
     std::ignore = client.update_task(update_req);
 }
 
-std::expected<void, GenericError> fetch_task_loop(std::shared_ptr<gitea::AdminServiceClient> admin,
-                                                  MachinePool& machine_pool, utility::ThreadPoolExecutor& task_executor,
-                                                  const config::MainConfig& main_config,
-                                                  const config::MachineTemplateConfig& template_config,
-                                                  std::atomic_bool& stop,
-                                                  std::counting_semaphore<>& capacity_guard) noexcept {
-    using namespace std::literals;
+struct BackendState {
+    std::counting_semaphore<> capacity_guard;
 
-    while (!stop && !capacity_guard.try_acquire()) {
-        std::this_thread::sleep_for(1s);
+    BackendState(std::shared_ptr<const config::BackendConfig> backend_config)
+            : capacity_guard(utility::safe_cast_int<ptrdiff_t>(10)) {}
+
+    static std::shared_ptr<BackendState> create(std::shared_ptr<const config::BackendConfig> backend_config) {
+        return std::make_shared<BackendState>(backend_config);
+    }
+};
+
+struct TemplateState {
+    std::shared_ptr<const config::MainConfig> main_config;
+    std::shared_ptr<const config::BackendConfig> backend_config;
+    std::shared_ptr<const config::MachineTemplateConfig> template_config;
+    std::shared_ptr<gitea::AdminServiceClient> admin_service;
+    MachinePool machine_pool;
+    utility::ThreadPoolExecutor task_executor;
+    std::shared_ptr<BackendState> backend_state;
+    utility::ShutdownSignal stop;
+
+    TemplateState(std::shared_ptr<const config::MainConfig> main_config,
+                  std::shared_ptr<const config::BackendConfig> backend_config,
+                  std::shared_ptr<const config::MachineTemplateConfig> template_config,
+                  std::shared_ptr<BackendState> backend_state, utility::ShutdownSignal stop)
+            : main_config{main_config}, backend_config{backend_config}, template_config{template_config},
+              admin_service{std::make_shared<gitea::AdminServiceClient>(main_config->forge.uri,
+                                                                        main_config->forge.token.resolved_token)},
+              machine_pool{create_pool(*main_config, *backend_config, *template_config)},
+              task_executor{template_config->idle_target, template_config->max_concurrency},
+              backend_state{std::move(backend_state)}, stop{std::move(stop)} {
+        machine_pool.start();
     }
 
-    if (stop) {
-        return std::unexpected{GenericError{"Fetch task loop is shutting down"}};
+    std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) noexcept {
+        using namespace std::literals;
+        std::optional<::runner::v1::Task> task;
+        while (!stop.is_signalled() && !task.has_value()) {
+            auto res{try_fetch_task(runner)};
+            if (!res) {
+                return std::unexpected{res.error()};
+            }
+            if (!res->has_value()) {
+                std::this_thread::sleep_for(1s);
+                continue;
+            }
+            task = *std::move(res);
+        }
+        if (stop.is_signalled()) {
+            return std::unexpected{GenericError{"Fetch task loop is shutting down"}};
+        }
+        return *std::move(task);
     }
 
-    gitea::RunnerOptions runner_options{
-        .forge_uri = main_config.forge.uri,
-        .name = main_config.name,
-        .labels = template_config.labels,
-        .version = std::string{runner_version},
-    };
+    std::expected<void, GenericError> fetch_and_submit_task() noexcept {
+        using namespace std::literals;
 
-    auto runner_res{gitea::Runner::connect(runner_options, std::move(admin))};
-    if (!runner_res) {
-        capacity_guard.release();
-        return std::unexpected{runner_res.error()};
-    }
-    auto runner{*std::move(runner_res)};
+        utility::Deferred capacity_releaser{[&] { backend_state->capacity_guard.release(); }};
 
-    std::optional<::runner::v1::Task> task;
-    while (!stop && !task.has_value()) {
-        auto res{runner.fetch_task()};
-        if (!res) {
-            capacity_guard.release();
-            return std::unexpected{res.error()};
+        while (!stop.is_signalled() && !backend_state->capacity_guard.try_acquire_for(1s)) {
+            // Do nothing
         }
 
-        if (!res->has_task()) {
-            std::this_thread::sleep_for(1s);
-            continue;
+        if (stop.is_signalled()) {
+            return std::unexpected{GenericError{"Fetch/Submit task loop is shutting down"}};
         }
 
-        task = res->task();
+        auto runner_res{create_runner()};
+        if (!runner_res) {
+            return std::unexpected{runner_res.error()};
+        }
+        auto runner{*std::move(runner_res)};
+
+        auto task_res{fetch_task(runner)};
+        if (!task_res) {
+            return std::unexpected{task_res.error()};
+        }
+        auto task{*std::move(task_res)};
+
+        global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
+        task_executor.put([this, capacity_releaser = std::move(capacity_releaser), task = std::move(task),
+                           runner = std::move(runner)] {
+            // FIXME: configurable timeout
+            auto machine_res{machine_pool.acquire(3h)};
+            if (!machine_res) {
+                global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
+                update_task_on_error(task, runner.client());
+                return;
+            }
+            auto machine{*std::move(machine_res)};
+            std::ignore = execute_task_in_machine(task, runner, *template_config, *machine)
+                              .or_else([&](auto err) -> std::expected<void, GenericError> {
+                                  global_logger().error("Error during task execution: {}", err.what());
+                                  update_task_on_error(task, runner.client());
+                                  return {};
+                              });
+            machine_pool.release(machine);
+        });
+
+        return {};
     }
 
-    if (task.has_value()) {
-        global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task->id());
-        task_executor.put(
-            [&capacity_guard](auto template_config, auto* machine_pool, auto task, auto runner) {
-                // FIXME: configurable timeout
-                auto machine_res{machine_pool->acquire(3h)};
-                if (!machine_res) {
-                    global_logger().error("Failed to acquire machine from pool: {}", machine_res.error().what());
-                    update_task_on_error(task, runner.client());
-                    capacity_guard.release();
-                    return;
-                }
-                auto machine{*std::move(machine_res)};
-                std::ignore = execute_task_in_machine(task, runner, template_config, *machine)
-                                  .or_else([&](auto err) -> std::expected<void, GenericError> {
-                                      global_logger().error("Error during task execution: {}", err.what());
-                                      update_task_on_error(task, runner.client());
-                                      return {};
-                                  });
-                machine_pool->release(machine);
-                capacity_guard.release();
+    std::expected<gitea::Runner, GenericError> create_runner() noexcept {
+        return gitea::Runner::connect(
+            {
+                .forge_uri = main_config->forge.uri,
+                .name = main_config->name,
+                .labels = template_config->labels,
+                .version = std::string{runner_version},
             },
-            template_config, &machine_pool, *std::move(task), std::move(runner));
-    } else {
-        capacity_guard.release();
+            admin_service);
     }
 
-    return {};
-}
+    std::expected<std::optional<::runner::v1::Task>, GenericError> static try_fetch_task(
+        const gitea::Runner& runner) noexcept {
+        return runner.fetch_task().transform(
+            [](auto res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
+    }
 
-void runner_loop(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-                 const config::MachineTemplateConfig& template_config, std::atomic_bool& stop) {
+    static MachinePool create_pool(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
+                                   const config::MachineTemplateConfig& template_config) {
+        MachinePool machine_pool{template_config.idle_target, template_config.max_concurrency,
+                                 [&] { return spawn_machine(main_config, backend_config, template_config); }};
+        machine_pool.set_stats_callback([&](auto stats) {
+            global_logger().verbose("{} machine pool stats: active: {}; idle: {}/{}; warming: {}", backend_config.type,
+                                    stats.active, stats.idle, template_config.idle_target, stats.warming);
+        });
+        return machine_pool;
+    }
+
+    static std::shared_ptr<TemplateState> create(std::shared_ptr<const config::MainConfig> main_config,
+                                                 std::shared_ptr<const config::BackendConfig> backend_config,
+                                                 std::shared_ptr<const config::MachineTemplateConfig> template_config,
+                                                 std::shared_ptr<BackendState> backend_state,
+                                                 utility::ShutdownSignal stop) {
+        return std::make_shared<TemplateState>(std::move(main_config), std::move(backend_config),
+                                               std::move(template_config), std::move(backend_state), std::move(stop));
+    }
+};
+
+void work(std::shared_ptr<TemplateState> template_state) {
     using namespace std::literals;
-    auto admin{
-        std::make_shared<gitea::AdminServiceClient>(main_config.forge.uri, main_config.forge.token.resolved_token)};
-    std::counting_semaphore capacity_guard{utility::safe_cast_int<ptrdiff_t>(template_config.max_concurrency)};
-    MachinePool machine_pool{template_config.idle_target, template_config.max_concurrency,
-                             [&] { return spawn_machine(main_config, backend_config, template_config); }};
-    machine_pool.set_stats_callback([&](auto stats) {
-        global_logger().verbose("{} machine pool stats: active: {}; idle: {}/{}; warming: {}", backend_config.type,
-                                stats.active, stats.idle, template_config.idle_target, stats.warming);
-    });
-    utility::ThreadPoolExecutor task_executor{template_config.idle_target, template_config.max_concurrency};
-    machine_pool.start();
-    while (!stop) {
-        auto res{
-            fetch_task_loop(admin, machine_pool, task_executor, main_config, template_config, stop, capacity_guard)};
-        if (!res) {
-            global_logger().error("Error in run loop iteration: {}", res.error().what());
-            std::this_thread::sleep_for(5s);
+    auto& stop{template_state->stop};
+    while (!stop.is_signalled()) {
+        if (auto res{template_state->fetch_and_submit_task()}; !res) {
+            global_logger().error("{}", res.error().what());
+            if (!stop.is_signalled()) {
+                std::this_thread::sleep_for(5s);
+            }
             continue;
         }
-        std::this_thread::sleep_for(250ms);
     }
 }
 
-std::atomic_bool& install_shutdown_signal_handler() {
-    static std::atomic_bool flag{};
-    std::signal(SIGINT, +[](int) { flag = true; });
-    std::signal(SIGTERM, +[](int) { flag = true; });
-    return flag;
-}
-
-std::expected<void, GenericError> cmd_daemon(const config::MainConfig& config) noexcept {
+std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) noexcept {
     using namespace std::chrono_literals;
 
-    const auto& backend_config{config.backends.at(0)};
-    const auto& template_config(backend_config.templates.at(0));
+    auto stop{utility::ShutdownSignal::install()};
+    std::vector<std::shared_ptr<BackendState>> backend_states;
+    std::vector<std::shared_ptr<TemplateState>> template_states;
+    std::vector<std::jthread> threads;
 
-    auto& shutdown{install_shutdown_signal_handler()};
-    std::vector<std::jthread> runner_threads;
-    // TODO: Create one polling thread per runner - currently just one
-    runner_threads.emplace_back([&] { runner_loop(config, backend_config, template_config, shutdown); });
+    auto shared_main_config{std::make_shared<config::MainConfig>(std::move(main_config))};
+    for (auto& backend_config : shared_main_config->backends) {
+        auto shared_backend_config{std::make_shared<config::BackendConfig>(std::move(backend_config))};
+        auto& backend_state{backend_states.emplace_back(BackendState::create(shared_backend_config))};
+        for (auto& template_config : shared_backend_config->templates) {
+            auto shared_template_config{std::make_shared<config::MachineTemplateConfig>(std::move(template_config))};
+            auto& template_state{template_states.emplace_back(TemplateState::create(
+                shared_main_config, shared_backend_config, shared_template_config, backend_state, stop))};
+            threads.emplace_back([&] { work(template_state); });
+        }
+    }
+
     return {};
 }
 

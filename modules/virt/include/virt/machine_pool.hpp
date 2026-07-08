@@ -26,9 +26,9 @@ public:
                 std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner);
     ~MachinePool();
     MachinePool(const MachinePool&) = delete;
+    MachinePool(MachinePool&&);
     MachinePool& operator=(const MachinePool&) = delete;
-    MachinePool(MachinePool&&) = delete;
-    MachinePool& operator=(MachinePool&&) = delete;
+    MachinePool& operator=(MachinePool&&);
     std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) noexcept;
     void release(std::shared_ptr<Machine> machine) noexcept;
     void start();

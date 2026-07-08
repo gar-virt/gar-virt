@@ -138,7 +138,7 @@ std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options
                   std::move(client), std::move(admin)};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() noexcept {
+std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() const noexcept {
     return fetch_task_internal(*m_client);
 }
 

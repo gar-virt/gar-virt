@@ -54,7 +54,7 @@ int main(int argc, char* const argv[]) {
             throw config.error();
         }
 
-        auto cmd_res{cmd_daemon(*config)};
+        auto cmd_res{cmd_daemon(*std::move(config))};
         if (!cmd_res) {
             throw cmd_res.error();
         }

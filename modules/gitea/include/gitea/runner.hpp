@@ -47,7 +47,7 @@ public:
     static std::expected<Runner, GenericError> connect(const RunnerOptions& options,
                                                        std::shared_ptr<gitea::AdminServiceClient> admin) noexcept;
 
-    std::expected<::runner::v1::FetchTaskResponse, GenericError> fetch_task() noexcept;
+    std::expected<::runner::v1::FetchTaskResponse, GenericError> fetch_task() const noexcept;
     int64_t id() const noexcept;
     const gitea::GiteaRunnerCredentials& credentials() const noexcept;
     const gitea::GiteaRunnerServiceClient& client() const noexcept;

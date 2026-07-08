@@ -101,6 +101,7 @@ private:
     void spawn_one() {
         bool ok{};
         {
+            // FIXME: Need to back off if this keeps failing, otherwise control loop will run hot
             auto machine_res{m_machine_spawner()};
             std::unique_lock lock{m_mutex};
             --m_warmup_count;
@@ -118,6 +119,22 @@ private:
         m_control_cv.notify_one();
     }
 
+    enum class AutoscaleAction { none, upscale, downscale };
+
+    AutoscaleAction calculate_autoscale_action() const noexcept {
+        const auto provisioned{m_active_machines.size() + m_idle_machines.size() + m_warmup_count};
+        // Upscale: Catch up to idle target, and spawn extra if we have waiters and enough extra capacity.
+        if (provisioned < m_idle_target ||
+            (provisioned < m_max_concurrency && (m_idle_machines.size() + m_warmup_count) < m_waiting_to_acquire)) {
+            return AutoscaleAction::upscale;
+        }
+        // Downscale: Remove excess idle that nobody is waiting for.
+        if (m_idle_machines.size() > m_idle_target && (m_idle_machines.size() - m_idle_target) > m_waiting_to_acquire) {
+            return AutoscaleAction::downscale;
+        }
+        return AutoscaleAction::none;
+    }
+
     void control_loop() noexcept {
         using namespace std::chrono_literals;
         while (true) {
@@ -125,16 +142,13 @@ private:
             if (m_stop) {
                 return;
             }
-            const auto provisioned{m_active_machines.size() + m_idle_machines.size() + m_warmup_count};
-            // Upscale: Catch up to idle target, and spawn extra if we have waiters and enough extra capacity.
-            if (provisioned < m_idle_target ||
-                (provisioned < m_max_concurrency && (m_idle_machines.size() + m_warmup_count) < m_waiting_to_acquire)) {
+            const auto autoscale_action{calculate_autoscale_action()};
+            switch (autoscale_action) {
+            case AutoscaleAction::upscale: {
                 add_spawner(lock);
                 continue;
             }
-            // Downscale: Remove excess idle that nobody is waiting for.
-            if (m_idle_machines.size() > m_idle_target &&
-                (m_idle_machines.size() - m_idle_target) > m_waiting_to_acquire) {
+            case AutoscaleAction::downscale: {
                 auto excess_machine{std::move(m_idle_machines.front())};
                 m_idle_machines.pop();
                 check_stats(lock);
@@ -142,7 +156,12 @@ private:
                 // Excess machine is destroyed here
                 continue;
             }
-            m_control_cv.wait_for(lock, 500ms);
+            case AutoscaleAction::none:
+                // Nothing to do
+                break;
+            }
+            m_control_cv.wait_for(lock, 30s,
+                                  [this] { return m_stop || calculate_autoscale_action() != AutoscaleAction::none; });
         }
     }
 
@@ -196,6 +215,10 @@ MachinePool::MachinePool(
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner))} {}
 
 MachinePool::~MachinePool() = default;
+
+MachinePool::MachinePool(MachinePool&&) = default;
+
+MachinePool& MachinePool::operator=(MachinePool&&) = default;
 
 std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::chrono::milliseconds timeout) noexcept {
     return m_impl->acquire(timeout);

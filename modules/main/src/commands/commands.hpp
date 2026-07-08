@@ -8,6 +8,6 @@
 
 namespace ls_gitea_runner {
 
-std::expected<void, GenericError> cmd_daemon(const config::MainConfig& config) noexcept;
+std::expected<void, GenericError> cmd_daemon(config::MainConfig config) noexcept;
 
 } // namespace ls_gitea_runner

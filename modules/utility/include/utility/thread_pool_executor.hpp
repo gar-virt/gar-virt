@@ -2,6 +2,7 @@
 
 #include <utility/uuid.hpp>
 
+#include <cassert>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -68,7 +69,9 @@ public:
             m_queue.push([work = std::forward<F>(work), ... args = std::forward<Args>(args)]() mutable {
                 std::invoke(std::move(work), std::move(args)...);
             });
-            if (m_busy_count >= m_workers.size() && m_workers.size() < m_max_thread_count) {
+            assert(m_busy_count <= m_workers.size());
+            const auto free_workers{m_workers.size() - m_busy_count};
+            if (m_queue.size() > free_workers && m_workers.size() < m_max_thread_count) {
                 add_worker(true);
             }
         }

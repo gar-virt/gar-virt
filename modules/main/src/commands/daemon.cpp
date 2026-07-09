@@ -128,7 +128,6 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
         }
         spawn_res = *res;
         if (spawn_res.exit_code == 0) {
-            global_logger().verbose("Ping command completed successfully in machine {}", machine.get_id());
             return {};
         }
         std::this_thread::sleep_for(2s);
@@ -169,7 +168,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 
     auto machine{*std::move(machine_res)};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
+    global_logger().verbose("Spawned new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
                             template_config.arch, machine->get_id());
 
     global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
@@ -214,7 +213,7 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
         });
 }
 
-void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunnerServiceClient& client) {
+void set_task_failed(const ::runner::v1::Task& task, const gitea::GiteaRunnerServiceClient& client) {
     ::runner::v1::UpdateTaskRequest update_req;
     auto& task_state{*update_req.mutable_state()};
     task_state.set_id(task.id());
@@ -223,10 +222,7 @@ void update_task_on_error(const ::runner::v1::Task& task, const gitea::GiteaRunn
 }
 
 struct BackendState {
-    std::counting_semaphore<> capacity_guard;
-
-    BackendState(std::shared_ptr<const config::BackendConfig> backend_config)
-            : capacity_guard(utility::safe_cast_int<ptrdiff_t>(10)) {}
+    BackendState(std::shared_ptr<const config::BackendConfig> backend_config) {}
 
     static std::shared_ptr<BackendState> create(std::shared_ptr<const config::BackendConfig> backend_config) {
         return std::make_shared<BackendState>(backend_config);
@@ -234,27 +230,31 @@ struct BackendState {
 };
 
 struct TemplateState {
+    utility::ShutdownSignal stop;
     std::shared_ptr<const config::MainConfig> main_config;
     std::shared_ptr<const config::BackendConfig> backend_config;
     std::shared_ptr<const config::MachineTemplateConfig> template_config;
     std::shared_ptr<gitea::AdminServiceClient> admin_service;
-    MachinePool machine_pool;
-    utility::ThreadPoolExecutor task_executor;
     std::shared_ptr<BackendState> backend_state;
-    utility::ShutdownSignal stop;
+    MachinePool machine_pool;
 
     TemplateState(std::shared_ptr<const config::MainConfig> main_config,
                   std::shared_ptr<const config::BackendConfig> backend_config,
                   std::shared_ptr<const config::MachineTemplateConfig> template_config,
                   std::shared_ptr<BackendState> backend_state, utility::ShutdownSignal stop)
-            : main_config{main_config}, backend_config{backend_config}, template_config{template_config},
-              admin_service{std::make_shared<gitea::AdminServiceClient>(main_config->forge.uri,
-                                                                        main_config->forge.token.resolved_token)},
-              machine_pool{create_pool(*main_config, *backend_config, *template_config)},
-              task_executor{template_config->idle_target, template_config->max_concurrency},
-              backend_state{std::move(backend_state)}, stop{std::move(stop)} {
+            : stop{std::move(stop)}, main_config{main_config}, backend_config{backend_config},
+              template_config{template_config}, admin_service{std::make_shared<gitea::AdminServiceClient>(
+                                                    main_config->forge.uri, main_config->forge.token.resolved_token)},
+              machine_pool{create_pool()}, backend_state{std::move(backend_state)} {
         machine_pool.start();
     }
+
+    TemplateState(const TemplateState&) = delete;
+    TemplateState(TemplateState&&) = default;
+    TemplateState& operator=(const TemplateState&) = delete;
+    TemplateState& operator=(TemplateState&&) = default;
+
+    ~TemplateState() { machine_pool.stop(); }
 
     std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) noexcept {
         using namespace std::literals;
@@ -265,7 +265,9 @@ struct TemplateState {
                 return std::unexpected{res.error()};
             }
             if (!res->has_value()) {
-                std::this_thread::sleep_for(1s);
+                if (!stop.is_signalled()) {
+                    std::this_thread::sleep_for(1s);
+                }
                 continue;
             }
             task = *std::move(res);
@@ -276,11 +278,11 @@ struct TemplateState {
         return *std::move(task);
     }
 
-    std::expected<gitea::Runner, GenericError> create_runner() noexcept {
+    std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine) noexcept {
         return gitea::Runner::connect(
             {
                 .forge_uri = main_config->forge.uri,
-                .name = main_config->name,
+                .name = std::format("{}-{}", main_config->name, machine.get_id()),
                 .labels = template_config->labels,
                 .version = std::string{runner_version},
             },
@@ -324,7 +326,7 @@ struct TemplateState {
             return std::unexpected{GenericError{"Runner loop shutting down"}};
         }
 
-        auto runner_res{create_runner()};
+        auto runner_res{create_runner(*machine)};
         if (!runner_res) {
             return std::unexpected{runner_res.error()};
         }
@@ -342,9 +344,17 @@ struct TemplateState {
 
         global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
 
+        if (stop.is_signalled()) {
+            set_task_failed(task, runner.client());
+            return std::unexpected{GenericError{"Runner loop shutting down"}};
+        }
+
+        machine_pool.activate(machine);
+        utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
+
         auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
                           .or_else([&](auto err) -> std::expected<void, GenericError> {
-                              update_task_on_error(task, runner.client());
+                              set_task_failed(task, runner.client());
                               return {};
                           })};
         if (!exec_res) {
@@ -360,13 +370,15 @@ struct TemplateState {
             [](auto res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
     }
 
-    static MachinePool create_pool(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-                                   const config::MachineTemplateConfig& template_config) {
-        MachinePool machine_pool{template_config.idle_target, template_config.max_concurrency,
-                                 [&] noexcept { return spawn_machine(main_config, backend_config, template_config); }};
+    MachinePool create_pool() {
+        MachinePool machine_pool{
+            template_config->idle_target, template_config->max_concurrency,
+            [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config); }, stop};
         machine_pool.set_stats_callback([&](auto stats) noexcept {
-            global_logger().verbose("{} machine pool stats: active: {}; idle: {}/{}; warming: {}", backend_config.type,
-                                    stats.active, stats.idle, template_config.idle_target, stats.warming);
+            global_logger().verbose("{} machine pool stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
+                                    "acquired: {}; active: {}",
+                                    backend_config->type, stats.provisioned, stats.warming, stats.idle, stats.acquiring,
+                                    stats.acquired, stats.active);
         });
         return machine_pool;
     }
@@ -414,6 +426,15 @@ std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) noe
             for (size_t i{}; i < max_concurrency; ++i) {
                 threads.emplace_back([template_state] { template_state->runner_loop(); });
             }
+        }
+    }
+
+    template_states.clear();
+    backend_states.clear();
+
+    for (auto& t : threads) {
+        if (t.joinable()) {
+            t.join();
         }
     }
 

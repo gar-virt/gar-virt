@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -56,5 +57,19 @@ safe_cast_int(T value) {
     }
     return static_cast<R>(value);
 }
+
+template <typename Base, typename Exponent,
+          typename Result = std::conditional_t<(sizeof(Base) > sizeof(Exponent)), Base, Exponent>>
+    requires std::unsigned_integral<Base> && std::unsigned_integral<Exponent> && (!std::same_as<Base, bool>) &&
+             (!std::same_as<Exponent, bool>)
+constexpr Result ipow(Base base, Exponent exponent) noexcept {
+    Result result{1U};
+    while (exponent-- > 0U) {
+        result *= base;
+    }
+    return result;
+}
+
+template <std::unsigned_integral T> constexpr T ipow2(T exponent) noexcept { return ipow(2U, exponent); }
 
 } // namespace ls_gitea_runner::utility

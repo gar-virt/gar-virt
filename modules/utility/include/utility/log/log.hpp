@@ -4,6 +4,7 @@
 
 #include <format>
 #include <string_view>
+#include <thread>
 
 namespace ls_gitea_runner::utility {
 
@@ -15,6 +16,8 @@ enum class LogLevel {
     verbose,
 };
 
+enum class LogCapability { log_thread };
+
 class Logger {
 public:
     virtual ~Logger() = default;
@@ -22,6 +25,14 @@ public:
     constexpr Logger& set_level(LogLevel level) noexcept {
         m_level = level;
         return *this;
+    }
+
+    constexpr void set_capability(LogCapability cap, bool enable) noexcept {
+        switch (cap) {
+        case LogCapability::log_thread:
+            m_log_thread = enable;
+            break;
+        }
     }
 
     template <typename... Args>
@@ -34,7 +45,9 @@ public:
         }
 
         const auto date{format_date_for_display(utc_to_local_date(utc_date()))};
-        log_impl(level, std::format("[{}] {}\n", date, std::format(format, std::forward<Args>(args)...)));
+        const std::string thread_log{m_log_thread ? std::format("[t{}]", std::this_thread::get_id()) : std::string{}};
+
+        log_impl(level, std::format("[{}]{} {}\n", date, thread_log, std::format(format, std::forward<Args>(args)...)));
 
         return *this;
     }
@@ -64,6 +77,7 @@ protected:
 
 private:
     LogLevel m_level{LogLevel::none};
+    bool m_log_thread{};
 };
 
 } // namespace ls_gitea_runner::utility

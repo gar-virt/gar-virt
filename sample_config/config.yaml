@@ -23,6 +23,8 @@ forge:
 # Virtualization backends
 backends:
   - type: "libvirt"
+    # A name for this backend, e.g. "libvirt-local" or "libvirt-remote"
+    name: "[name]"
     details:
       # Connection URI such as "qemu:///system" or "qemu+ssh://[user]@[server]/system".
       # QEMU support is required. See https://libvirt.org/uri.html

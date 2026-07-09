@@ -3,6 +3,7 @@
 #include "machine.hpp"
 
 #include <utility/error.hpp>
+#include <utility/shutdown_signal.hpp>
 
 #include <chrono>
 #include <cstddef>
@@ -13,6 +14,9 @@
 namespace ls_gitea_runner {
 
 struct MachinePoolStats {
+    size_t provisioned{};
+    size_t acquiring{};
+    size_t acquired{};
     size_t active{};
     size_t idle{};
     size_t warming{};
@@ -24,15 +28,19 @@ class MachinePool final {
 public:
     MachinePool(
         size_t idle_target, size_t max_concurrency,
-        std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner);
+        std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner,
+        utility::ShutdownSignal shutdown_signal);
     ~MachinePool();
     MachinePool(const MachinePool&) = delete;
     MachinePool(MachinePool&&);
     MachinePool& operator=(const MachinePool&) = delete;
     MachinePool& operator=(MachinePool&&);
     std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) noexcept;
+    void activate(std::shared_ptr<Machine> machine) noexcept;
+    void deactivate(std::shared_ptr<Machine> machine) noexcept;
     void release(std::shared_ptr<Machine> machine) noexcept;
     void start();
+    void stop();
     void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept;
 
 private:

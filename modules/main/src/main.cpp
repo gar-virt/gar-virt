@@ -43,6 +43,7 @@ int main(int argc, char* const argv[]) {
 
         if (const auto verbose{vm.at("verbose").as<bool>()}) {
             global_logger().set_level(utility::LogLevel::verbose);
+            global_logger().set_capability(utility::LogCapability::log_thread, true);
         }
 
         const ProgramOptions options{

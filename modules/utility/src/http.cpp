@@ -1,10 +1,12 @@
 #include <utility/http.hpp>
+
 #include <utility/algorithm.hpp>
 
 #include <curl/curl.h>
 
 #include <cstring>
 #include <format>
+#include <mutex>
 
 namespace ls_gitea_runner::utility {
 
@@ -51,6 +53,21 @@ struct HttpClient::Private final {
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_CONNECT);
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_PSL);
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_HSTS);
+        curl_share_setopt(share, CURLSHOPT_USERDATA, this);
+
+        constexpr auto lock_fn{+[](CURL* handle, curl_lock_data data, curl_lock_access access, void* clientp) {
+            auto* self{static_cast<Private*>(clientp)};
+            auto& curl_mutex{self->m_curl_mutexes.at(data)};
+            curl_mutex.lock();
+        }};
+        curl_share_setopt(share, CURLSHOPT_LOCKFUNC, lock_fn);
+
+        constexpr auto unlock_fn{+[](CURL* handle, curl_lock_data data, void* clientp) {
+            auto* self{static_cast<Private*>(clientp)};
+            auto& curl_mutex{self->m_curl_mutexes.at(data)};
+            curl_mutex.unlock();
+        }};
+        curl_share_setopt(share, CURLSHOPT_UNLOCKFUNC, unlock_fn);
     }
 
     ~Private() {
@@ -66,6 +83,7 @@ struct HttpClient::Private final {
     Private& operator=(Private&&) = delete;
 
     CURLSH* share{};
+    std::array<std::mutex, static_cast<size_t>(CURL_LOCK_DATA_LAST)> m_curl_mutexes;
 };
 
 HttpClient::HttpClient(const std::string& base_url) : m_priv{std::make_unique<Private>()}, m_base_url{base_url} {}

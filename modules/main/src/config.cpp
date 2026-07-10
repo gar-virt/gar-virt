@@ -84,6 +84,7 @@ void load_templates_into(std::vector<MachineTemplateConfig>& to, const YAML::Nod
 BackendConfig load_backend(const YAML::Node& from) {
     BackendConfig c{
         .type = from["type"].as<std::string>(),
+        .name = from["name"].as<std::string>(),
         .raw_details = to_yaml_string(from["details"]),
     };
     load_templates_into(c.templates, from["templates"]);

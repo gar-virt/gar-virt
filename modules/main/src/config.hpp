@@ -39,6 +39,7 @@ struct ForgeConfig {
 
 struct BackendConfig {
     std::string type;
+    std::string name;
     std::vector<MachineTemplateConfig> templates;
     std::string raw_details;
 };

@@ -374,10 +374,10 @@ struct TemplateState {
         MachinePool machine_pool{
             template_config->idle_target, template_config->max_concurrency,
             [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config); }, stop};
-        machine_pool.set_stats_callback([&](auto stats) noexcept {
-            global_logger().verbose("{} machine pool stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
+        machine_pool.set_stats_callback([this](auto stats) noexcept {
+            global_logger().verbose("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
                                     "acquired: {}; active: {}",
-                                    backend_config->type, stats.provisioned, stats.warming, stats.idle, stats.acquiring,
+                                    backend_config->name, stats.provisioned, stats.warming, stats.idle, stats.acquiring,
                                     stats.acquired, stats.active);
         });
         return machine_pool;

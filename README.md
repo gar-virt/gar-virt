@@ -9,10 +9,19 @@ This project is in early/active development, but all of the documented features 
 ## How It Works
 
 * gar-virt starts by retrieving the runner registration token via the Gitea's REST API.
-* It then registers itself as an ephemeral runner via Gitea's gRPC service where it'll be assigned tasks.
-* Once a task is assigned, it's delegated to the Gitea Runner executable that'll execute the workflow in a pre-warmed virtual machine via a local or remote libvirt connection.
+* One or more pools will be created for pre-warming and scaling machines.
+* It registers itself as one or more global ephemeral runners via Gitea's gRPC service where it'll be assigned tasks.
+* Once a task is assigned, the ephemeral runner registration details and assigned task are delegated to the Gitea Runner executable that'll execute the workflow in a pre-warmed virtual machine.
 * For Linux environments, the Gitea Runner will typically run workflows in a Docker container inside the virtual machine.
-* When the workflow execution completes, the virtual machine is destroyed and a fresh one will spawn for the next round.
+* When the workflow execution completes, the virtual machine is destroyed.
+
+## Scaling
+
+Upscaling of machines is currently quite basic. Runners only register and listen for tasks when a machine is ready to take a task. Without any prediction or other clever calculations, and without having the ability to inspect the task queue depth, it may lag behind a long queue for a bit until fully ramped-up.
+
+Gitea's admin API has an endpoint for querying the list of workflow runs, but without a way to filter by labels (as of Gitea 1.26), gar-virt can't know whether any of its runners are capable of taking those queued tasks.
+
+As for downscaling, it occurs naturally as every machine is ephemeral and reaches its end of life as soon as it completes its task.
 
 ### Libvirt
 
@@ -31,7 +40,7 @@ This project originally had a simple runner implementation in C++ with workflow 
 * Linux host (tested: Ubuntu 24.04, Alpine 3.24)
 * Libvirt (tested: 10.0)
 * QEMU (tested: 8.2)
-* Development: CMake >= 3.28, Ninja >= 1.11
+* Development: C++23 compiler (GCC >= 14, Clang >= 19), CMake >= 3.28, Ninja >= 1.11
 * Refer to `docker/<variant>/Dockerfile` for the full list of dependencies.
 
 ## Building

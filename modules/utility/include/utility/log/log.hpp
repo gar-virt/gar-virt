@@ -5,6 +5,7 @@
 #include <format>
 #include <string_view>
 #include <thread>
+#include <utility>
 
 namespace ls_gitea_runner::utility {
 
@@ -15,6 +16,27 @@ enum class LogLevel {
     info,
     verbose,
 };
+
+constexpr std::string_view format_log_level(LogLevel level) noexcept {
+    switch (level) {
+    case LogLevel::none:
+        return "none";
+        break;
+    case LogLevel::error:
+        return "error";
+        break;
+    case LogLevel::warning:
+        return "warning";
+        break;
+    case LogLevel::info:
+        return "info";
+        break;
+    case LogLevel::verbose:
+        return "verbose";
+        break;
+    }
+    std::abort();
+}
 
 enum class LogCapability { log_thread };
 
@@ -37,18 +59,19 @@ public:
 
     template <typename... Args>
     Logger& log(LogLevel level, std::format_string<Args...> format, Args&&... args) noexcept {
-        auto level_int{static_cast<std::underlying_type_t<LogLevel>>(level)};
-        auto current_level_int{static_cast<std::underlying_type_t<LogLevel>>(m_level)};
+        const auto level_int{std::to_underlying(level)};
+        const auto current_level_int{std::to_underlying(m_level)};
 
         if (current_level_int < level_int) {
             return *this;
         }
 
-        const auto date{format_date_for_display(utc_to_local_date(utc_date()))};
-        const std::string thread_log{m_log_thread ? std::format("[t{}]", std::this_thread::get_id()) : std::string{}};
-
-        log_impl(level, std::format("[{}]{} {}\n", date, thread_log, std::format(format, std::forward<Args>(args)...)));
-
+        std::string log_line;
+        append_date(log_line);
+        append_level(log_line, level);
+        append_thread(log_line);
+        append_message(log_line, std::move(format), std::forward<Args>(args)...);
+        log_impl(level, log_line);
         return *this;
     }
 
@@ -76,6 +99,25 @@ protected:
     }
 
 private:
+    void append_date(std::string& line) noexcept {
+        line += std::format("[{}]", format_date_for_display(utc_to_local_date(utc_date())));
+    }
+
+    void append_level(std::string& line, LogLevel level) noexcept {
+        line += std::format(" [{}]", format_log_level(level));
+    }
+
+    void append_thread(std::string& line) noexcept {
+        if (m_log_thread) {
+            line += std::format(" [t{}]", std::this_thread::get_id());
+        }
+    }
+
+    template <typename... Args>
+    void append_message(std::string& line, std::format_string<Args...> format, Args&&... args) noexcept {
+        line += std::format(" {}\n", std::format(format, std::forward<Args>(args)...));
+    }
+
     LogLevel m_level{LogLevel::none};
     bool m_log_thread{};
 };

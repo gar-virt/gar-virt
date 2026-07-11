@@ -17,23 +17,18 @@ enum class LogLevel {
     debug,
 };
 
-constexpr std::string_view format_log_level(LogLevel level) noexcept {
+constexpr std::string_view get_log_level_name(LogLevel level) noexcept {
     switch (level) {
     case LogLevel::none:
-        return "none";
-        break;
+        return "NONE";
     case LogLevel::error:
-        return "error";
-        break;
+        return "ERROR";
     case LogLevel::warning:
-        return "warning";
-        break;
+        return "WARN";
     case LogLevel::info:
-        return "info";
-        break;
+        return "INFO";
     case LogLevel::debug:
-        return "debug";
-        break;
+        return "DEBUG";
     }
     std::abort();
 }
@@ -68,8 +63,8 @@ public:
 
         std::string log_line;
         append_date(log_line);
-        append_level(log_line, level);
         append_thread(log_line);
+        append_level(log_line, level);
         append_message(log_line, std::move(format), std::forward<Args>(args)...);
         log_impl(level, log_line);
         return *this;
@@ -100,16 +95,16 @@ protected:
 
 private:
     void append_date(std::string& line) noexcept {
-        line += std::format("[{}]", format_date_for_display(utc_to_local_date(utc_date())));
+        line += std::format("{}", format_date_for_display(utc_to_local_date(utc_date())));
     }
 
     void append_level(std::string& line, LogLevel level) noexcept {
-        line += std::format(" [{}]", format_log_level(level));
+        line += std::format(" {:<5}", get_log_level_name(level));
     }
 
     void append_thread(std::string& line) noexcept {
         if (m_log_thread) {
-            line += std::format(" [t{}]", std::this_thread::get_id());
+            line += std::format(" [{:>15}]", std::this_thread::get_id());
         }
     }
 

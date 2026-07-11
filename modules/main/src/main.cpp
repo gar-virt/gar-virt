@@ -1,4 +1,4 @@
-#include "commands/commands.hpp"
+#include "commands.hpp"
 #include "config.hpp"
 #include "program_options.hpp"
 

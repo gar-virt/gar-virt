@@ -6,8 +6,9 @@ set_target_properties(gar_virt PROPERTIES
     OUTPUT_NAME gar-virt
 )
 target_sources(gar_virt PRIVATE
-    src/commands/daemon.cpp
+    src/commands.cpp
     src/config.cpp
+    src/core.cpp
     src/main.cpp
 )
 target_link_libraries(gar_virt PRIVATE

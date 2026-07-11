@@ -97,6 +97,29 @@ void load_backends_into(std::vector<BackendConfig>& to, const YAML::Node& from) 
     }
 }
 
+utility::LogLevel load_log_level(const YAML::Node& from) {
+    const auto level_name = from.as<std::string>();
+    const auto is{[&](std::string_view other) { return utility::string_compare_ci(level_name, other) == 0; }};
+    if (is("none")) {
+        return utility::LogLevel::none;
+    } else if (is("error")) {
+        return utility::LogLevel::error;
+    } else if (is("warn")) {
+        return utility::LogLevel::warning;
+    } else if (is("info")) {
+        return utility::LogLevel::info;
+    } else if (is("debug")) {
+        return utility::LogLevel::debug;
+    }
+    throw GenericError{std::format("Invalid log level: {}", level_name)};
+}
+
+LogConfig load_log(const YAML::Node& from) {
+    return LogConfig{
+        .level = load_log_level(from["level"]),
+    };
+}
+
 void ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
     if (source == "inline") {
         resolved_token = value;
@@ -136,6 +159,7 @@ std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& f
         const auto& y{*yaml_res};
         MainConfig c{
             .config_version = utility::safe_cast_int<size_t>(y["config_version"].as<int>()),
+            .log = load_log(y["log"]),
             .name = std::string{y["name"].as<std::string>()},
             .forge = load_forge(y["forge"]),
         };

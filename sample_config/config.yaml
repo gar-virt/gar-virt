@@ -1,6 +1,10 @@
 config_version: 0
 # Name of the environment running gar-virt
 name: "[name]"
+# Logging
+log:
+  # Log level: none, error, warn, info, debug
+  level: "warn"
 # Forge configuration
 forge:
   # Possible values: gitea

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility/error.hpp>
+#include <utility/log/log.hpp>
 
 #include <expected>
 #include <filesystem>
@@ -37,6 +38,10 @@ struct ForgeConfig {
     void resolve(const std::filesystem::path& base_dir);
 };
 
+struct LogConfig {
+    utility::LogLevel level;
+};
+
 struct BackendConfig {
     std::string type;
     std::string name;
@@ -47,6 +52,7 @@ struct BackendConfig {
 struct MainConfig {
     std::filesystem::path base_dir;
     size_t config_version{};
+    LogConfig log;
     std::string name;
     ForgeConfig forge;
     std::vector<BackendConfig> backends;

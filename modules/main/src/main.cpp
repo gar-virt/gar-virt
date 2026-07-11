@@ -41,9 +41,11 @@ int main(int argc, char* const argv[]) {
 
         po::notify(vm);
 
+        bool log_level_overridden{};
         if (const auto verbose{vm.at("verbose").as<bool>()}) {
             global_logger().set_level(utility::LogLevel::debug);
             global_logger().set_capability(utility::LogCapability::log_thread, true);
+            log_level_overridden = true;
         }
 
         const ProgramOptions options{
@@ -53,6 +55,12 @@ int main(int argc, char* const argv[]) {
         const auto config{config::load_file(options.config_file)};
         if (!config) {
             throw config.error();
+        }
+
+        if (!log_level_overridden) {
+            global_logger().set_level(config->log.level);
+            global_logger().set_capability(utility::LogCapability::log_thread,
+                                           config->log.level == utility::LogLevel::debug);
         }
 
         auto cmd_res{cmd_daemon(*std::move(config))};

@@ -14,7 +14,7 @@ enum class LogLevel {
     error,
     warning,
     info,
-    verbose,
+    debug,
 };
 
 constexpr std::string_view format_log_level(LogLevel level) noexcept {
@@ -31,8 +31,8 @@ constexpr std::string_view format_log_level(LogLevel level) noexcept {
     case LogLevel::info:
         return "info";
         break;
-    case LogLevel::verbose:
-        return "verbose";
+    case LogLevel::debug:
+        return "debug";
         break;
     }
     std::abort();
@@ -87,8 +87,8 @@ public:
         return log(LogLevel::info, std::move(format), std::forward<Args>(args)...);
     }
 
-    template <typename... Args> Logger& verbose(std::format_string<Args...> format, Args&&... args) noexcept {
-        return log(LogLevel::verbose, std::move(format), std::forward<Args>(args)...);
+    template <typename... Args> Logger& debug(std::format_string<Args...> format, Args&&... args) noexcept {
+        return log(LogLevel::debug, std::move(format), std::forward<Args>(args)...);
     }
 
 protected:

@@ -146,8 +146,8 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
 
-    global_logger().verbose("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os,
-                            template_config.arch);
+    global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os,
+                          template_config.arch);
 
     auto machine_res{machine_manager->spawn(
         Machine::Info{
@@ -162,23 +162,23 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 
     auto machine{*std::move(machine_res)};
 
-    global_logger().verbose("Spawned new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
-                            template_config.arch, machine->get_id());
+    global_logger().debug("Spawned new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
+                          template_config.arch, machine->get_id());
 
-    global_logger().verbose("Waiting for machine {} guest agent.", machine->get_id());
+    global_logger().debug("Waiting for machine {} guest agent.", machine->get_id());
     if (auto res{machine->wait_for_guest_agent(120s)}; !res) {
         return std::unexpected{res.error()};
     }
 
-    global_logger().verbose("Guest agent is available in machine {}", machine->get_id());
+    global_logger().debug("Guest agent is available in machine {}", machine->get_id());
 
-    global_logger().verbose("Waiting for machine {} network.", machine->get_id());
+    global_logger().debug("Waiting for machine {} network.", machine->get_id());
     if (!wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s)) {
         return std::unexpected{GenericError{std::format(
             "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
     }
 
-    global_logger().verbose("Networking is available in machine {}.", machine->get_id());
+    global_logger().debug("Networking is available in machine {}.", machine->get_id());
 
     return machine;
 }
@@ -189,17 +189,17 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
     using namespace std::literals;
     const auto id{task.id()};
 
-    global_logger().verbose("Preparing environment for machine {}.", machine.get_id());
+    global_logger().debug("Preparing environment for machine {}.", machine.get_id());
 
     return Injectables::generate(task, runner)
         .and_then([&](auto res) { return inject_runner_files(machine, std::move(res)); })
         .and_then([&] {
-            global_logger().verbose("Executing task #{} in machine {}.", task.id(), machine.get_id());
+            global_logger().debug("Executing task #{} in machine {}.", task.id(), machine.get_id());
             return machine
                 .shell_exec({config.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml", "--task",
                              "/tmp/runner_task"})
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
-                    LOG_SELECT(verbose, error, res.exit_code == 0,
+                    LOG_SELECT(debug, error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,
                                res.output);
                     return {};
@@ -312,7 +312,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() noexcep
     }
     auto task{*std::move(task_res)};
 
-    global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
+    global_logger().debug("Runner {} fetched task with ID {}.", runner.id(), task.id());
 
     if (stop.is_signalled()) {
         runner.set_task_failed(task);
@@ -345,10 +345,10 @@ MachinePool TemplateState::create_pool() {
                              [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config); },
                              stop};
     machine_pool.set_stats_callback([this](auto stats) noexcept {
-        global_logger().verbose("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
-                                "acquired: {}; active: {}",
-                                backend_config->name, stats.provisioned, stats.warming, stats.idle, stats.acquiring,
-                                stats.acquired, stats.active);
+        global_logger().debug("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
+                              "acquired: {}; active: {}",
+                              backend_config->name, stats.provisioned, stats.warming, stats.idle, stats.acquiring,
+                              stats.acquired, stats.active);
     });
     return machine_pool;
 }

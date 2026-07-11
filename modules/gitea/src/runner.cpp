@@ -77,7 +77,7 @@ Runner::Runner(int64_t id, std::vector<std::string> labels, std::string forge_ur
 
 Runner::~Runner() {
     if (!m_moved) {
-        global_logger().verbose("Unregistering runner with ID {}.", m_id);
+        global_logger().debug("Unregistering runner with ID {}.", m_id);
         if (auto res{m_admin->remove_runner(m_id)}; !res) {
             global_logger().error("Failed to unregister runner with ID {}: {}", m_id, res.error().what());
         }
@@ -124,7 +124,7 @@ std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options
     }
 
     auto& runner{register_res->runner()};
-    global_logger().verbose("Registered runner with ID {}.", runner.id());
+    global_logger().debug("Registered runner with ID {}.", runner.id());
 
     gitea::GiteaRunnerCredentials credentials{.uuid = runner.uuid(), .token = runner.token()};
     client->set_credentials(credentials);

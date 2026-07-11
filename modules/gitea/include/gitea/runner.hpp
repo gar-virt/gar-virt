@@ -53,6 +53,7 @@ public:
     const gitea::GiteaRunnerServiceClient& client() const noexcept;
     const std::vector<std::string>& labels() const noexcept;
     const std::string& forge_uri() const noexcept;
+    void set_task_failed(const ::runner::v1::Task& task);
 
 private:
     bool m_moved{};

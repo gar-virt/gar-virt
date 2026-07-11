@@ -213,14 +213,6 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
         });
 }
 
-void set_task_failed(const ::runner::v1::Task& task, const gitea::GiteaRunnerServiceClient& client) {
-    ::runner::v1::UpdateTaskRequest update_req;
-    auto& task_state{*update_req.mutable_state()};
-    task_state.set_id(task.id());
-    task_state.set_result(::runner::v1::RESULT_FAILURE);
-    std::ignore = client.update_task(update_req);
-}
-
 struct BackendState {
     BackendState(std::shared_ptr<const config::BackendConfig> backend_config) {}
 
@@ -345,7 +337,7 @@ struct TemplateState {
         global_logger().verbose("Runner {} fetched task with ID {}.", runner.id(), task.id());
 
         if (stop.is_signalled()) {
-            set_task_failed(task, runner.client());
+            runner.set_task_failed(task);
             return std::unexpected{GenericError{"Runner loop shutting down"}};
         }
 
@@ -354,7 +346,7 @@ struct TemplateState {
 
         auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
                           .or_else([&](auto err) -> std::expected<void, GenericError> {
-                              set_task_failed(task, runner.client());
+                              runner.set_task_failed(task);
                               return {};
                           })};
         if (!exec_res) {

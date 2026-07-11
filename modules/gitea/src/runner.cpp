@@ -148,4 +148,12 @@ const gitea::GiteaRunnerServiceClient& Runner::client() const noexcept { return 
 const std::vector<std::string>& Runner::labels() const noexcept { return m_labels; }
 const std::string& Runner::forge_uri() const noexcept { return m_forge_uri; }
 
+void Runner::set_task_failed(const ::runner::v1::Task& task) {
+    ::runner::v1::UpdateTaskRequest update_req;
+    auto& task_state{*update_req.mutable_state()};
+    task_state.set_id(task.id());
+    task_state.set_result(::runner::v1::RESULT_FAILURE);
+    std::ignore = m_client->update_task(update_req);
+}
+
 } // namespace ls_gitea_runner::gitea

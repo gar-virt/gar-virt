@@ -4,6 +4,8 @@
 
 #include <format>
 #include <string_view>
+#include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
 
@@ -40,11 +42,13 @@ public:
     virtual ~Logger() = default;
 
     constexpr Logger& set_level(LogLevel level) noexcept {
+        std::scoped_lock lock{*m_mutex};
         m_level = level;
         return *this;
     }
 
     constexpr void set_capability(LogCapability cap, bool enable) noexcept {
+        std::scoped_lock lock{*m_mutex};
         switch (cap) {
         case LogCapability::log_thread:
             m_log_thread = enable;
@@ -54,6 +58,8 @@ public:
 
     template <typename... Args>
     Logger& log(LogLevel level, std::format_string<Args...> format, Args&&... args) noexcept {
+        std::scoped_lock lock{*m_mutex};
+
         const auto level_int{std::to_underlying(level)};
         const auto current_level_int{std::to_underlying(m_level)};
 
@@ -115,6 +121,7 @@ private:
 
     LogLevel m_level{LogLevel::none};
     bool m_log_thread{};
+    std::unique_ptr<std::mutex> m_mutex{std::make_unique<std::mutex>()};
 };
 
 } // namespace ls_gitea_runner::utility

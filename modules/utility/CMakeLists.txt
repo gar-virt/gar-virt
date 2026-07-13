@@ -13,6 +13,7 @@ target_sources(utility PRIVATE
     src/file_handle.cpp
     src/filesystem.cpp
     src/http.cpp
+    src/log/ansi.cpp
     src/log/global_logger.cpp
     src/log/stdout.cpp
     src/shutdown_signal.cpp

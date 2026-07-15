@@ -36,26 +36,43 @@ backends:
     # Machine templates
     templates:
       # One of the following values: Linux, macOS, Windows
-      os: "Linux"
-      # Target CPU architecture (currently unused and values aren't written in stone yet)
-      arch: "X64"
-      # Desired number of idle machines
-      idle_target: 2
-      # Maximum concurrent machines
-      max_concurrency: 4
-      # Path of preinstalled Gitea Runner executable in the target environment
-      # For compatible releases, see https://github.com/gar-virt/gitea-runner/releases
-      runner_exe_path: "/usr/local/bin/gitea-runner"
-      # Label mappings
-      labels:
-        - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
-        - "ubuntu-24.04:docker://docker.gitea.com/runner-images:ubuntu-24.04"
-        - "ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
-      # Please refer to libvirt documentation where needed
-      details:
-        # Domain XML file path
-        domain_template_path: "templates/ubuntu-26.04/domain.xml"
-        # Volume XML file path
-        volume_template_path: "templates/ubuntu-26.04/volume.xml"
-        # Name of the storage pool managing your base image
-        storage_pool_name: "default"
+      - os: "Linux"
+        # Target CPU architecture (currently unused and values aren't written in stone yet)
+        arch: "X64"
+        # Desired number of idle machines
+        idle_target: 2
+        # Maximum concurrent machines
+        max_concurrency: 4
+        # Path of preinstalled Gitea Runner executable in the target environment
+        # For compatible releases, see https://github.com/gar-virt/gitea-runner/releases
+        runner_exe_path: "/usr/local/bin/gitea-runner"
+        # Label mappings
+        labels:
+          - "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
+          - "ubuntu-24.04:docker://docker.gitea.com/runner-images:ubuntu-24.04"
+          - "ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04"
+        # Please refer to libvirt documentation where needed
+        details:
+          # Domain XML file path
+          domain_template_path: "templates/ubuntu-26.04/domain.xml"
+          # Volume XML file path
+          volume_template_path: "templates/ubuntu-26.04/volume.xml"
+          # Name of the storage pool managing your base image
+          storage_pool_name: "default"
+      - os: "Windows"
+        arch: "X64"
+        runner_exe_path: "C:\\tools\\runner\\gitea-runner.exe"
+        idle_target: 2
+        max_concurrency: 4
+        labels:
+          - "windows-latest:host"
+          - "windows-2025:host"
+        details:
+          domain_template_path: "templates/windows-2025/domain.xml"
+          volume_template_path: "templates/windows-2025/volume.xml"
+          storage_pool_name: "default"
+#  - type: "libvirt"
+#    name: "libvirt-remote"
+#    details:
+#      hypervisor_uri: "qemu+libssh://USER@HOST/system?keyfile=SSH_PRIVATE_KEY_FILE&sshauth=privkey&known_hosts=KNOWN_HOSTS_FILE"
+#    [...]

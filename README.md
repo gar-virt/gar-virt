@@ -27,7 +27,7 @@ As for downscaling, it occurs naturally as every machine is ephemeral and reache
 
 gar-virt uses the libvirt C API and its QEMU support to manage virtual machines created from base disk images and XML documents that you supply.
 
-One can easily create virtual machine templates and experiment with domain XML using [Virtual Machine Manager][virt-manager]. Documentation for automating base image creation and custom runner images for Docker will be published at a later date.
+One can easily create virtual machine templates and experiment with domain XML using [Virtual Machine Manager][virt-manager]. Documentation for automating base image creation and custom runner images for Docker have been published in a [separate repository][runner-images].
 
 ### Gitea Runner
 
@@ -136,4 +136,5 @@ Root permissions are then dropped so that `gar-virt` itself runs as a non-root u
 [gitea-runner-patches]: https://github.com/gar-virt/gitea-runner
 [libvirt]: https://libvirt.org
 [libvirt-uri]: https://libvirt.org/uri.html
+[runner-images]: https://github.com/gar-virt/runner-images
 [virt-manager]: https://virt-manager.org

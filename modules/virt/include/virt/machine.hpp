@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility/error.hpp>
+#include <utility/shutdown_signal.hpp>
 #include <utility/spawn.hpp>
 
 #include <chrono>
@@ -26,7 +27,8 @@ public:
     virtual std::expected<int, GenericError> shell_exec(const std::vector<std::string>& cmd,
                                                         utility::SpawnOptions options) const = 0;
     virtual std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) const = 0;
-    virtual std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout) = 0;
+    virtual std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
+                                                                   utility::ShutdownSignal stop) = 0;
     virtual std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
                                                              const std::string& remote_path) = 0;
     virtual std::expected<void, GenericError> write_file(const std::string& remote_path,

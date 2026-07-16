@@ -60,10 +60,14 @@ public:
         return m_underlying_machine->shell_exec(cmd);
     }
 
-    std::expected<void, GenericError> wait_for_guest_agent(std::chrono::milliseconds timeout) {
+    std::expected<void, GenericError> wait_for_guest_agent(std::chrono::milliseconds timeout,
+                                                           utility::ShutdownSignal stop) {
         using namespace std::literals;
         const auto start_time{std::chrono::steady_clock::now()};
         while (true) {
+            if (stop.is_signalled()) {
+                return std::unexpected{GenericError{std::format("Shutting down")}};
+            }
             auto ready_res{m_underlying_machine->is_ready()};
             if (!ready_res) {
                 return std::unexpected{ready_res.error()};
@@ -118,8 +122,9 @@ LibvirtMachine::shell_exec(const std::vector<std::string>& cmd) const {
     return m_impl->shell_exec(cmd);
 }
 
-std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout) {
-    return m_impl->wait_for_guest_agent(timeout);
+std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout,
+                                                                       utility::ShutdownSignal stop) {
+    return m_impl->wait_for_guest_agent(timeout, stop);
 }
 
 std::expected<void, GenericError> LibvirtMachine::copy_file_into(const std::filesystem::path& local_path,

@@ -101,7 +101,8 @@ std::expected<std::vector<std::string>, GenericError> make_ping_command(const st
 }
 
 std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
-                                                                      std::chrono::seconds timeout) {
+                                                                      std::chrono::seconds timeout,
+                                                                      utility::ShutdownSignal stop) {
     using namespace std::literals;
     const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
     const auto& host{parsed_instance_url->host()};
@@ -133,7 +134,7 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
 
 std::expected<std::unique_ptr<Machine>, GenericError>
 spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config) noexcept {
+              const config::MachineTemplateConfig& template_config, utility::ShutdownSignal stop) noexcept {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
@@ -166,14 +167,14 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
                           template_config.arch, machine->get_id());
 
     global_logger().debug("Waiting for machine {} guest agent.", machine->get_id());
-    if (auto res{machine->wait_for_guest_agent(120s)}; !res) {
+    if (auto res{machine->wait_for_guest_agent(120s, stop)}; !res) {
         return std::unexpected{res.error()};
     }
 
     global_logger().debug("Guest agent is available in machine {}", machine->get_id());
 
     global_logger().debug("Waiting for machine {} network.", machine->get_id());
-    if (!wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s)) {
+    if (!wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s, stop)) {
         return std::unexpected{GenericError{std::format(
             "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
     }
@@ -341,9 +342,9 @@ TemplateState::try_fetch_task(const gitea::Runner& runner) noexcept {
 }
 
 MachinePool TemplateState::create_pool() {
-    MachinePool machine_pool{template_config->idle_target, template_config->max_concurrency,
-                             [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config); },
-                             stop};
+    MachinePool machine_pool{
+        template_config->idle_target, template_config->max_concurrency,
+        [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config, stop); }, stop};
     machine_pool.set_stats_callback([this](auto stats) noexcept {
         global_logger().debug("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
                               "acquired: {}; active: {}",

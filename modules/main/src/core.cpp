@@ -72,21 +72,21 @@ std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectab
 std::expected<std::vector<std::string>, GenericError> make_ping_command(const std::string& target_os,
                                                                         const std::string& host) {
     std::vector<std::string> cmd = {"ping"};
-    if (utility::string_compare_ci(target_os, "linux")) {
+    if (utility::string_compare_ci(target_os, "linux") == 0) {
         // Count
         cmd.emplace_back("-c");
         cmd.emplace_back("1");
         // Timeout in seconds
         cmd.emplace_back("-W");
         cmd.emplace_back("2");
-    } else if (utility::string_compare_ci(target_os, "macos")) {
+    } else if (utility::string_compare_ci(target_os, "macos") == 0) {
         // Count
         cmd.emplace_back("-c");
         cmd.emplace_back("1");
         // Timeout in milliseconds
         cmd.emplace_back("-W");
         cmd.emplace_back("2000");
-    } else if (utility::string_compare_ci(target_os, "windows")) {
+    } else if (utility::string_compare_ci(target_os, "windows") == 0) {
         // Count
         cmd.emplace_back("-n");
         cmd.emplace_back("1");

@@ -17,7 +17,6 @@ target_sources(utility PRIVATE
     src/log/global_logger.cpp
     src/log/stdout.cpp
     src/shutdown_signal.cpp
-    src/spawn.cpp
     src/string.cpp
     src/uuid.cpp
 )

@@ -30,7 +30,7 @@
 
 namespace ls_gitea_runner {
 
-std::expected<Injectables, GenericError> Injectables::generate(const ::runner::v1::Task& task,
+std::expected<Injectables, GenericError> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
                                                                const gitea::Runner& runner) {
     auto encode_payload{gitea::encode_payload(task)};
     if (!encode_payload) {
@@ -49,24 +49,26 @@ std::expected<Injectables, GenericError> Injectables::generate(const ::runner::v
             {"labels", labels},
             {"ephemeral", true},
         }),
+        // TODO: Allow user-provided Gitea Runner config
         .runner_config_yaml = std::format(R"(runner:
-  file: /tmp/.runner
-)"),
+  file: {}
+)",
+                                          machine.make_temp_path(".runner")),
         .encoded_task = *encode_payload,
     };
 }
 
 std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectables injectables) {
     return machine
-        .write_file("/tmp/runner_config.yml",
+        .write_file(machine.make_temp_path("runner_config.yml"),
                     {reinterpret_cast<const std::byte*>(injectables.runner_config_yaml.data()),
                      injectables.runner_config_yaml.size()})
         .and_then([&] {
-            return machine.write_file("/tmp/.runner",
+            return machine.write_file(machine.make_temp_path(".runner"),
                                       {reinterpret_cast<const std::byte*>(injectables.runner_state_json.data()),
                                        injectables.runner_state_json.size()});
         })
-        .and_then([&] { return machine.write_file("/tmp/runner_task", injectables.encoded_task); });
+        .and_then([&] { return machine.write_file(machine.make_temp_path("runner_task"), injectables.encoded_task); });
 }
 
 std::expected<std::vector<std::string>, GenericError> make_ping_command(const std::string& target_os,
@@ -112,10 +114,13 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
         return std::unexpected{cmd.error()};
     }
 
-    utility::SpawnResult spawn_res;
+    SpawnResult spawn_res;
     auto start_time{std::chrono::steady_clock::now()};
     while (start_time - std::chrono::steady_clock::now() < timeout) {
-        auto res{machine.shell_exec(*cmd)};
+        if (stop.is_signalled()) {
+            return std::unexpected{GenericError{"Shutting down"}};
+        }
+        auto res{machine.shell_exec(*cmd, timeout < 10s ? timeout : 10s)};
         if (!res) {
             return std::unexpected{
                 GenericError{std::format("Failed to execute ping command for host {} in machine {}: {}", host,
@@ -154,6 +159,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
         Machine::Info{
             .os = template_config.os,
             .arch = template_config.arch,
+            .temp_dir = template_config.temp_dir,
         },
         backend_config.raw_details, template_config.raw_details, main_config.base_dir)};
 
@@ -167,6 +173,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
                           template_config.arch, machine->get_id());
 
     global_logger().debug("Waiting for machine {} guest agent.", machine->get_id());
+    // TODO: configurable timeout
     if (auto res{machine->wait_for_guest_agent(120s, stop)}; !res) {
         return std::unexpected{res.error()};
     }
@@ -174,9 +181,9 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
     global_logger().debug("Guest agent is available in machine {}", machine->get_id());
 
     global_logger().debug("Waiting for machine {} network.", machine->get_id());
-    if (!wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s, stop)) {
-        return std::unexpected{GenericError{std::format(
-            "Timed out while waiting for networking to become available in machine {}.", machine->get_id())}};
+    if (auto res{wait_until_gitea_instance_available(*machine, main_config.forge.uri, 120s, stop)}; !res) {
+        return std::unexpected{GenericError{
+            std::format("Error while waiting for machine {} network: {}", machine->get_id(), res.error().what())}};
     }
 
     global_logger().debug("Networking is available in machine {}.", machine->get_id());
@@ -192,13 +199,15 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
 
     global_logger().debug("Preparing environment for machine {}.", machine.get_id());
 
-    return Injectables::generate(task, runner)
+    return Injectables::generate(machine, task, runner)
         .and_then([&](auto res) { return inject_runner_files(machine, std::move(res)); })
         .and_then([&] {
             global_logger().debug("Executing task #{} in machine {}.", task.id(), machine.get_id());
             return machine
-                .shell_exec({config.runner_exe_path, "run-task", "--config", "/tmp/runner_config.yml", "--task",
-                             "/tmp/runner_task"})
+                .shell_exec({config.runner_exe_path, "run-task", "--config",
+                             machine.make_temp_path("runner_config.yml"), "--task",
+                             machine.make_temp_path("runner_task")},
+                            3h) // TODO: configurable timeout
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
                     LOG_SELECT(debug, error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,

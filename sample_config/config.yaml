@@ -39,6 +39,8 @@ backends:
       - os: "Linux"
         # Target CPU architecture (currently unused and values aren't written in stone yet)
         arch: "X64"
+        # Remote temporary files directory
+        temp_dir: "/tmp"
         # Desired number of idle machines
         idle_target: 2
         # Maximum concurrent machines
@@ -61,6 +63,7 @@ backends:
           storage_pool_name: "default"
       - os: "Windows"
         arch: "X64"
+        temp_dir: "C:\\Windows\\TEMP"
         runner_exe_path: "C:\\tools\\runner\\gitea-runner.exe"
         idle_target: 2
         max_concurrency: 4

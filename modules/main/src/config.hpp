@@ -13,6 +13,7 @@ namespace ls_gitea_runner::config {
 struct MachineTemplateConfig {
     std::string os;
     std::string arch;
+    std::string temp_dir;
     size_t idle_target{};
     size_t max_concurrency{};
     std::string runner_exe_path;

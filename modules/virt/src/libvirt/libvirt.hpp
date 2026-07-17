@@ -1,11 +1,12 @@
 #pragma once
 
 #include <utility/error.hpp>
-#include <utility/spawn.hpp>
 
+#include <chrono>
 #include <cstddef>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -16,6 +17,11 @@ struct SpawnOptions {
     std::string volume;
     std::string domain;
     std::string storage_pool;
+};
+
+struct SpawnResult {
+    int exit_code{};
+    std::string output;
 };
 
 class MachineImpl;
@@ -38,9 +44,8 @@ public:
 
     std::expected<void, GenericError> write_file(const std::string& file_path,
                                                  std::span<const std::byte> content) noexcept;
-    std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) noexcept;
-    std::expected<int, GenericError> shell_exec(const std::vector<std::string>& cmd,
-                                                utility::SpawnOptions options) noexcept;
+    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
+                                                        const std::optional<std::chrono::seconds>& timeout) noexcept;
 
     std::expected<void, GenericError> resume() noexcept;
     std::expected<void, GenericError> kill() noexcept;

@@ -19,7 +19,7 @@ struct Injectables {
     std::string runner_config_yaml;
     std::vector<std::byte> encoded_task;
 
-    static std::expected<Injectables, GenericError> generate(const ::runner::v1::Task& task,
+    static std::expected<Injectables, GenericError> generate(const Machine& machine, const ::runner::v1::Task& task,
                                                              const gitea::Runner& runner);
 };
 

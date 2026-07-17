@@ -2,7 +2,6 @@
 
 #include <utility/defer.hpp>
 #include <utility/encoding/base64.hpp>
-#include <utility/spawn.hpp>
 #include <utility/string.hpp>
 #include <utility/uuid.hpp>
 
@@ -58,6 +57,26 @@ std::string expand_libvirt_xml_template(std::string_view xml,
         result = utility::string_replace(result, pattern, entry.second);
     }
     return result;
+}
+
+std::string format_libvirt_error(virErrorPtr err) noexcept {
+    if (!err) {
+        return {};
+    }
+    std::string details;
+    details += std::format("code = {}", err->code);
+    if (auto message{err->message}) {
+        details += "; message: ";
+        details += message;
+    }
+    return details;
+}
+
+std::string get_formatter_last_libvirt_error() noexcept {
+    if (auto err{virGetLastError()}) {
+        return format_libvirt_error(err);
+    }
+    return {};
 }
 
 enum class RunLoopState { stopped, starting, running, stopping };
@@ -212,6 +231,7 @@ public:
     }
 
     std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content) {
+        // TODO: timeouts
         std::optional<int> file_handle;
         std::optional<GenericError> error;
         utility::Deferred file_closer{[&] {
@@ -282,12 +302,17 @@ public:
         return {};
     }
 
-    std::expected<utility::SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd) noexcept {
+    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
+                                                        const std::optional<std::chrono::seconds>& timeout) noexcept {
         using namespace std::chrono_literals;
+        if (timeout && *timeout < 1s) {
+            return std::unexpected{GenericError{"Timeout must be >= 1s"}};
+        }
         auto domain{get_domain()};
         if (!domain) {
             return std::unexpected{domain.error()};
         }
+        // "merged" "capture-output" works for Linux guests but is not effective on Windows guets.
         try {
             const auto& exe{cmd.at(0)};
             boost::json::array args{};
@@ -300,18 +325,20 @@ public:
                                                                    {
                                                                        {"path", exe},
                                                                        {"arg", args},
-                                                                       {"capture-output", "merged"},
+                                                                       {"capture-output", "separated"},
                                                                    },
                                                                }})};
-            auto* res{virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
+            int qemu_timeout{timeout ? static_cast<int>(timeout->count()) : VIR_DOMAIN_QEMU_AGENT_COMMAND_BLOCK};
+            auto* res{virDomainQemuAgentCommand(domain->get(), req.c_str(), qemu_timeout, 0)};
             if (!res) {
-                return std::unexpected{GenericError{"Failed to execute command in machine"}};
+                return std::unexpected{
+                    GenericError{"Failed to execute command in machine: " + get_formatter_last_libvirt_error()}};
             }
 
             const auto pid{boost::json::parse(res).as_object().at("return").as_object().at("pid").as_int64()};
 
             bool exited{};
-            int exit_code{};
+            int exit_code{-1};
             std::string output;
 
             while (!exited) {
@@ -324,7 +351,8 @@ public:
                                                                 }});
                 res = virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
                 if (!res) {
-                    return std::unexpected{GenericError{"Failed to get command execution status from machine"}};
+                    return std::unexpected{GenericError{"Failed to get command execution status from machine: " +
+                                                        get_formatter_last_libvirt_error()}};
                 }
 
                 const auto status_res{boost::json::parse(res).as_object().at("return").as_object()};
@@ -334,20 +362,25 @@ public:
                     continue;
                 }
 
-                exit_code = static_cast<int>(status_res.at("exitcode").as_int64());
-                output = utility::base64_decode_to_string(status_res.at("out-data").as_string());
+                if (status_res.contains("exitcode")) {
+                    exit_code = static_cast<int>(status_res.at("exitcode").as_int64());
+                } else {
+                    output = "Abnormal process termination";
+                }
+
+                if (status_res.contains("out-data")) {
+                    if (!output.empty()) {
+                        output += ": ";
+                    }
+                    output = utility::base64_decode_to_string(status_res.at("out-data").as_string());
+                }
             }
 
-            return utility::SpawnResult{.exit_code = exit_code, .output = std::move(output)};
+            return SpawnResult{.exit_code = exit_code, .output = std::move(output)};
         } catch (const std::exception& ex) {
             return std::unexpected{
                 GenericError{std::format("Error while attempting to execute command in machine: {}", ex.what())}};
         }
-    }
-
-    std::expected<int, GenericError> shell_exec(const std::vector<std::string>& cmd,
-                                                utility::SpawnOptions options) noexcept {
-        std::abort(); // TODO
     }
 
     void notify_bad_state() {
@@ -387,13 +420,9 @@ std::expected<void, GenericError> Machine::write_file(const std::string& file_pa
     return m_impl->write_file(file_path, std::move(content));
 }
 
-std::expected<utility::SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd) noexcept {
-    return m_impl->shell_exec(cmd);
-}
-
-std::expected<int, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
-                                                     utility::SpawnOptions options) noexcept {
-    return m_impl->shell_exec(cmd, std::move(options));
+std::expected<SpawnResult, GenericError>
+Machine::shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) noexcept {
+    return m_impl->shell_exec(cmd, std::move(timeout));
 }
 
 std::expected<void, GenericError> Machine::resume() noexcept { return m_impl->resume(); }

@@ -52,7 +52,7 @@ Gitea versions known to work:
 ```sh
 cmake -G Ninja -B build -S . -D CMAKE_BUILD_TYPE=Release
 cmake --build build
-cmake --install build --prefix build/install --strip
+cpack -B build/dist --config build/CPackConfig.cmake
 ```
 
 Special build types: `ASan`, `TSan`

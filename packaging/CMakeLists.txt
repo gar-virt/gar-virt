@@ -1,0 +1,6 @@
+set(CPACK_PACKAGE_NAME "gar-virt")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_VENDOR "gar-virt")
+set(CPACK_GENERATOR "TXZ")
+
+include(CPack)

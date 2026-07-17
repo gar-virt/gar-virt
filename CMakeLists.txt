@@ -15,3 +15,4 @@ include(cmake/sanitizers.cmake)
 include(cmake/dependencies.cmake)
 
 add_subdirectory(modules)
+add_subdirectory(packaging)

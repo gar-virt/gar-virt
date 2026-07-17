@@ -43,6 +43,10 @@ This project originally had a simple runner implementation in C++ with workflow 
 * Development: C++23 compiler (GCC >= 14, Clang >= 19), CMake >= 3.28, Ninja >= 1.11
 * Refer to `docker/<variant>/Dockerfile` for the full list of dependencies.
 
+Gitea versions known to work:
+* Gitea 1.26.4, Gitea Runner 1.0.8
+* Gitea 1.27.0, Gitea Runner 2.0.1
+
 ## Building
 
 ```sh

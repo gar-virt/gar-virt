@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
 
 include(GNUInstallDirs)
+include(cmake/sanitizers.cmake)
 include(cmake/dependencies.cmake)
 
 add_subdirectory(modules)

@@ -55,6 +55,8 @@ cmake --build build
 cmake --install build --prefix build/install --strip
 ```
 
+Special build types: `ASan`, `TSan`
+
 ## Quick Start
 
 Copy sample configuration files:

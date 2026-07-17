@@ -13,6 +13,7 @@ message RegisterRequest {
   string version = 5;
   repeated string labels = 6;
   bool ephemeral = 7;
+  repeated string capabilities = 8; // Capability flags the runner advertises (e.g. "cancelling").
 }
 
 message RegisterResponse {
@@ -22,6 +23,7 @@ message RegisterResponse {
 message DeclareRequest {
   string version = 1;
   repeated string labels = 2;
+  repeated string capabilities = 3; // Capability flags the runner advertises (e.g. "cancelling").
 }
 
 message DeclareResponse {

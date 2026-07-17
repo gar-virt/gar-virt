@@ -57,6 +57,10 @@ cpack -B build/dist --config build/CPackConfig.cmake
 
 Special build types: `ASan`, `TSan`
 
+### Sanitizer Notes
+
+Use option `ignore_noninstrumented_modules=1` with TSan.
+
 ## Quick Start
 
 Copy sample configuration files:

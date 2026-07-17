@@ -64,7 +64,8 @@ fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) noexcept {
     auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
     auto fetch_task_response = client.fetch_task(fetch_task_request);
     if (!fetch_task_response) {
-        return std::unexpected{GenericError{"Failed to fetch any new tasks"}};
+        return std::unexpected{
+            GenericError{std::format("Failed to fetch any new tasks: {}", fetch_task_response.error().what())}};
     }
     return *fetch_task_response;
 }

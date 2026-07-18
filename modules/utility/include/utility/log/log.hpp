@@ -57,7 +57,7 @@ public:
         append_date();
         append_thread();
         append_level(level);
-        append_message(level, std::move(format), std::forward<Args>(args)...);
+        append_message(std::move(format), std::forward<Args>(args)...);
         flush(level);
 
         return *this;
@@ -110,8 +110,7 @@ private:
         }
     }
 
-    template <typename... Args>
-    void append_message(LogLevel level, std::format_string<Args...> format, Args&&... args) noexcept {
+    template <typename... Args> void append_message(std::format_string<Args...> format, Args&&... args) noexcept {
         append(std::format(" {}\n", std::format(format, std::forward<Args>(args)...)));
     }
 

@@ -23,6 +23,19 @@
 #include <format>
 
 namespace ls_gitea_runner::libvirt {
+namespace {
+// Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
+constexpr auto GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(auto cb) noexcept {
+#if defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+#endif
+    return VIR_DOMAIN_EVENT_CALLBACK(cb);
+#if defined(__clang__)
+    #pragma clang diagnostic pop
+#endif
+}
+} // namespace
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -131,12 +144,12 @@ private:
         virConnectUnregisterCloseCallback(m_conn.get(), &ConnectionImpl::close_event_cb_internal);
     }
 
-    static void close_event_cb_internal(virConnectPtr conn, int reason, void* user_data) {
-        auto* self{static_cast<ConnectionImpl*>(user_data)};
+    static void close_event_cb_internal(virConnectPtr conn, int reason, void* opaque) {
+        auto* self{static_cast<ConnectionImpl*>(opaque)};
         self->close_event_handler(conn, reason);
     }
 
-    void close_event_handler(virConnectPtr conn, int reason) {
+    void close_event_handler(virConnectPtr /*conn*/, int /*reason*/) {
         std::scoped_lock lock{*m_mutex};
         m_conn.reset();
     }
@@ -514,7 +527,8 @@ private:
     }
 
     std::expected<void, GenericError> register_event_handlers() {
-        if (const auto id{virEventAddTimeout(1000, +[](int timer, void* opaque) {}, nullptr, nullptr)}; id < 0) {
+        constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
+        if (const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)}; id < 0) {
             return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
         } else {
             m_stop_event_id = id;
@@ -711,27 +725,30 @@ private:
         }
         auto* conn{*conn_res};
 
-        static auto lifecycle_event_cb{
-            +[](virConnectPtr conn, virDomainPtr dom, int event, int detail, HypervisorImpl* user_data) {
-                return user_data->lifecycle_event_handler(conn, dom, event, detail);
-            }};
+        // virConnectDomainEventCallback
+        static auto lifecycle_event_cb{+[](virConnectPtr conn, virDomainPtr dom, int event, int detail, void* opaque) {
+            auto* user_data{static_cast<HypervisorImpl*>(opaque)};
+            return user_data->lifecycle_event_handler(conn, dom, event, detail);
+        }};
 
-        auto domain_lifecycle_cb_id{virConnectDomainEventRegisterAny(conn, nullptr, VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                                                                     VIR_DOMAIN_EVENT_CALLBACK(lifecycle_event_cb),
-                                                                     this, nullptr)};
+        auto domain_lifecycle_cb_id{
+            virConnectDomainEventRegisterAny(conn, nullptr, VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+                                             GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(lifecycle_event_cb), this, nullptr)};
         if (domain_lifecycle_cb_id < 0) {
             return std::unexpected{GenericError{"Failed to register domain lifecycle event handler"}};
         }
         m_event_handler_ids.push_back(domain_lifecycle_cb_id);
 
+        // virConnectDomainEventAgentLifecycleCallback
         static auto agent_lifecycle_event_cb{
-            +[](virConnectPtr conn, virDomainPtr dom, int state, int reason, HypervisorImpl* user_data) {
+            +[](virConnectPtr conn, virDomainPtr dom, int state, int reason, void* opaque) {
+                auto* user_data{static_cast<HypervisorImpl*>(opaque)};
                 return user_data->agent_lifecycle_event_handler(conn, dom, state, reason);
             }};
 
-        auto agent_lifecycle_cb_id{virConnectDomainEventRegisterAny(conn, nullptr, VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE,
-                                                                    VIR_DOMAIN_EVENT_CALLBACK(agent_lifecycle_event_cb),
-                                                                    this, nullptr)};
+        auto agent_lifecycle_cb_id{virConnectDomainEventRegisterAny(
+            conn, nullptr, VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE,
+            GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(agent_lifecycle_event_cb), this, nullptr)};
         if (agent_lifecycle_cb_id < 0) {
             return std::unexpected{GenericError{"Failed to register agent lifecycle event handler"}};
         }
@@ -748,7 +765,7 @@ private:
         }
     }
 
-    int lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int event, int detail) noexcept {
+    int lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int event, int /*detail*/) noexcept {
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
@@ -762,7 +779,7 @@ private:
         return 0;
     }
 
-    int agent_lifecycle_event_handler(virConnectPtr conn, virDomainPtr dom, int state, int reason) noexcept {
+    int agent_lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int state, int /*reason*/) noexcept {
         if (auto* domain_name{virDomainGetName(dom)}) {
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;

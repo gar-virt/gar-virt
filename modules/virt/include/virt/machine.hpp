@@ -6,7 +6,6 @@
 #include <chrono>
 #include <cstddef>
 #include <expected>
-#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -34,8 +33,6 @@ public:
     shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const = 0;
     virtual std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
                                                                    utility::ShutdownSignal stop) = 0;
-    virtual std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
-                                                             const std::string& remote_path) = 0;
     virtual std::expected<void, GenericError> write_file(const std::string& remote_path,
                                                          std::span<const std::byte> content) = 0;
     virtual const Info& info() const = 0;

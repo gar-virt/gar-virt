@@ -2,6 +2,7 @@
 
 #include <utility/string.hpp>
 
+#include <filesystem>
 #include <string>
 
 namespace ls_gitea_runner {

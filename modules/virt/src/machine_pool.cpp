@@ -80,7 +80,7 @@ public:
         return std::unexpected{GenericError{"Timed out while acquiring machine"}};
     }
 
-    void activate(std::shared_ptr<Machine> machine) noexcept {
+    void activate(std::shared_ptr<Machine> /*machine*/) noexcept {
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.active;
         check_stats(lock);
@@ -155,7 +155,7 @@ private:
         }
     }
 
-    void deactivate_internal(std::shared_ptr<Machine> machine) noexcept { --m_machine_counters.active; }
+    void deactivate_internal(std::shared_ptr<Machine> /*machine*/) noexcept { --m_machine_counters.active; }
 
     void stop_internal(std::unique_lock<std::mutex>& acquired_lock) noexcept {
         auto notify{[&] {

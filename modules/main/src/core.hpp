@@ -39,25 +39,17 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
                                                           const config::MachineTemplateConfig& config,
                                                           Machine& machine) noexcept;
 
-struct BackendState {
-    BackendState(std::shared_ptr<const config::BackendConfig> backend_config);
-
-    static std::shared_ptr<BackendState> create(std::shared_ptr<const config::BackendConfig> backend_config);
-};
-
 struct TemplateState {
     utility::ShutdownSignal stop;
     std::shared_ptr<const config::MainConfig> main_config;
     std::shared_ptr<const config::BackendConfig> backend_config;
     std::shared_ptr<const config::MachineTemplateConfig> template_config;
     std::shared_ptr<gitea::AdminServiceClient> admin_service;
-    std::shared_ptr<BackendState> backend_state;
     MachinePool machine_pool;
 
     TemplateState(std::shared_ptr<const config::MainConfig> main_config,
                   std::shared_ptr<const config::BackendConfig> backend_config,
-                  std::shared_ptr<const config::MachineTemplateConfig> template_config,
-                  std::shared_ptr<BackendState> backend_state, utility::ShutdownSignal stop);
+                  std::shared_ptr<const config::MachineTemplateConfig> template_config, utility::ShutdownSignal stop);
 
     TemplateState(const TemplateState&) = delete;
     TemplateState(TemplateState&&) = default;
@@ -82,7 +74,6 @@ struct TemplateState {
     static std::shared_ptr<TemplateState> create(std::shared_ptr<const config::MainConfig> main_config,
                                                  std::shared_ptr<const config::BackendConfig> backend_config,
                                                  std::shared_ptr<const config::MachineTemplateConfig> template_config,
-                                                 std::shared_ptr<BackendState> backend_state,
                                                  utility::ShutdownSignal stop);
 };
 

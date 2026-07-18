@@ -19,8 +19,6 @@ public:
     shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const override;
     std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
                                                            utility::ShutdownSignal stop) override;
-    std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
-                                                     const std::string& remote_path) override;
     std::expected<void, GenericError> write_file(const std::string& remote_path, std::span<const std::byte>) override;
     const Info& info() const override;
 

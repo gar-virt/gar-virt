@@ -202,7 +202,7 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
     return Injectables::generate(machine, task, runner)
         .and_then([&](auto res) { return inject_runner_files(machine, std::move(res)); })
         .and_then([&] {
-            global_logger().debug("Executing task #{} in machine {}.", task.id(), machine.get_id());
+            global_logger().debug("Executing task #{} in machine {}.", id, machine.get_id());
             return machine
                 .shell_exec({config.runner_exe_path, "run-task", "--config",
                              machine.make_temp_path("runner_config.yml"), "--task",
@@ -210,27 +210,20 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
                             3h) // TODO: configurable timeout
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
                     LOG_SELECT(debug, error, res.exit_code == 0,
-                               "Task #{} execution exited with code {} and output: {}", task.id(), res.exit_code,
-                               res.output);
+                               "Task #{} execution exited with code {} and output: {}", id, res.exit_code, res.output);
                     return {};
                 });
         });
 }
 
-BackendState::BackendState(std::shared_ptr<const config::BackendConfig> backend_config) {}
-
-std::shared_ptr<BackendState> BackendState::create(std::shared_ptr<const config::BackendConfig> backend_config) {
-    return std::make_shared<BackendState>(backend_config);
-}
-
 TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_config,
                              std::shared_ptr<const config::BackendConfig> backend_config,
                              std::shared_ptr<const config::MachineTemplateConfig> template_config,
-                             std::shared_ptr<BackendState> backend_state, utility::ShutdownSignal stop)
+                             utility::ShutdownSignal stop)
         : stop{std::move(stop)}, main_config{main_config}, backend_config{backend_config},
           template_config{template_config}, admin_service{std::make_shared<gitea::AdminServiceClient>(
                                                 main_config->forge.uri, main_config->forge.token.resolved_token)},
-          machine_pool{create_pool()}, backend_state{std::move(backend_state)} {
+          machine_pool{create_pool()} {
     machine_pool.start();
 }
 
@@ -333,7 +326,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() noexcep
     utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
 
     auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
-                      .or_else([&](auto err) -> std::expected<void, GenericError> {
+                      .or_else([&](auto) -> std::expected<void, GenericError> {
                           runner.set_task_failed(task);
                           return {};
                       })};
@@ -363,21 +356,17 @@ MachinePool TemplateState::create_pool() {
     return machine_pool;
 }
 
-std::shared_ptr<TemplateState>
-TemplateState::create(std::shared_ptr<const config::MainConfig> main_config,
-                      std::shared_ptr<const config::BackendConfig> backend_config,
-                      std::shared_ptr<const config::MachineTemplateConfig> template_config,
-                      std::shared_ptr<BackendState> backend_state, utility::ShutdownSignal stop) {
+std::shared_ptr<TemplateState> TemplateState::create(
+    std::shared_ptr<const config::MainConfig> main_config, std::shared_ptr<const config::BackendConfig> backend_config,
+    std::shared_ptr<const config::MachineTemplateConfig> template_config, utility::ShutdownSignal stop) {
     return std::make_shared<TemplateState>(std::move(main_config), std::move(backend_config),
-                                           std::move(template_config), std::move(backend_state), std::move(stop));
+                                           std::move(template_config), std::move(stop));
 }
 
 size_t count_max_concurrency(const config::MainConfig& main_config) noexcept {
     size_t count{};
     for (auto& backend_config : main_config.backends) {
-        for (auto& template_config : backend_config.templates) {
-            ++count;
-        }
+        count += backend_config.templates.size();
     }
     return count;
 }

@@ -9,7 +9,7 @@ namespace {
 
 struct PrintVisitor {
     constexpr PrintVisitor(std::ostream* os) : os{os} {}
-    constexpr void operator()(const ansi::Sequence& seq) noexcept {}
+    constexpr void operator()(const ansi::Sequence& /*seq*/) noexcept {}
     constexpr void operator()(const std::string& s) noexcept { os->write(s.data(), s.size()); }
 
     std::ostream* os{};

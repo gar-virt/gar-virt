@@ -7,7 +7,7 @@
 namespace ls_gitea_runner::gitea {
 
 AdminServiceClient::AdminServiceClient(const std::string& instance_url, const std::string& token)
-        : m_client{utility::http_path_join(instance_url, "/api/v1/admin")}, m_token{token} {
+        : m_token{token}, m_client{utility::http_path_join(instance_url, "/api/v1/admin")} {
     m_client.add_request_middleware([this](auto& req) {
         if (req.method == utility::HttpMethod::post) {
             req.headers.emplace("Content-Type", "application/json");

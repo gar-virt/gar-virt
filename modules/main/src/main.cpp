@@ -42,7 +42,7 @@ int main(int argc, char* const argv[]) {
         po::notify(vm);
 
         bool log_level_overridden{};
-        if (const auto verbose{vm.at("verbose").as<bool>()}) {
+        if (vm.at("verbose").as<bool>()) {
             global_logger().set_level(utility::LogLevel::debug);
             global_logger().set_capability(utility::LogCapability::log_thread, true);
             log_level_overridden = true;

@@ -29,3 +29,7 @@ protobuf_generate(
     IMPORT_DIRS ${PROTO_IMPORT_DIRS}
     PROTOC_OUT_DIR ${PROTO_BINARY_DIR}
 )
+
+# Suppress warnings from abseil including <ciso646>:
+# "<ciso646> is not a standard header since C++20, use <version> to detect implementation-specific macros"
+suppress_cpp_warnings(proto_objects)

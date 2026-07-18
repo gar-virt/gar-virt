@@ -8,36 +8,6 @@
 
 namespace ls_gitea_runner {
 namespace {
-std::string normalize_uname_kernel_name(const std::string& input) {
-    if (input == "Darwin") {
-        return "macOS";
-    }
-    if (input == "WindowsNT") {
-        return "Windows";
-    }
-    if (utility::string_starts_with(input, "CYGWIN")) {
-        return "Windows";
-    }
-    if (utility::string_starts_with(input, "MINGW")) {
-        return "Windows";
-    }
-    if (utility::string_starts_with(input, "MSYS")) {
-        return "Windows";
-    }
-    return "Linux";
-}
-
-std::string normalize_uname_machine(const std::string& input) {
-    // TODO: X86, ARM
-    if (input == "x86_64") {
-        return "X64";
-    }
-    if (utility::string_starts_with(input, "aarch64")) {
-        return "ARM64";
-    }
-    return "unknown";
-}
-
 std::expected<std::vector<std::string>, GenericError>
 add_command_output_redirection(const std::string& target_os, const std::vector<std::string>& args) {
     std::vector<std::string> cmd;
@@ -110,12 +80,6 @@ public:
             GenericError{std::format("Timed out while waiting for machine {} guest agent.", get_id())}};
     }
 
-    std::expected<void, GenericError> copy_file_into(const std::filesystem::path& local_path,
-                                                     const std::string& remote_path) {
-        // return m_libvirt.container_cp_into(m_id, local_path, remote_path);
-        std::abort();
-    }
-
     std::expected<void, GenericError> write_file(const std::string& remote_path, std::span<const std::byte> content) {
         return m_underlying_machine->write_file(remote_path, content);
     }
@@ -147,11 +111,6 @@ LibvirtMachine::shell_exec(const std::vector<std::string>& cmd,
 std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout,
                                                                        utility::ShutdownSignal stop) {
     return m_impl->wait_for_guest_agent(timeout, stop);
-}
-
-std::expected<void, GenericError> LibvirtMachine::copy_file_into(const std::filesystem::path& local_path,
-                                                                 const std::string& remote_path) {
-    return m_impl->copy_file_into(local_path, remote_path);
 }
 
 std::expected<void, GenericError> LibvirtMachine::write_file(const std::string& remote_path,

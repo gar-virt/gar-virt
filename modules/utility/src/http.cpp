@@ -55,14 +55,14 @@ struct HttpClient::Private final {
         curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_HSTS);
         curl_share_setopt(share, CURLSHOPT_USERDATA, this);
 
-        constexpr auto lock_fn{+[](CURL* handle, curl_lock_data data, curl_lock_access access, void* clientp) {
+        constexpr auto lock_fn{+[](CURL* /*handle*/, curl_lock_data data, curl_lock_access /*access*/, void* clientp) {
             auto* self{static_cast<Private*>(clientp)};
             auto& curl_mutex{self->m_curl_mutexes.at(data)};
             curl_mutex.lock();
         }};
         curl_share_setopt(share, CURLSHOPT_LOCKFUNC, lock_fn);
 
-        constexpr auto unlock_fn{+[](CURL* handle, curl_lock_data data, void* clientp) {
+        constexpr auto unlock_fn{+[](CURL* /*handle*/, curl_lock_data data, void* clientp) {
             auto* self{static_cast<Private*>(clientp)};
             auto& curl_mutex{self->m_curl_mutexes.at(data)};
             curl_mutex.unlock();

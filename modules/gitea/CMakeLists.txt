@@ -17,5 +17,6 @@ target_link_libraries(gitea
         gRPC::grpc
         gRPC::grpc++
         CURL::libcurl
+        checks
         utility
 )

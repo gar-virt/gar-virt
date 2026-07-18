@@ -18,5 +18,6 @@ target_link_libraries(virt PRIVATE
     Boost::json
     libvirt::virt
     libvirt::qemu
+    checks
     utility
 )

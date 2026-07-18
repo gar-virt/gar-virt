@@ -16,6 +16,7 @@ target_link_libraries(gar_virt PRIVATE
     Boost::program_options
     Boost::url
     yaml-cpp::yaml-cpp
+    checks
     gitea
     utility
     virt

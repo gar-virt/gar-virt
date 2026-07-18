@@ -21,4 +21,8 @@ target_sources(utility PRIVATE
     src/uuid.cpp
 )
 target_include_directories(utility PUBLIC include)
-target_link_libraries(utility PRIVATE ${UUID_LIBRARIES} cppcodec)
+target_link_libraries(utility PRIVATE
+    ${UUID_LIBRARIES}
+    cppcodec
+    checks
+)

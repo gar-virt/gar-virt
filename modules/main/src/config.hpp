@@ -2,6 +2,7 @@
 
 #include <utility/error.hpp>
 #include <utility/log/log.hpp>
+#include <virt/arch.hpp>
 
 #include <expected>
 #include <filesystem>
@@ -12,7 +13,7 @@ namespace ls_gitea_runner::config {
 
 struct MachineTemplateConfig {
     std::string os;
-    std::string arch;
+    Arch::Type arch{};
     std::string temp_dir;
     size_t idle_target{};
     size_t max_concurrency{};

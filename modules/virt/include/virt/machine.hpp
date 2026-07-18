@@ -1,5 +1,7 @@
 #pragma once
 
+#include <virt/arch.hpp>
+
 #include <utility/error.hpp>
 #include <utility/shutdown_signal.hpp>
 
@@ -22,7 +24,7 @@ class Machine {
 public:
     struct Info {
         std::string os;
-        std::string arch;
+        Arch::Type arch;
         std::string temp_dir;
     };
 

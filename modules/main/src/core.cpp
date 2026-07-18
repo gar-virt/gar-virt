@@ -151,9 +151,9 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
+    const auto arch_name{Arch::to_name(template_config.arch)};
 
-    global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os,
-                          template_config.arch);
+    global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os, arch_name);
 
     auto machine_res{machine_manager->spawn(
         Machine::Info{
@@ -170,7 +170,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
     auto machine{*std::move(machine_res)};
 
     global_logger().debug("Spawned new {} machine: os = {}; arch = {}; id = {}", backend_type, template_config.os,
-                          template_config.arch, machine->get_id());
+                          arch_name, machine->get_id());
 
     global_logger().debug("Waiting for machine {} guest agent.", machine->get_id());
     // TODO: configurable timeout

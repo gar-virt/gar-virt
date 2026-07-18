@@ -4,6 +4,7 @@
 #include <utility/env.hpp>
 #include <utility/filesystem.hpp>
 #include <utility/string.hpp>
+#include <virt/arch.hpp>
 
 #include <yaml-cpp/yaml.h>
 
@@ -56,9 +57,13 @@ ForgeConfig load_forge(const YAML::Node& from) {
 }
 
 MachineTemplateConfig load_template(const YAML::Node& from) {
+    const auto arch{Arch::from_name(from["arch"].as<std::string>())};
+    if (!arch) {
+        throw arch.error();
+    }
     return {
         .os = from["os"].as<std::string>(),
-        .arch = from["arch"].as<std::string>(),
+        .arch = arch.value(),
         .temp_dir = from["temp_dir"].as<std::string>(),
         .idle_target = utility::safe_cast_int<size_t>(from["idle_target"].as<int>()),
         .max_concurrency = utility::safe_cast_int<size_t>(from["max_concurrency"].as<int>()),

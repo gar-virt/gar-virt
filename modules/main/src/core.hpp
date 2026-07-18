@@ -11,6 +11,7 @@
 #include <expected>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace ls_gitea_runner {
 

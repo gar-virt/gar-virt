@@ -33,3 +33,6 @@ protobuf_generate(
 # Suppress warnings from abseil including <ciso646>:
 # "<ciso646> is not a standard header since C++20, use <version> to detect implementation-specific macros"
 suppress_cpp_warnings(proto_objects)
+
+# Skip linting
+set_target_properties(proto_objects PROPERTIES SKIP_LINTING ON)

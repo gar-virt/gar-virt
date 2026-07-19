@@ -13,14 +13,14 @@ std::expected<Arch::Type, GenericError> Arch::from_name(std::string_view name) n
     using namespace std::literals;
 
     constexpr static auto amd64_names = {"amd64"sv, "x64"sv, "x86_64"sv, "x86-64"sv};
-    for (auto& s : amd64_names) {
+    for (const auto& s : amd64_names) {
         if (utility::string_compare_ci(name, s) == 0) {
             return Arch::amd64;
         }
     }
 
     constexpr static auto arm64_names = {"arm64"sv, "aarch64"sv};
-    for (auto& s : arm64_names) {
+    for (const auto& s : arm64_names) {
         if (utility::string_compare_ci(name, s) == 0) {
             return Arch::amd64;
         }

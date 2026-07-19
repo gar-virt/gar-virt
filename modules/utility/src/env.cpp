@@ -23,7 +23,7 @@ std::optional<std::string> getenv(const std::string& name) {
         return narrow_string(value_w.data(), value_w.size() - 1);
     }
 #else
-    if (auto value{std::getenv(name.c_str())}) {
+    if (const auto* value{std::getenv(name.c_str())}) {
         return value;
     }
 #endif

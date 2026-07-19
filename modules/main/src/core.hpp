@@ -59,7 +59,7 @@ struct TemplateState {
 
     ~TemplateState();
 
-    std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) noexcept;
+    std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) const noexcept;
 
     std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine) noexcept;
 

@@ -124,7 +124,7 @@ std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options
         return std::unexpected{register_res.error()};
     }
 
-    auto& runner{register_res->runner()};
+    const auto& runner{register_res->runner()};
     global_logger().debug("Registered runner with ID {}.", runner.id());
 
     gitea::GiteaRunnerCredentials credentials{.uuid = runner.uuid(), .token = runner.token()};

@@ -23,10 +23,12 @@ std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& fr
     time.tm_isdst = -1;
     auto parsed{std::sscanf(from.c_str(), "%4d-%2d-%2dT%2d:%2d:%2dZ", &time.tm_year, &time.tm_mon, &time.tm_mday,
                             &time.tm_hour, &time.tm_min, &time.tm_sec)};
-    if (parsed != 6) {
+    constexpr static int expected_parts{6};
+    if (parsed != expected_parts) {
         return std::unexpected{GenericError{"Failed to parse date time string"}};
     }
-    time.tm_year -= 1900;
+    constexpr static int epoch_year{1900};
+    time.tm_year -= epoch_year;
     --time.tm_mon;
     return time;
 }

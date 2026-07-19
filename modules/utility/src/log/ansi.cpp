@@ -35,7 +35,7 @@ void write_escape_sequence(std::string& output, const Sequence& seq) noexcept {
     std::visit(SequenceVisitor{output}, seq);
 }
 
-bool is_terminal() noexcept { return !!::isatty(::fileno(::stdout)); }
+bool is_terminal() noexcept { return ::isatty(::fileno(::stdout)) == 1; }
 
 // TODO: Needs Windows-specific checks
 //       Also see how to enable virtual terminal processing in cmd for Windows 10 and later:

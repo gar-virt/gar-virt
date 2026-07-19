@@ -10,10 +10,13 @@
 #endif
 
 namespace ls_gitea_runner::utility {
+namespace {
+constexpr int uuid_length{36};
+}
 
 std::string uuid() {
     // 36-byte string + terminator
-    char uuid_cstr[36 + 1]{};
+    char uuid_cstr[uuid_length + 1]{};
 
 #ifdef _WIN32
     UUID uuid{};
@@ -44,7 +47,7 @@ std::string uuid() {
     ::uuid_unparse_lower(uuid, uuid_cstr);
 #endif
 
-    return {uuid_cstr, uuid_cstr + 36};
+    return {uuid_cstr, uuid_cstr + uuid_length};
 }
 
 } // namespace ls_gitea_runner::utility

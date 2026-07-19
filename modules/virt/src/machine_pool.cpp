@@ -280,13 +280,9 @@ std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::
     return m_impl->acquire(timeout);
 }
 
-void MachinePool::activate(std::shared_ptr<Machine> machine) noexcept { return m_impl->activate(std::move(machine)); }
-
-void MachinePool::deactivate(std::shared_ptr<Machine> machine) noexcept {
-    return m_impl->deactivate(std::move(machine));
-}
-
-void MachinePool::release(std::shared_ptr<Machine> machine) noexcept { return m_impl->release(std::move(machine)); }
+void MachinePool::activate(std::shared_ptr<Machine> machine) noexcept { m_impl->activate(std::move(machine)); }
+void MachinePool::deactivate(std::shared_ptr<Machine> machine) noexcept { m_impl->deactivate(std::move(machine)); }
+void MachinePool::release(std::shared_ptr<Machine> machine) noexcept { m_impl->release(std::move(machine)); }
 void MachinePool::start() { m_impl->start(); }
 void MachinePool::stop() { m_impl->stop(); }
 

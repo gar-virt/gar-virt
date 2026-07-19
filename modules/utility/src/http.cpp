@@ -23,7 +23,7 @@ size_t write_header_fn(const char* buffer, size_t size, size_t count, std::strin
 size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<std::byte>* output) noexcept {
     try {
         const auto old_size{output->size()};
-        output->resize(output->size() + size * count);
+        output->resize(output->size() + (size * count));
         auto* output_offset{output->data() + old_size};
         std::memcpy(output_offset, buffer, size * count);
         return size * count;
@@ -31,6 +31,10 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
         return 0;
     }
 }
+
+struct HttpStatusRange {
+    enum Type { client_error_first = 400 };
+};
 } // namespace
 
 std::string http_path_join(const std::string& first, const std::string& second) {
@@ -104,7 +108,7 @@ HttpClient& HttpClient::operator=(HttpClient&& other) noexcept {
 }
 
 std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const noexcept {
-    for (auto& req_middleware : m_req_middlewares) {
+    for (const auto& req_middleware : m_req_middlewares) {
         if (!req_middleware(req)) {
             break;
         }
@@ -162,7 +166,7 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     }
 
     const auto is_ok_already_deleted{status_code == 404 && req.method == HttpMethod::del};
-    if (status_code >= 400 && !is_ok_already_deleted) {
+    if (status_code >= HttpStatusRange::client_error_first && !is_ok_already_deleted) {
         return std::unexpected{
             GenericError{std::format("HTTP request to \"{}\" failed with status code {}", url, status_code)}};
     }

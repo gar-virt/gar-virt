@@ -20,8 +20,6 @@
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
-#include <format>
-
 namespace ls_gitea_runner::libvirt {
 namespace {
 // Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
@@ -65,7 +63,7 @@ using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
 std::string expand_libvirt_xml_template(std::string_view xml,
                                         const std::unordered_map<std::string_view, std::string>& params) {
     std::string result{xml};
-    for (auto& entry : params) {
+    for (const auto& entry : params) {
         const auto pattern{std::format("${{{}}}", entry.first)};
         result = utility::string_replace(result, pattern, entry.second);
     }
@@ -78,7 +76,7 @@ std::string format_libvirt_error(virErrorPtr err) noexcept {
     }
     std::string details;
     details += std::format("code = {}", err->code);
-    if (auto message{err->message}) {
+    if (const auto* message{err->message}) {
         details += "; message: ";
         details += message;
     }
@@ -86,7 +84,7 @@ std::string format_libvirt_error(virErrorPtr err) noexcept {
 }
 
 std::string get_formatter_last_libvirt_error() noexcept {
-    if (auto err{virGetLastError()}) {
+    if (auto* err{virGetLastError()}) {
         return format_libvirt_error(err);
     }
     return {};
@@ -411,8 +409,8 @@ private:
     std::string m_domain_name;
     StorageVolPtr m_volume;
     std::string m_volume_id;
-    std::atomic_bool m_quit{};
-    std::atomic_bool m_ready{};
+    std::atomic_bool m_quit;
+    std::atomic_bool m_ready;
     std::condition_variable m_cv;
     mutable std::mutex m_mutex;
 };
@@ -528,11 +526,11 @@ private:
 
     std::expected<void, GenericError> register_event_handlers() {
         constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
-        if (const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)}; id < 0) {
+        const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)};
+        if (id < 0) {
             return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
-        } else {
-            m_stop_event_id = id;
         }
+        m_stop_event_id = id;
         return {};
     }
 
@@ -706,7 +704,7 @@ private:
 
         StorageVolPtr volume{virStorageVolCreateXML(pool.get(), volume_xml.c_str(), 0)};
         if (!volume) {
-            auto err{virGetLastError()};
+            const auto* err{virGetLastError()};
             if (err && err->code == VIR_ERR_STORAGE_VOL_EXIST) {
                 virStoragePoolRefresh(pool.get(), 0);
                 volume = StorageVolPtr{virStorageVolCreateXML(pool.get(), volume_xml.c_str(), 0)};
@@ -766,7 +764,7 @@ private:
     }
 
     int lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int event, int /*detail*/) noexcept {
-        if (auto* domain_name{virDomainGetName(dom)}) {
+        if (const auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
             }
@@ -780,7 +778,7 @@ private:
     }
 
     int agent_lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int state, int /*reason*/) noexcept {
-        if (auto* domain_name{virDomainGetName(dom)}) {
+        if (const auto* domain_name{virDomainGetName(dom)}) {
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;
             }

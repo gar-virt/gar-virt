@@ -108,7 +108,7 @@ void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) {
 }
 
 void string_trim_right(std::in_place_t, std::string& s, char c) {
-    return string_trim_right(std::in_place, s, std::set<char>{c});
+    string_trim_right(std::in_place, s, std::set<char>{c});
 }
 
 bool string_contains_ci(std::string_view needle, std::string_view haystack) {
@@ -118,8 +118,8 @@ bool string_contains_ci(std::string_view needle, std::string_view haystack) {
     if (haystack.empty()) {
         return false;
     }
-    const auto match{std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
-                                 [](auto a, auto b) { return std::toupper(a) == std::toupper(b); })};
+    const auto* const match{std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
+                                        [](auto a, auto b) { return std::toupper(a) == std::toupper(b); })};
     return match != haystack.end();
 }
 
@@ -220,15 +220,15 @@ std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(st
 }
 
 std::string string_replace(std::string_view input, std::string_view pattern, std::string_view replacement) {
-    auto left{input.begin()};
-    auto right{input.end()};
+    const auto* left{input.begin()};
+    const auto* right{input.end()};
     if (left == right) {
         return {};
     }
     std::string result;
     while (true) {
         auto leftPos{std::distance(input.begin(), left)};
-        auto found{std::search(left, right, pattern.begin(), pattern.end())};
+        const auto* found{std::search(left, right, pattern.begin(), pattern.end())};
         auto length{std::distance(left, found)};
         result += input.substr(leftPos, length);
         if (found >= right) {

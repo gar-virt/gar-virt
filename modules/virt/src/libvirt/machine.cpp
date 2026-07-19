@@ -15,7 +15,7 @@ add_command_output_redirection(const std::string& target_os, const std::vector<s
         cmd.emplace_back("sh");
         cmd.emplace_back("-c");
         cmd.emplace_back("exec \"$@\" >2&1");
-        for (auto& arg : args) {
+        for (const auto& arg : args) {
             cmd.emplace_back(arg);
         }
     } else if (utility::string_compare_ci(target_os, "windows") == 0) {
@@ -24,7 +24,7 @@ add_command_output_redirection(const std::string& target_os, const std::vector<s
         cmd.emplace_back("-NonInteractive");
         cmd.emplace_back("-Command");
         cmd.emplace_back("& @args 2>&1");
-        for (auto& arg : args) {
+        for (const auto& arg : args) {
             cmd.emplace_back(arg);
         }
     } else {

@@ -82,7 +82,7 @@ MachineTemplateConfig load_template(const YAML::Node& from) {
 }
 
 void load_templates_into(std::vector<MachineTemplateConfig>& to, const YAML::Node& from) {
-    for (auto& from_element : from) {
+    for (const auto& from_element : from) {
         to.push_back(load_template(from_element));
     }
 }
@@ -98,7 +98,7 @@ BackendConfig load_backend(const YAML::Node& from) {
 }
 
 void load_backends_into(std::vector<BackendConfig>& to, const YAML::Node& from) {
-    for (auto& from_element : from) {
+    for (const auto& from_element : from) {
         to.push_back(load_backend(from_element));
     }
 }
@@ -108,13 +108,17 @@ utility::LogLevel load_log_level(const YAML::Node& from) {
     const auto is{[&](std::string_view other) { return utility::string_compare_ci(level_name, other) == 0; }};
     if (is("none")) {
         return utility::LogLevel::none;
-    } else if (is("error")) {
+    }
+    if (is("error")) {
         return utility::LogLevel::error;
-    } else if (is("warn")) {
+    }
+    if (is("warn")) {
         return utility::LogLevel::warning;
-    } else if (is("info")) {
+    }
+    if (is("info")) {
         return utility::LogLevel::info;
-    } else if (is("debug")) {
+    }
+    if (is("debug")) {
         return utility::LogLevel::debug;
     }
     throw GenericError{std::format("Invalid log level: {}", level_name)};

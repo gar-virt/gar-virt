@@ -229,7 +229,7 @@ TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_conf
 
 TemplateState::~TemplateState() { machine_pool.stop(); }
 
-std::expected<::runner::v1::Task, GenericError> TemplateState::fetch_task(const gitea::Runner& runner) noexcept {
+std::expected<::runner::v1::Task, GenericError> TemplateState::fetch_task(const gitea::Runner& runner) const noexcept {
     using namespace std::literals;
     std::optional<::runner::v1::Task> task;
     while (!stop.is_signalled() && !task.has_value()) {
@@ -365,7 +365,7 @@ std::shared_ptr<TemplateState> TemplateState::create(
 
 size_t count_max_concurrency(const config::MainConfig& main_config) noexcept {
     size_t count{};
-    for (auto& backend_config : main_config.backends) {
+    for (const auto& backend_config : main_config.backends) {
         count += backend_config.templates.size();
     }
     return count;

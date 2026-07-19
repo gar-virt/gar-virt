@@ -31,10 +31,10 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
     std::uniform_int_distribution<uint8_t> dist{0, (sizeof(alphabet) / sizeof(alphabet[0])) - 1};
     for (int i{}; i < 3; ++i) {
         auto file_name{prefix_};
-        for (int j{}; j < 6; ++j) {
+        for (int j{}; j < 6; ++j) { // NOLINT(readability-magic-numbers)
             file_name += alphabet[dist(rng)];
         }
-        for (int j{}; j < 32 - 6; ++j) {
+        for (int j{}; j < 32 - 6; ++j) { // NOLINT(readability-magic-numbers
             file_name += alphabet[dist(rng)];
             const auto p{temp_dir / file_name};
             if (!exists(p)) {

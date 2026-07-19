@@ -1,0 +1,16 @@
+---
+Checks:
+  - -*
+  - readability-*
+  - -readability-convert-member-functions-to-static
+  - -readability-identifier-length
+  - -readability-isolate-declaration
+  - -readability-named-parameter
+FormatStyle: file
+HeaderFileExtensions: ["h", "hpp"]
+ImplementationFileExtensions: ["c", "cpp"]
+CheckOptions:
+  readability-implicit-bool-conversion.AllowPointerConditions: true
+SystemHeaders:   false
+WarningsAsErrors: ""
+...

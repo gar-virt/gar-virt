@@ -7,8 +7,8 @@ namespace ls_gitea_runner::utility {
 class ShutdownSignal {
 public:
     ShutdownSignal();
-    void signal() noexcept;
-    bool is_signalled() const noexcept;
+    void signal();
+    bool is_signalled() const;
     static ShutdownSignal install();
 
 private:

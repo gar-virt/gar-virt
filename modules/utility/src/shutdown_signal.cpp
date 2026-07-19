@@ -13,12 +13,12 @@ struct ShutdownSignal::State {
 
 ShutdownSignal::ShutdownSignal() : m_state{std::make_shared<State>()} {}
 
-void ShutdownSignal::signal() noexcept {
+void ShutdownSignal::signal() {
     std::scoped_lock lock{m_state->mutex};
     m_state->value = true;
 }
 
-bool ShutdownSignal::is_signalled() const noexcept {
+bool ShutdownSignal::is_signalled() const {
     std::scoped_lock lock{m_state->mutex};
     return m_state->value;
 }

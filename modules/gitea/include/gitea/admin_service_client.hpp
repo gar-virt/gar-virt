@@ -16,8 +16,8 @@ public:
     AdminServiceClient(const AdminServiceClient&) = delete;
     AdminServiceClient& operator=(const AdminServiceClient&) = delete;
 
-    std::expected<std::string, GenericError> get_registration_token() const noexcept;
-    std::expected<void, GenericError> remove_runner(uint64_t runner_id) const noexcept;
+    std::expected<std::string, GenericError> get_registration_token() const;
+    std::expected<void, GenericError> remove_runner(uint64_t runner_id) const;
 
 private:
     std::string m_token;

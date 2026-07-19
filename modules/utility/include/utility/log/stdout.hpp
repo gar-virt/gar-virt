@@ -9,7 +9,7 @@ public:
     StdOutLogger() noexcept;
 
 private:
-    void print_impl(const LogRequest& req) noexcept override;
+    void print_impl(const LogRequest& req) override;
 
     bool m_enable_color{};
 };

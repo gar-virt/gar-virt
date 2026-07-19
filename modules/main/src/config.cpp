@@ -25,7 +25,7 @@ std::vector<std::string> MachineTemplateConfig::get_label_names() const {
     return items;
 }
 
-std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::path& file_path) noexcept {
+std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::path& file_path) {
     try {
         std::ifstream is{file_path, std::ios_base::binary};
         return YAML::Load(is);
@@ -159,7 +159,7 @@ void MainConfig::resolve(const std::filesystem::path& base_dir) {
     forge.resolve(base_dir);
 }
 
-std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept {
+std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) {
     try {
         const auto base_dir{file_path.parent_path()};
         auto yaml_res{load_yaml_file(file_path)};

@@ -139,7 +139,7 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
 
 std::expected<std::unique_ptr<Machine>, GenericError>
 spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config, utility::ShutdownSignal stop) noexcept {
+              const config::MachineTemplateConfig& template_config, utility::ShutdownSignal stop) {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
@@ -193,7 +193,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 
 std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
                                                           const config::MachineTemplateConfig& config,
-                                                          Machine& machine) noexcept {
+                                                          Machine& machine) {
     using namespace std::literals;
     const auto id{task.id()};
 
@@ -229,7 +229,7 @@ TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_conf
 
 TemplateState::~TemplateState() { machine_pool.stop(); }
 
-std::expected<::runner::v1::Task, GenericError> TemplateState::fetch_task(const gitea::Runner& runner) const noexcept {
+std::expected<::runner::v1::Task, GenericError> TemplateState::fetch_task(const gitea::Runner& runner) const {
     using namespace std::literals;
     std::optional<::runner::v1::Task> task;
     while (!stop.is_signalled() && !task.has_value()) {
@@ -251,7 +251,7 @@ std::expected<::runner::v1::Task, GenericError> TemplateState::fetch_task(const 
     return *std::move(task);
 }
 
-std::expected<gitea::Runner, GenericError> TemplateState::create_runner(const Machine& machine) noexcept {
+std::expected<gitea::Runner, GenericError> TemplateState::create_runner(const Machine& machine) {
     return gitea::Runner::connect(
         {
             .forge_uri = main_config->forge.uri,
@@ -262,7 +262,7 @@ std::expected<gitea::Runner, GenericError> TemplateState::create_runner(const Ma
         admin_service);
 }
 
-void TemplateState::runner_loop() noexcept {
+void TemplateState::runner_loop() {
     while (!stop.is_signalled()) {
         if (auto res{runner_loop_iteration()}; !res) {
             global_logger().error("{}", res.error().what());
@@ -270,7 +270,7 @@ void TemplateState::runner_loop() noexcept {
     }
 }
 
-std::expected<void, GenericError> TemplateState::runner_loop_iteration() noexcept {
+std::expected<void, GenericError> TemplateState::runner_loop_iteration() {
     using namespace std::literals;
 
     // FIXME: configurable timeout
@@ -338,15 +338,15 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() noexcep
 }
 
 std::expected<std::optional<::runner::v1::Task>, GenericError>
-TemplateState::try_fetch_task(const gitea::Runner& runner) noexcept {
+TemplateState::try_fetch_task(const gitea::Runner& runner) {
     return runner.fetch_task().transform(
         [](auto res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }
 
 MachinePool TemplateState::create_pool() {
-    MachinePool machine_pool{
-        template_config->idle_target, template_config->max_concurrency,
-        [this] noexcept { return spawn_machine(*main_config, *backend_config, *template_config, stop); }, stop};
+    MachinePool machine_pool{template_config->idle_target, template_config->max_concurrency,
+                             [this] { return spawn_machine(*main_config, *backend_config, *template_config, stop); },
+                             stop};
     machine_pool.set_stats_callback([this](auto stats) noexcept {
         global_logger().debug("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
                               "acquired: {}; active: {}",

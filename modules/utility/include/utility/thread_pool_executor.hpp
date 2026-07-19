@@ -36,7 +36,7 @@ public:
 
     ~ThreadPoolExecutor() { stop(); }
 
-    void stop() noexcept {
+    void stop() {
         std::vector<std::jthread> threads;
         {
             Lock lock{m_mutex};
@@ -52,7 +52,7 @@ public:
         }
     }
 
-    void cancel() noexcept {
+    void cancel() {
         {
             Lock lock{m_mutex};
             m_cancel = true;

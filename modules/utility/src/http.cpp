@@ -107,7 +107,7 @@ HttpClient& HttpClient::operator=(HttpClient&& other) noexcept {
     return *this;
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const noexcept {
+std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const {
     for (const auto& req_middleware : m_req_middlewares) {
         if (!req_middleware(req)) {
             break;
@@ -174,8 +174,7 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     return HttpResponse{.status = utility::safe_cast_int<int>(status_code), .body = response_body};
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::post(std::string path,
-                                                           std::vector<std::byte> payload) const noexcept {
+std::expected<HttpResponse, GenericError> HttpClient::post(std::string path, std::vector<std::byte> payload) const {
     return send(HttpRequest{
         .method = HttpMethod::post,
         .path = std::move(path),
@@ -183,7 +182,7 @@ std::expected<HttpResponse, GenericError> HttpClient::post(std::string path,
     });
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::del(std::string path) const noexcept {
+std::expected<HttpResponse, GenericError> HttpClient::del(std::string path) const {
     return send(HttpRequest{
         .method = HttpMethod::del,
         .path = std::move(path),

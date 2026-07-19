@@ -43,10 +43,10 @@ public:
     HttpClient& operator=(const HttpClient& other) = delete;
     HttpClient& operator=(HttpClient&& other) noexcept;
 
-    std::expected<HttpResponse, GenericError> send(HttpRequest req) const noexcept;
+    std::expected<HttpResponse, GenericError> send(HttpRequest req) const;
 
-    std::expected<HttpResponse, GenericError> post(std::string path, std::vector<std::byte> payload) const noexcept;
-    std::expected<HttpResponse, GenericError> del(std::string path) const noexcept;
+    std::expected<HttpResponse, GenericError> post(std::string path, std::vector<std::byte> payload) const;
+    std::expected<HttpResponse, GenericError> del(std::string path) const;
 
     void add_request_middleware(HttpRequestMiddleware middleware);
 

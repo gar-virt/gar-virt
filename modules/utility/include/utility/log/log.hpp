@@ -28,13 +28,13 @@ class Logger {
 public:
     virtual ~Logger() = default;
 
-    constexpr Logger& set_level(LogLevel level) noexcept {
+    constexpr Logger& set_level(LogLevel level) {
         std::scoped_lock lock{*m_mutex};
         m_level = level;
         return *this;
     }
 
-    constexpr void set_capability(LogCapability cap, bool enable) noexcept {
+    constexpr void set_capability(LogCapability cap, bool enable) {
         std::scoped_lock lock{*m_mutex};
         switch (cap) {
         case LogCapability::log_thread:
@@ -80,7 +80,7 @@ public:
     }
 
 protected:
-    virtual void print_impl(const LogRequest& req) noexcept = 0;
+    virtual void print_impl(const LogRequest& req) = 0;
 
     static constexpr bool is_error_like(LogLevel level) noexcept {
         return level == LogLevel::error || level == LogLevel::warning;
@@ -92,25 +92,25 @@ private:
         m_line = {};
     }
 
-    template <typename... Args> constexpr void append(Args&&... args) noexcept { (append_part(args), ...); }
+    template <typename... Args> constexpr void append(Args&&... args) { (append_part(args), ...); }
 
-    template <typename T> constexpr void append_part(T&& part) noexcept { m_line.push_back(std::forward<T>(part)); }
+    template <typename T> constexpr void append_part(T&& part) { m_line.push_back(std::forward<T>(part)); }
 
-    void append_date() noexcept {
+    void append_date() {
         append(ansi::Color{240}, format_date_for_display(utc_to_local_date(utc_date())), ansi::Reset{});
     }
 
-    void append_level(LogLevel level) noexcept {
+    void append_level(LogLevel level) {
         append(" ", color_from_level(level), std::format("{:<5}", get_log_level_name(level)), ansi::Reset{});
     }
 
-    void append_thread() noexcept {
+    void append_thread() {
         if (m_log_thread) {
             append(" ", ansi::Color{240}, std::format("[{:>15}]", std::this_thread::get_id()), ansi::Reset{});
         }
     }
 
-    template <typename... Args> void append_message(std::format_string<Args...> format, Args&&... args) noexcept {
+    template <typename... Args> void append_message(std::format_string<Args...> format, Args&&... args) {
         append(std::format(" {}\n", std::format(format, std::forward<Args>(args)...)));
     }
 

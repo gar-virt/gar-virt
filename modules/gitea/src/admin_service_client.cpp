@@ -27,7 +27,7 @@ AdminServiceClient::AdminServiceClient(const std::string& instance_url, const st
 
 AdminServiceClient::~AdminServiceClient() = default;
 
-std::expected<std::string, GenericError> AdminServiceClient::get_registration_token() const noexcept {
+std::expected<std::string, GenericError> AdminServiceClient::get_registration_token() const {
     auto res{m_client.post("/actions/runners/registration-token", {})};
     if (!res) {
         return std::unexpected{res.error()};
@@ -46,7 +46,7 @@ std::expected<std::string, GenericError> AdminServiceClient::get_registration_to
     }
 }
 
-std::expected<void, GenericError> AdminServiceClient::remove_runner(uint64_t runner_id) const noexcept {
+std::expected<void, GenericError> AdminServiceClient::remove_runner(uint64_t runner_id) const {
     return m_client.del(std::format("/actions/runners/{}", runner_id)).transform([](auto) {});
 }
 

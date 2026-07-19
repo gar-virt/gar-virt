@@ -38,18 +38,17 @@ public:
     Machine(Machine&&) noexcept;
     Machine& operator=(Machine&&) noexcept;
 
-    std::string get_name() const noexcept;
-    std::expected<void, GenericError> wait() noexcept;
+    const std::string& get_name() const noexcept;
+    std::expected<void, GenericError> wait();
     std::expected<void, GenericError> wait_for_guest_agent();
 
-    std::expected<void, GenericError> write_file(const std::string& file_path,
-                                                 std::span<const std::byte> content) noexcept;
+    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content);
     std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
-                                                        const std::optional<std::chrono::seconds>& timeout) noexcept;
+                                                        const std::optional<std::chrono::seconds>& timeout);
 
-    std::expected<void, GenericError> resume() noexcept;
-    std::expected<void, GenericError> kill() noexcept;
-    std::expected<bool, GenericError> is_ready() const noexcept;
+    std::expected<void, GenericError> resume();
+    std::expected<void, GenericError> kill();
+    std::expected<bool, GenericError> is_ready() const;
 
 private:
     friend HypervisorImpl;
@@ -73,9 +72,9 @@ public:
     // std::expected<void, GenericError> run() noexcept;
     // void stop() noexcept;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options) noexcept;
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options);
 
-    static std::expected<Hypervisor, GenericError> connect(const std::string& uri) noexcept;
+    static std::expected<Hypervisor, GenericError> connect(const std::string& uri);
 
 private:
     std::unique_ptr<HypervisorImpl> m_impl;

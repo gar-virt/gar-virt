@@ -34,11 +34,11 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
 
 std::expected<std::unique_ptr<Machine>, GenericError>
 spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config) noexcept;
+              const config::MachineTemplateConfig& template_config);
 
 std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
                                                           const config::MachineTemplateConfig& config,
-                                                          Machine& machine) noexcept;
+                                                          Machine& machine);
 
 struct TemplateState {
     utility::ShutdownSignal stop;
@@ -59,16 +59,15 @@ struct TemplateState {
 
     ~TemplateState();
 
-    std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) const noexcept;
+    std::expected<::runner::v1::Task, GenericError> fetch_task(const gitea::Runner& runner) const;
 
-    std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine) noexcept;
+    std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine);
 
-    void runner_loop() noexcept;
+    void runner_loop();
 
-    std::expected<void, GenericError> runner_loop_iteration() noexcept;
+    std::expected<void, GenericError> runner_loop_iteration();
 
-    std::expected<std::optional<::runner::v1::Task>, GenericError> static try_fetch_task(
-        const gitea::Runner& runner) noexcept;
+    std::expected<std::optional<::runner::v1::Task>, GenericError> static try_fetch_task(const gitea::Runner& runner);
 
     MachinePool create_pool();
 

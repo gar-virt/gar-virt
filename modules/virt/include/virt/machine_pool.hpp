@@ -26,19 +26,18 @@ struct MachinePoolStats {
 
 class MachinePool final {
 public:
-    MachinePool(
-        size_t idle_target, size_t max_concurrency,
-        std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner,
-        utility::ShutdownSignal shutdown_signal);
+    MachinePool(size_t idle_target, size_t max_concurrency,
+                std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner,
+                utility::ShutdownSignal shutdown_signal);
     ~MachinePool();
     MachinePool(const MachinePool&) = delete;
     MachinePool(MachinePool&&);
     MachinePool& operator=(const MachinePool&) = delete;
     MachinePool& operator=(MachinePool&&);
-    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) noexcept;
-    void activate(std::shared_ptr<Machine> machine) noexcept;
-    void deactivate(std::shared_ptr<Machine> machine) noexcept;
-    void release(std::shared_ptr<Machine> machine) noexcept;
+    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout);
+    void activate(std::shared_ptr<Machine> machine);
+    void deactivate(std::shared_ptr<Machine> machine);
+    void release(std::shared_ptr<Machine> machine);
     void start();
     void stop();
     void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept;

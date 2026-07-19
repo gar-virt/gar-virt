@@ -71,7 +71,7 @@ std::u8string u8string_from_string(std::string_view from) {
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
-std::string_view string_trim_left(std::string_view s, std::set<char> chars) {
+std::string_view string_trim_left(std::string_view s, std::set<char> chars) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         if (!chars.contains(s[i])) {
             return s.substr(i, s.size() - i);
@@ -80,7 +80,7 @@ std::string_view string_trim_left(std::string_view s, std::set<char> chars) {
     return s;
 }
 
-std::string_view string_trim_right(std::string_view s, std::set<char> chars) {
+std::string_view string_trim_right(std::string_view s, std::set<char> chars) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         const auto j{s.size() - i};
         if (!chars.contains(s[j - 1])) {
@@ -90,11 +90,11 @@ std::string_view string_trim_right(std::string_view s, std::set<char> chars) {
     return s;
 }
 
-std::string_view string_trim(std::string_view s, std::set<char> chars) {
+std::string_view string_trim(std::string_view s, std::set<char> chars) noexcept {
     return string_trim_left(string_trim_right(s, chars), chars);
 }
 
-void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) {
+void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) noexcept {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
         if (!chars.contains(*it)) {
@@ -107,11 +107,11 @@ void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) {
     }
 }
 
-void string_trim_right(std::in_place_t, std::string& s, char c) {
+void string_trim_right(std::in_place_t, std::string& s, char c) noexcept {
     string_trim_right(std::in_place, s, std::set<char>{c});
 }
 
-bool string_contains_ci(std::string_view needle, std::string_view haystack) {
+bool string_contains_ci(std::string_view needle, std::string_view haystack) noexcept {
     if (needle.empty() && haystack.empty()) {
         return true;
     }
@@ -123,7 +123,7 @@ bool string_contains_ci(std::string_view needle, std::string_view haystack) {
     return match != haystack.end();
 }
 
-int string_compare_ci(std::string_view first, std::string_view second) {
+int string_compare_ci(std::string_view first, std::string_view second) noexcept {
     const auto length{std::min(first.size(), second.size())};
     for (size_t i{}; i < length; ++i) {
         const auto a{std::toupper(first[i])};
@@ -144,17 +144,17 @@ int string_compare_ci(std::string_view first, std::string_view second) {
     return 0;
 }
 
-bool string_compare_less_ci(std::string_view first, std::string_view second) {
+bool string_compare_less_ci(std::string_view first, std::string_view second) noexcept {
     return std::lexicographical_compare(first.begin(), first.end(), second.begin(), second.end(),
                                         [](auto a, auto b) { return std::toupper(a) < std::toupper(b); });
 }
 
-bool string_equals_ci(std::string_view first, std::string_view second) {
+bool string_equals_ci(std::string_view first, std::string_view second) noexcept {
     return std::equal(first.begin(), first.end(), second.begin(), second.end(),
                       [](auto a, auto b) { return std::toupper(a) == std::toupper(b); });
 }
 
-bool string_starts_with(std::string_view haystack, std::string_view needle) {
+bool string_starts_with(std::string_view haystack, std::string_view needle) noexcept {
     if (haystack.size() < needle.size()) {
         return false;
     }
@@ -169,7 +169,7 @@ bool string_starts_with(std::string_view haystack, std::string_view needle) {
     return true;
 }
 
-bool string_ends_with(std::string_view haystack, std::string_view needle) {
+bool string_ends_with(std::string_view haystack, std::string_view needle) noexcept {
     if (haystack.size() < needle.size()) {
         return false;
     }

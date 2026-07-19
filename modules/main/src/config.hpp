@@ -62,6 +62,6 @@ struct MainConfig {
     void resolve(const std::filesystem::path& base_dir);
 };
 
-std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) noexcept;
+std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path);
 
 } // namespace ls_gitea_runner::config

@@ -29,7 +29,7 @@ std::expected<Arch::Type, GenericError> Arch::from_name(std::string_view name) n
     return std::unexpected{GenericError{std::format("Unsupported arch: {}", name)}};
 }
 
-std::string Arch::to_name(Arch::Type value) noexcept {
+std::string Arch::to_name(Arch::Type value) {
     switch (value) {
     case Arch::amd64:
         return "amd64;";

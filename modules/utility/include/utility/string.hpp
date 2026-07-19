@@ -26,11 +26,11 @@ std::u8string u8string_from_string(const std::string& from);
 std::u8string u8string_from_string(std::string_view from);
 std::string string_from_u8string(const std::u8string& from);
 std::string string_from_u8string(std::u8string_view from);
-std::string_view string_trim_left(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-std::string_view string_trim_right(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-std::string_view string_trim(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '});
-void string_trim_right(std::in_place_t, std::string& s, char c);
+std::string_view string_trim_left(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+std::string_view string_trim_right(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+std::string_view string_trim(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+void string_trim_right(std::in_place_t, std::string& s, char c) noexcept;
 
 template <typename Container>
     requires(!std::is_convertible_v<Container, std::string_view>)
@@ -61,12 +61,12 @@ std::string string_join(std::string_view glue, Ts&... pieces) {
     return joined;
 }
 
-bool string_contains_ci(std::string_view needle, std::string_view haystack);
-int string_compare_ci(std::string_view first, std::string_view second);
-bool string_compare_less_ci(std::string_view first, std::string_view second);
-bool string_equals_ci(std::string_view first, std::string_view second);
-bool string_starts_with(std::string_view haystack, std::string_view needle);
-bool string_ends_with(std::string_view haystack, std::string_view needle);
+bool string_contains_ci(std::string_view needle, std::string_view haystack) noexcept;
+int string_compare_ci(std::string_view first, std::string_view second) noexcept;
+bool string_compare_less_ci(std::string_view first, std::string_view second) noexcept;
+bool string_equals_ci(std::string_view first, std::string_view second) noexcept;
+bool string_starts_with(std::string_view haystack, std::string_view needle) noexcept;
+bool string_ends_with(std::string_view haystack, std::string_view needle) noexcept;
 void string_split(std::string_view input, char separator, std::function<void(std::string_view token)> cb);
 std::vector<std::string> string_split(std::string_view input, char separator);
 std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(std::string_view input, char separator);

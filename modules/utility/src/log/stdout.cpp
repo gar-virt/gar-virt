@@ -10,9 +10,9 @@ namespace {
 
 struct PrintVisitor {
     constexpr PrintVisitor(std::ostream* os) : os{os} {}
-    constexpr void operator()(const ansi::Sequence& /*seq*/) const noexcept {}
+    constexpr void operator()(const ansi::Sequence& /*seq*/) const {}
 
-    constexpr void operator()(const std::string& s) const noexcept {
+    constexpr void operator()(const std::string& s) const {
         os->write(s.data(), safe_cast_int<std::streamsize>(s.size()));
     }
 
@@ -21,9 +21,9 @@ struct PrintVisitor {
 
 struct ColorPrintVisitor {
     constexpr ColorPrintVisitor(std::ostream* os) : os{os} {}
-    constexpr void operator()(const ansi::Sequence& seq) const noexcept { ansi::write_escape_sequence(*os, seq); }
+    constexpr void operator()(const ansi::Sequence& seq) const { ansi::write_escape_sequence(*os, seq); }
 
-    constexpr void operator()(const std::string& s) const noexcept {
+    constexpr void operator()(const std::string& s) const {
         os->write(s.data(), safe_cast_int<std::streamsize>(s.size()));
     }
 
@@ -34,7 +34,7 @@ struct ColorPrintVisitor {
 
 StdOutLogger::StdOutLogger() noexcept : m_enable_color{ansi::is_color_supported()} {}
 
-void StdOutLogger::print_impl(const LogRequest& req) noexcept {
+void StdOutLogger::print_impl(const LogRequest& req) {
     std::ostream* file{is_error_like(req.level) ? &std::cerr : &std::cout};
     if (m_enable_color) {
         for (const auto& part : req.line) {

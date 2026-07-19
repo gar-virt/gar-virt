@@ -15,7 +15,7 @@
 namespace ls_gitea_runner::gitea {
 
 std::expected<::ping::v1::PingResponse, GenericError> ping_internal(const gitea::GiteaRunnerServiceClient& client,
-                                                                    const RunnerOptions& options) noexcept {
+                                                                    const RunnerOptions& options) {
     auto ping_request{::ping::v1::PingRequest{}};
     ping_request.set_data(options.name);
     auto ping_response{client.ping(ping_request)};
@@ -27,7 +27,7 @@ std::expected<::ping::v1::PingResponse, GenericError> ping_internal(const gitea:
 
 std::expected<::runner::v1::RegisterResponse, GenericError>
 register_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOptions& options,
-                  const std::string& reg_token) noexcept {
+                  const std::string& reg_token) {
     auto reqister_request{::runner::v1::RegisterRequest{}};
     reqister_request.set_name(options.name);
     reqister_request.set_token(reg_token);
@@ -45,7 +45,7 @@ register_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOpt
 }
 
 std::expected<::runner::v1::DeclareResponse, GenericError>
-declare_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOptions& options) noexcept {
+declare_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOptions& options) {
     auto declare_request{::runner::v1::DeclareRequest{}};
     declare_request.set_version(options.version);
     for (auto& label : options.get_label_names()) {
@@ -60,7 +60,7 @@ declare_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOpti
 }
 
 std::expected<::runner::v1::FetchTaskResponse, GenericError>
-fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) noexcept {
+fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
     auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
     auto fetch_task_response = client.fetch_task(fetch_task_request);
     if (!fetch_task_response) {
@@ -106,7 +106,7 @@ Runner& Runner::operator=(Runner&& other) noexcept {
 }
 
 std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options,
-                                                    std::shared_ptr<gitea::AdminServiceClient> admin) noexcept {
+                                                    std::shared_ptr<gitea::AdminServiceClient> admin) {
     const auto reg_token(admin->get_registration_token());
     if (!reg_token) {
         return std::unexpected{reg_token.error()};
@@ -139,7 +139,7 @@ std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options
                   std::move(client), std::move(admin)};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() const noexcept {
+std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() const {
     return fetch_task_internal(*m_client);
 }
 

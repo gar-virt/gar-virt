@@ -35,7 +35,7 @@ class MachinePool::Impl final {
 
 public:
     Impl(size_t idle_target, size_t max_concurrency,
-         std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner,
+         std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner,
          utility::ShutdownSignal shutdown_signal)
             : m_shutdown_signal{std::move(shutdown_signal)}, m_idle_target{idle_target},
               m_max_concurrency{max_concurrency}, m_machine_spawner{std::move(machine_spawner)},
@@ -49,7 +49,7 @@ public:
     Impl& operator=(const Impl&) = delete;
     Impl& operator=(Impl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) noexcept {
+    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) {
         using namespace std::chrono_literals;
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.acquiring;
@@ -80,7 +80,7 @@ public:
         return std::unexpected{GenericError{"Timed out while acquiring machine"}};
     }
 
-    void activate(std::shared_ptr<Machine> /*machine*/) noexcept {
+    void activate(std::shared_ptr<Machine> /*machine*/) {
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.active;
         check_stats(lock);
@@ -88,12 +88,12 @@ public:
         m_control_cv.notify_one();
     }
 
-    void deactivate(std::shared_ptr<Machine> machine) noexcept {
+    void deactivate(std::shared_ptr<Machine> machine) {
         std::unique_lock lock{m_mutex};
         deactivate_internal(machine);
     }
 
-    void release(std::shared_ptr<Machine> machine) noexcept {
+    void release(std::shared_ptr<Machine> machine) {
         machine.reset();
         std::unique_lock lock{m_mutex};
         --m_machine_counters.acquired;
@@ -107,7 +107,7 @@ public:
         m_control_worker = std::jthread{[this] { control_loop(); }};
     }
 
-    void stop() noexcept {
+    void stop() {
         {
             std::unique_lock lock{m_mutex};
             stop_internal(lock);
@@ -118,13 +118,13 @@ public:
         m_workers.stop();
     }
 
-    void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept {
+    void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) {
         std::scoped_lock lock{m_mutex};
         m_stats_cb = std::move(cb);
     }
 
 private:
-    void control_loop() noexcept {
+    void control_loop() {
         using namespace std::chrono_literals;
         size_t fail_count{};
         while (true) {
@@ -157,7 +157,7 @@ private:
 
     void deactivate_internal(std::shared_ptr<Machine> /*machine*/) noexcept { --m_machine_counters.active; }
 
-    void stop_internal(std::unique_lock<std::mutex>& acquired_lock) noexcept {
+    void stop_internal(std::unique_lock<std::mutex>& acquired_lock) {
         auto notify{[&] {
             acquired_lock.unlock();
             m_idle_cv.notify_all();
@@ -215,7 +215,7 @@ private:
         return m_machine_counters.acquired + m_idle_machines.size() + m_machine_counters.warming;
     }
 
-    void check_stats(std::unique_lock<std::mutex>& acquired_lock) noexcept {
+    void check_stats(std::unique_lock<std::mutex>& acquired_lock) {
         const MachinePoolStats temp_stats{
             .provisioned = get_provisioned_count(),
             .acquiring = m_machine_counters.acquiring,
@@ -231,7 +231,7 @@ private:
         report_stats(acquired_lock);
     }
 
-    void report_stats(std::unique_lock<std::mutex>& acquired_lock) noexcept {
+    void report_stats(std::unique_lock<std::mutex>& acquired_lock) {
         if (!m_stats_cb) {
             return;
         }
@@ -245,7 +245,7 @@ private:
         acquired_lock.lock();
     }
 
-    bool should_stop() const noexcept { return m_stop || m_shutdown_signal.is_signalled(); }
+    bool should_stop() const { return m_stop || m_shutdown_signal.is_signalled(); }
 
     utility::ShutdownSignal m_shutdown_signal;
     size_t m_idle_target{};
@@ -258,14 +258,14 @@ private:
     std::condition_variable m_control_cv;
     MachinePoolStats m_stats;
     std::move_only_function<void(MachinePoolStats) noexcept> m_stats_cb;
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> m_machine_spawner;
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> m_machine_spawner;
     utility::ThreadPoolExecutor m_workers;
     std::jthread m_control_worker;
 };
 
 MachinePool::MachinePool(
     size_t idle_target, size_t max_concurrency,
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>() noexcept> machine_spawner,
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner,
     utility::ShutdownSignal shutdown_signal)
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner),
                                         std::move(shutdown_signal))} {}
@@ -276,13 +276,13 @@ MachinePool::MachinePool(MachinePool&&) = default;
 
 MachinePool& MachinePool::operator=(MachinePool&&) = default;
 
-std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::chrono::milliseconds timeout) noexcept {
+std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::chrono::milliseconds timeout) {
     return m_impl->acquire(timeout);
 }
 
-void MachinePool::activate(std::shared_ptr<Machine> machine) noexcept { m_impl->activate(std::move(machine)); }
-void MachinePool::deactivate(std::shared_ptr<Machine> machine) noexcept { m_impl->deactivate(std::move(machine)); }
-void MachinePool::release(std::shared_ptr<Machine> machine) noexcept { m_impl->release(std::move(machine)); }
+void MachinePool::activate(std::shared_ptr<Machine> machine) { m_impl->activate(std::move(machine)); }
+void MachinePool::deactivate(std::shared_ptr<Machine> machine) { m_impl->deactivate(std::move(machine)); }
+void MachinePool::release(std::shared_ptr<Machine> machine) { m_impl->release(std::move(machine)); }
 void MachinePool::start() { m_impl->start(); }
 void MachinePool::stop() { m_impl->stop(); }
 

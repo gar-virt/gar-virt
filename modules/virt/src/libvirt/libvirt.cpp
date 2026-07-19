@@ -70,7 +70,7 @@ std::string expand_libvirt_xml_template(std::string_view xml,
     return result;
 }
 
-std::string format_libvirt_error(virErrorPtr err) noexcept {
+std::string format_libvirt_error(virErrorPtr err) {
     if (!err) {
         return {};
     }
@@ -83,7 +83,7 @@ std::string format_libvirt_error(virErrorPtr err) noexcept {
     return details;
 }
 
-std::string get_formatter_last_libvirt_error() noexcept {
+std::string get_formatter_last_libvirt_error() {
     if (auto* err{virGetLastError()}) {
         return format_libvirt_error(err);
     }
@@ -109,7 +109,7 @@ public:
     ConnectionImpl(ConnectionImpl&&) noexcept = default;
     ConnectionImpl& operator=(ConnectionImpl&&) noexcept = default;
 
-    std::expected<virConnectPtr, GenericError> get() noexcept {
+    std::expected<virConnectPtr, GenericError> get() {
         std::scoped_lock lock{*m_mutex};
         if (m_conn) {
             return m_conn.get();
@@ -123,7 +123,7 @@ public:
     }
 
 private:
-    static std::expected<ConnectPtr, GenericError> connect(const std::string& uri) noexcept {
+    static std::expected<ConnectPtr, GenericError> connect(const std::string& uri) {
         ConnectPtr conn{virConnectOpen(uri.c_str())};
         if (!conn) {
             return std::unexpected{GenericError{"Failed to connect to hypervisor"}};
@@ -177,9 +177,9 @@ public:
     MachineImpl& operator=(const MachineImpl&) = delete;
     MachineImpl& operator=(MachineImpl&&) = delete;
 
-    std::string get_name() const noexcept { return m_domain_name; }
+    const std::string& get_name() const noexcept { return m_domain_name; }
 
-    std::expected<StorageVolPtr, GenericError> get_volume() noexcept {
+    std::expected<StorageVolPtr, GenericError> get_volume() {
         return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<StorageVolPtr, GenericError> {
             if (auto volume_ptr{virStorageVolLookupByKey(conn_ptr, m_volume_id.c_str())}) {
                 return StorageVolPtr{volume_ptr};
@@ -188,7 +188,7 @@ public:
         });
     }
 
-    std::expected<DomainPtr, GenericError> get_domain() noexcept {
+    std::expected<DomainPtr, GenericError> get_domain() {
         return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<DomainPtr, GenericError> {
             if (auto volume_ptr{virDomainLookupByName(conn_ptr, m_domain_name.c_str())}) {
                 return DomainPtr{volume_ptr};
@@ -197,13 +197,13 @@ public:
         });
     }
 
-    std::expected<void, GenericError> wait() noexcept {
+    std::expected<void, GenericError> wait() {
         std::unique_lock lock{m_mutex};
         m_cv.wait(lock, [&] -> bool { return m_quit; });
         return {};
     }
 
-    std::expected<void, GenericError> wait_for_guest_agent() noexcept {
+    std::expected<void, GenericError> wait_for_guest_agent() {
         std::unique_lock lock{m_mutex};
         if (m_ready) {
             return {};
@@ -234,7 +234,7 @@ public:
         });
     }
 
-    std::expected<bool, GenericError> is_ready() const noexcept {
+    std::expected<bool, GenericError> is_ready() const {
         if (m_quit) {
             return std::unexpected{GenericError{std::format("Domain \"{}\" has decayed.", m_domain_name)}};
         }
@@ -314,7 +314,7 @@ public:
     }
 
     std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
-                                                        const std::optional<std::chrono::seconds>& timeout) noexcept {
+                                                        const std::optional<std::chrono::seconds>& timeout) {
         using namespace std::chrono_literals;
         if (timeout && *timeout < 1s) {
             return std::unexpected{GenericError{"Timeout must be >= 1s"}};
@@ -422,23 +422,23 @@ Machine::~Machine() = default;
 Machine::Machine(Machine&&) noexcept = default;
 Machine& Machine::operator=(Machine&&) noexcept = default;
 
-std::string Machine::get_name() const noexcept { return m_impl->get_name(); }
+const std::string& Machine::get_name() const noexcept { return m_impl->get_name(); }
 
-std::expected<void, GenericError> Machine::wait() noexcept { return m_impl->wait(); }
+std::expected<void, GenericError> Machine::wait() { return m_impl->wait(); }
 
 std::expected<void, GenericError> Machine::write_file(const std::string& file_path,
-                                                      std::span<const std::byte> content) noexcept {
+                                                      std::span<const std::byte> content) {
     return m_impl->write_file(file_path, std::move(content));
 }
 
-std::expected<SpawnResult, GenericError>
-Machine::shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) noexcept {
+std::expected<SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
+                                                             const std::optional<std::chrono::seconds>& timeout) {
     return m_impl->shell_exec(cmd, std::move(timeout));
 }
 
-std::expected<void, GenericError> Machine::resume() noexcept { return m_impl->resume(); }
-std::expected<void, GenericError> Machine::kill() noexcept { return m_impl->kill(); }
-std::expected<bool, GenericError> Machine::is_ready() const noexcept { return m_impl->is_ready(); }
+std::expected<void, GenericError> Machine::resume() { return m_impl->resume(); }
+std::expected<void, GenericError> Machine::kill() { return m_impl->kill(); }
+std::expected<bool, GenericError> Machine::is_ready() const { return m_impl->is_ready(); }
 
 void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
 void Machine::notify_ready() { m_impl->notify_ready(); }
@@ -466,7 +466,7 @@ public:
     EventLoopImpl& operator=(const EventLoopImpl&) = delete;
     EventLoopImpl& operator=(EventLoopImpl&&) = delete;
 
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() noexcept {
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() {
         // Use weak pointer to allow the shared instance to be deleted sooner than app termination
         static std::weak_ptr<EventLoopImpl> weak_instance;
         static std::mutex m;
@@ -482,7 +482,7 @@ public:
     }
 
 private:
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() noexcept {
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
             virInitialize();
@@ -509,7 +509,7 @@ private:
         return impl;
     }
 
-    std::expected<void, GenericError> start() noexcept {
+    std::expected<void, GenericError> start() {
         {
             std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::starting;
@@ -540,7 +540,7 @@ private:
         }
     }
 
-    void run_loop() noexcept {
+    void run_loop() {
         {
             std::scoped_lock lock{m_run_loop_state_mutex};
             if (m_run_loop_state != RunLoopState::starting) {
@@ -567,7 +567,7 @@ private:
         m_stop_cv.notify_all();
     }
 
-    void stop_loop() noexcept {
+    void stop_loop() {
         using namespace std::chrono_literals;
         {
             std::unique_lock lock{m_run_loop_state_mutex};
@@ -602,7 +602,7 @@ public:
     HypervisorImpl& operator=(const HypervisorImpl&) = delete;
     HypervisorImpl& operator=(HypervisorImpl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options) noexcept {
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options) {
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -667,7 +667,7 @@ public:
         return machine;
     }
 
-    static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) noexcept {
+    static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) {
         auto loop_res{EventLoopImpl::get()};
         if (!loop_res) {
             return std::unexpected{loop_res.error()};
@@ -690,7 +690,7 @@ public:
 
 private:
     std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
-                                                             const std::string& pool_name) noexcept {
+                                                             const std::string& pool_name) {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{std::move(conn_res).error()};
@@ -755,7 +755,7 @@ private:
         return {};
     }
 
-    void unregister_event_handlers() noexcept {
+    void unregister_event_handlers() {
         for (auto it{m_event_handler_ids.rbegin()}; it != m_event_handler_ids.rend(); ++it) {
             if (auto conn{m_conn->get()}) {
                 virConnectDomainEventDeregisterAny(*conn, *it);
@@ -763,7 +763,7 @@ private:
         }
     }
 
-    int lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int event, int /*detail*/) noexcept {
+    int lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int event, int /*detail*/) {
         if (const auto* domain_name{virDomainGetName(dom)}) {
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
@@ -777,7 +777,7 @@ private:
         return 0;
     }
 
-    int agent_lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int state, int /*reason*/) noexcept {
+    int agent_lifecycle_event_handler(virConnectPtr /*conn*/, virDomainPtr dom, int state, int /*reason*/) {
         if (const auto* domain_name{virDomainGetName(dom)}) {
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;
@@ -790,7 +790,7 @@ private:
         return 0;
     }
 
-    std::shared_ptr<Machine> find_tracked_machine_by_name(const std::string& name) const noexcept {
+    std::shared_ptr<Machine> find_tracked_machine_by_name(const std::string& name) const {
         auto found{m_machine_by_domain_name.find(name)};
         if (found != m_machine_by_domain_name.end()) {
             return found->second;
@@ -810,11 +810,11 @@ Hypervisor::~Hypervisor() = default;
 Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
 Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(SpawnOptions options) noexcept {
+std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(SpawnOptions options) {
     return m_impl->spawn(std::move(options));
 }
 
-std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) noexcept {
+std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) {
     return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
 }
 

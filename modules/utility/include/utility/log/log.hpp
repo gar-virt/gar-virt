@@ -29,13 +29,13 @@ class Logger {
 public:
     virtual ~Logger() = default;
 
-    constexpr Logger& set_level(LogLevel level) {
+    Logger& set_level(LogLevel level) {
         std::scoped_lock lock{*m_mutex};
         m_level = level;
         return *this;
     }
 
-    constexpr void set_capability(LogCapability cap, bool enable) {
+    void set_capability(LogCapability cap, bool enable) {
         std::scoped_lock lock{*m_mutex};
         switch (cap) {
         case LogCapability::log_thread:

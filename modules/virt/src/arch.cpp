@@ -2,6 +2,7 @@
 
 #include <utility/string.hpp>
 
+#include <cstdlib>
 #include <expected>
 #include <format>
 #include <string>

@@ -2,8 +2,8 @@
 
 #include "level.hpp"
 
+#include <cstdlib>
 #include <string_view>
-#include <utility>
 
 namespace ls_gitea_runner::utility {
 
@@ -28,7 +28,7 @@ constexpr std::string_view get_log_level_name(LogLevel level) noexcept {
     case LogLevel::debug:
         return "DEBUG";
     }
-    std::unreachable();
+    std::abort();
 }
 
 } // namespace ls_gitea_runner::utility

@@ -4,6 +4,7 @@
 #include <utility/log/ansi.hpp>
 #include <utility/log/level.hpp>
 
+#include <cstdlib>
 #include <format>
 #include <memory>
 #include <mutex>
@@ -131,7 +132,7 @@ private:
         case LogLevel::debug:
             return {14}; // cyan
         }
-        std::unreachable();
+        std::abort();
     }
 
     static constexpr bool always_flush{

@@ -2,6 +2,7 @@
 
 #include <utility/algorithm.hpp>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -42,6 +43,7 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
             }
         }
     }
+    // TODO: Throw instead of aborting
     std::abort();
 }
 

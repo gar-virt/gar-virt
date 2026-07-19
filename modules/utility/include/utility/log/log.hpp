@@ -61,7 +61,7 @@ public:
             append_level(level);
             append_message(std::move(format), std::forward<Args>(args)...);
             flush(level);
-        } catch (...) {
+        } catch (...) { // NOLINT(bugprone-empty-catch)
             // Ignore
         }
 

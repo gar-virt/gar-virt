@@ -239,7 +239,7 @@ private:
         acquired_lock.unlock();
         try {
             m_stats_cb(std::move(snapshot));
-        } catch (...) {
+        } catch (...) { // NOLINT(bugprone-empty-catch)
             // Ignore exceptions in callback
         }
         acquired_lock.lock();

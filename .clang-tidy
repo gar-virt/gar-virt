@@ -1,7 +1,10 @@
 ---
 Checks:
   - -*
+  - bugprone-*
   - readability-*
+  # Suppressions
+  - -bugprone-easily-swappable-parameters
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration

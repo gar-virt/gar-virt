@@ -110,7 +110,7 @@ private:
             lock.unlock();
             try {
                 task();
-            } catch (...) {
+            } catch (...) { // NOLINT(bugprone-empty-catch)
                 // Ignore
             }
             lock.lock();

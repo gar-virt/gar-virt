@@ -5,6 +5,7 @@ Checks:
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration
+  - -readability-magic-numbers
   - -readability-named-parameter
 FormatStyle: file
 HeaderFileExtensions: ["h", "hpp"]

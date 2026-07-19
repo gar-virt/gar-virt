@@ -45,20 +45,24 @@ public:
 
     template <typename... Args>
     Logger& log(LogLevel level, std::format_string<Args...> format, Args&&... args) noexcept {
-        std::scoped_lock lock{*m_mutex};
+        try {
+            std::scoped_lock lock{*m_mutex};
 
-        const auto level_int{std::to_underlying(level)};
-        const auto current_level_int{std::to_underlying(m_level)};
+            const auto level_int{std::to_underlying(level)};
+            const auto current_level_int{std::to_underlying(m_level)};
 
-        if (current_level_int < level_int) {
-            return *this;
+            if (current_level_int < level_int) {
+                return *this;
+            }
+
+            append_date();
+            append_thread();
+            append_level(level);
+            append_message(std::move(format), std::forward<Args>(args)...);
+            flush(level);
+        } catch (...) {
+            // Ignore
         }
-
-        append_date();
-        append_thread();
-        append_level(level);
-        append_message(std::move(format), std::forward<Args>(args)...);
-        flush(level);
 
         return *this;
     }

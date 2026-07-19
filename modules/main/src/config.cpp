@@ -136,7 +136,7 @@ void ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
         return;
     }
     if (source == "env") {
-        resolved_token = utility::getenv(value).value();
+        resolved_token = utility::getenv(value).value_or("");
         return;
     }
     if (source == "file") {

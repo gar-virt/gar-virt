@@ -1,5 +1,7 @@
 #include <gitea/admin_service_client.hpp>
 
+#include <utility/algorithm.hpp>
+
 #include <boost/json.hpp>
 
 #include <format>
@@ -33,7 +35,10 @@ std::expected<std::string, GenericError> AdminServiceClient::get_registration_to
     try {
         const auto j{boost::json::parse(
                          std::string_view{reinterpret_cast<const char*>(res->body.data()),
-                                          reinterpret_cast<const char*>(std::next(res->body.data(), res->body.size()))})
+                                          reinterpret_cast<const char*>(std::next(
+                                              res->body.data(),
+                                              utility::safe_cast_int<typename std::iterator_traits<
+                                                  std::string::const_iterator>::difference_type>(res->body.size())))})
                          .as_object()};
         return std::string{j.at("token").as_string()};
     } catch (const std::exception& ex) {

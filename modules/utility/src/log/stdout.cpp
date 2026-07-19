@@ -1,5 +1,6 @@
 #include <utility/log/stdout.hpp>
 
+#include <utility/algorithm.hpp>
 #include <utility/log/ansi.hpp>
 
 #include <iostream>
@@ -10,7 +11,10 @@ namespace {
 struct PrintVisitor {
     constexpr PrintVisitor(std::ostream* os) : os{os} {}
     constexpr void operator()(const ansi::Sequence& /*seq*/) const noexcept {}
-    constexpr void operator()(const std::string& s) const noexcept { os->write(s.data(), s.size()); }
+
+    constexpr void operator()(const std::string& s) const noexcept {
+        os->write(s.data(), safe_cast_int<std::streamsize>(s.size()));
+    }
 
     std::ostream* os{};
 };
@@ -18,7 +22,10 @@ struct PrintVisitor {
 struct ColorPrintVisitor {
     constexpr ColorPrintVisitor(std::ostream* os) : os{os} {}
     constexpr void operator()(const ansi::Sequence& seq) const noexcept { ansi::write_escape_sequence(*os, seq); }
-    constexpr void operator()(const std::string& s) const noexcept { os->write(s.data(), s.size()); }
+
+    constexpr void operator()(const std::string& s) const noexcept {
+        os->write(s.data(), safe_cast_int<std::streamsize>(s.size()));
+    }
 
     std::ostream* os{};
 };

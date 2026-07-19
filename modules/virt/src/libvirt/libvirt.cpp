@@ -691,9 +691,9 @@ public:
 private:
     std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
                                                              const std::string& pool_name) noexcept {
-        const auto conn_res{m_conn->get()};
+        auto conn_res{m_conn->get()};
         if (!conn_res) {
-            return std::unexpected{conn_res.error()};
+            return std::unexpected{std::move(conn_res).error()};
         }
         auto* conn{*conn_res};
 
@@ -716,10 +716,10 @@ private:
         return volume;
     }
 
-    std::expected<void, GenericError> register_event_handlers() noexcept {
-        const auto conn_res{m_conn->get()};
+    std::expected<void, GenericError> register_event_handlers() {
+        auto conn_res{m_conn->get()};
         if (!conn_res) {
-            return std::unexpected{conn_res.error()};
+            return std::unexpected{std::move(conn_res).error()};
         }
         auto* conn{*conn_res};
 

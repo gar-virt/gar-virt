@@ -287,7 +287,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() noexcep
     if (!machine) {
         // Timed out
         if (!stop.is_signalled()) {
-            global_logger().error("Timed out while acquiring machine from pool: {}", machine_res.error().what());
+            global_logger().error("Timed out while acquiring machine {} from pool", machine->get_id());
             std::this_thread::sleep_for(1s);
         }
         return {};

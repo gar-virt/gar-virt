@@ -2,6 +2,7 @@
 Checks:
   - -*
   - bugprone-*
+  - concurrency-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters

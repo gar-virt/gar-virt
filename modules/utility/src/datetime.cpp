@@ -5,9 +5,16 @@
 #include <cstdio>
 #include <ctime>
 #include <expected>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <time.h>
 
 namespace ls_gitea_runner::utility {
+namespace {
+constexpr std::string_view utc_date_time_format{"yyyy-mm-ddThh:mm:ssZ"};
+constexpr std::string_view local_date_time_format{"yyyy-mm-dd hh:mm:ss"};
+} // namespace
 
 std::tm utc_date() {
     auto time{std::time(nullptr)};
@@ -21,14 +28,17 @@ std::tm utc_date() {
 }
 
 std::string utc_date_string(const std::tm& time) {
-    char timeString[std::size("yyyy-mm-ddThh:mm:ssZ")]{};
-    std::strftime(std::data(timeString), std::size(timeString), "%FT%TZ", &time);
-    return timeString;
+    std::string result(utc_date_time_format.size(), '\0');
+    if (std::strftime(result.data(), result.size() + 1, "%FT%TZ", &time) == 0) {
+        throw std::runtime_error{"Failed to format date"};
+    }
+    return result;
 }
 
 std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& from) {
     std::tm time{};
     time.tm_isdst = -1;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     auto parsed{std::sscanf(from.c_str(), "%4d-%2d-%2dT%2d:%2d:%2dZ", &time.tm_year, &time.tm_mon, &time.tm_mday,
                             &time.tm_hour, &time.tm_min, &time.tm_sec)};
     constexpr static int expected_parts{6};
@@ -56,9 +66,11 @@ std::tm utc_to_local_date(const std::tm& from) {
 }
 
 std::string format_date_for_display(const std::tm& time) {
-    char timeString[std::size("yyyy-mm-dd hh:mm:ss")]{};
-    std::strftime(std::data(timeString), std::size(timeString), "%F %T", &time);
-    return timeString;
+    std::string result(local_date_time_format.size(), '\0');
+    if (std::strftime(result.data(), result.size() + 1, "%F %T", &time) == 0) {
+        throw std::runtime_error{"Failed to format date"};
+    }
+    return result;
 }
 
 } // namespace ls_gitea_runner::utility

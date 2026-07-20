@@ -201,8 +201,7 @@ private:
             std::unique_lock lock{m_mutex};
             --m_machine_counters.warming;
             if (machine_res) {
-                std::shared_ptr<Machine> machine{*std::move(machine_res)};
-                m_idle_machines.emplace(machine);
+                m_idle_machines.emplace(*std::move(machine_res));
             } else {
                 global_logger().error("Failed to spawn machine: {}", machine_res.error().what());
             }

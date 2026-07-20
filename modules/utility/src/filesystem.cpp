@@ -8,6 +8,7 @@
 #include <fstream>
 #include <optional>
 #include <random>
+#include <stdexcept>
 #include <string>
 
 namespace ls_gitea_runner::fs {
@@ -46,8 +47,7 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
             }
         }
     }
-    // TODO: Throw instead of aborting
-    std::abort();
+    throw std::runtime_error{"Failed to generate a non-existing temporary file path"};
 }
 
 void write_file(const std::filesystem::path& file_path, std::span<const std::byte> content) {

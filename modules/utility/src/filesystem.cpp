@@ -33,7 +33,9 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
     static constexpr int max_random_length{32};
     const auto prefix_{prefix.value_or("tmp.")};
     const auto temp_dir{base_dir.value_or(std::filesystem::temp_directory_path())};
+    // NOLINTNEXTLINE(misc-use-internal-linkage): False positive
     thread_local std::mt19937 rng{std::random_device{}()};
+    // NOLINTNEXTLINE(misc-use-internal-linkage): False positive
     thread_local std::uniform_int_distribution<uint8_t> dist{0, alphabet.size() - 1};
     for (int attempt{}; attempt < max_attempts; ++attempt) {
         auto file_name{prefix_};

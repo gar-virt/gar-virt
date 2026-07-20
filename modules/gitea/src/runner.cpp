@@ -13,6 +13,7 @@
 #include <string>
 
 namespace ls_gitea_runner::gitea {
+namespace {
 
 std::expected<::ping::v1::PingResponse, GenericError> ping_internal(const gitea::GiteaRunnerServiceClient& client,
                                                                     const RunnerOptions& options) {
@@ -69,6 +70,8 @@ fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
     }
     return *fetch_task_response;
 }
+
+} // namespace
 
 Runner::Runner(int64_t id, std::vector<std::string> labels, std::string forge_uri,
                gitea::GiteaRunnerCredentials credentials, std::shared_ptr<gitea::GiteaRunnerServiceClient> client,

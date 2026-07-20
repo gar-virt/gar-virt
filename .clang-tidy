@@ -4,9 +4,11 @@ Checks:
   - bugprone-*
   - concurrency-*
   - cppcoreguidelines-*
+  - misc-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters
+  - -misc-include-cleaner
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration
@@ -17,6 +19,7 @@ HeaderFileExtensions: ["h", "hpp"]
 ImplementationFileExtensions: ["c", "cpp"]
 CheckOptions:
   cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: true
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
   readability-implicit-bool-conversion.AllowPointerConditions: true
 SystemHeaders:   false
 WarningsAsErrors: ""

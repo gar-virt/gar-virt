@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
+    template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg);                      \
+    template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload);
+
 namespace ls_gitea_runner::gitea {
 
 template <typename T> std::expected<std::vector<std::byte>, GenericError> encode_payload(const T& msg) {
@@ -24,11 +29,6 @@ template <typename T> std::expected<T, GenericError> decode_payload(const std::v
     return msg;
 }
 
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
-    template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg);                      \
-    template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload);
-
 DECLARE_PAYLOAD_ENCODING_FN(::ping::v1::PingRequest)
 DECLARE_PAYLOAD_ENCODING_FN(::ping::v1::PingResponse)
 DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::DeclareRequest)
@@ -48,6 +48,8 @@ DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateLogResponse)
 DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskRequest)
 DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskResponse)
 
+namespace {
+
 template <typename Request, typename Response>
 std::expected<Response, GenericError> send_post_request(const utility::HttpClient& client, const std::string& path,
                                                         const Request& req) {
@@ -55,6 +57,8 @@ std::expected<Response, GenericError> send_post_request(const utility::HttpClien
         .and_then([&](auto payload) { return client.post(path, payload); })
         .and_then([](auto res) { return decode_payload<Response>(res.body); });
 }
+
+} // namespace
 
 GiteaRunnerServiceClient::GiteaRunnerServiceClient(const std::string& instance_url)
         : m_client{utility::http_path_join(instance_url, "/api/actions")} {

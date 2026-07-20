@@ -10,35 +10,8 @@
 
 #include <expected>
 #include <optional>
-#include <string>
-#include <string_view>
 
 namespace ls_gitea_runner {
-
-struct Injectables {
-    std::string runner_state_json;
-    std::string runner_config_yaml;
-    std::vector<std::byte> encoded_task;
-
-    static std::expected<Injectables, GenericError> generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                             const gitea::Runner& runner);
-};
-
-std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectables injectables);
-
-std::expected<std::vector<std::string>, GenericError> make_ping_command(const std::string& target_os,
-                                                                        const std::string& host);
-
-std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
-                                                                      std::chrono::seconds timeout);
-
-std::expected<std::unique_ptr<Machine>, GenericError>
-spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config);
-
-std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
-                                                          const config::MachineTemplateConfig& config,
-                                                          Machine& machine);
 
 struct TemplateState {
     utility::ShutdownSignal stop;

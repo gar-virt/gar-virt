@@ -22,19 +22,6 @@
 #include <libvirt/virterror.h>
 
 namespace ls_gitea_runner::libvirt {
-namespace {
-// Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
-constexpr auto GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(auto cb) noexcept {
-#if defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
-#endif
-    return VIR_DOMAIN_EVENT_CALLBACK(cb);
-#if defined(__clang__)
-    #pragma clang diagnostic pop
-#endif
-}
-} // namespace
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -60,6 +47,20 @@ using ConnectPtr = std::unique_ptr<virConnect, ConnectDeleter>;
 using StoragePoolPtr = std::unique_ptr<virStoragePool, StoragePoolDeleter>;
 using StorageVolPtr = std::unique_ptr<virStorageVol, StorageVolDeleter>;
 using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
+
+namespace {
+
+// Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
+constexpr auto GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(auto cb) noexcept {
+#if defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+#endif
+    return VIR_DOMAIN_EVENT_CALLBACK(cb);
+#if defined(__clang__)
+    #pragma clang diagnostic pop
+#endif
+}
 
 std::string expand_libvirt_xml_template(std::string_view xml,
                                         const std::unordered_map<std::string_view, std::string>& params) {
@@ -91,6 +92,8 @@ std::string get_formatter_last_libvirt_error() {
     return {};
 }
 
+} // namespace
+
 enum class RunLoopState { stopped, starting, running, stopping };
 
 class ConnectionImpl {
@@ -98,7 +101,7 @@ public:
     ConnectionImpl(std::string uri) noexcept : m_uri{std::move(uri)} {}
 
     ~ConnectionImpl() {
-        std::scoped_lock lock{*m_mutex};
+        const std::scoped_lock lock{*m_mutex};
         if (m_conn) {
             unregister_event_handlers();
         }
@@ -111,7 +114,7 @@ public:
     ConnectionImpl& operator=(ConnectionImpl&&) noexcept = default;
 
     std::expected<virConnectPtr, GenericError> get() {
-        std::scoped_lock lock{*m_mutex};
+        const std::scoped_lock lock{*m_mutex};
         if (m_conn) {
             return m_conn.get();
         }
@@ -149,7 +152,7 @@ private:
     }
 
     void close_event_handler(virConnectPtr /*conn*/, int /*reason*/) {
-        std::scoped_lock lock{*m_mutex};
+        const std::scoped_lock lock{*m_mutex};
         m_conn.reset();
     }
 
@@ -246,7 +249,7 @@ public:
         // TODO: timeouts
         std::optional<int> file_handle;
         std::optional<GenericError> error;
-        utility::Deferred file_closer{[&] {
+        const utility::Deferred file_closer{[&] {
             if (!file_handle) {
                 return;
             }
@@ -340,7 +343,7 @@ public:
                                                                        {"capture-output", "separated"},
                                                                    },
                                                                }})};
-            int qemu_timeout{timeout ? static_cast<int>(timeout->count()) : VIR_DOMAIN_QEMU_AGENT_COMMAND_BLOCK};
+            const int qemu_timeout{timeout ? static_cast<int>(timeout->count()) : VIR_DOMAIN_QEMU_AGENT_COMMAND_BLOCK};
             auto* res{virDomainQemuAgentCommand(domain->get(), req.c_str(), qemu_timeout, 0)};
             if (!res) {
                 return std::unexpected{
@@ -471,7 +474,7 @@ public:
         // Use weak pointer to allow the shared instance to be deleted sooner than app termination
         static std::weak_ptr<EventLoopImpl> weak_instance;
         static std::mutex m;
-        std::scoped_lock lock{m};
+        const std::scoped_lock lock{m};
         if (auto instance{weak_instance.lock()}) {
             return instance;
         }
@@ -512,14 +515,14 @@ private:
 
     std::expected<void, GenericError> start() {
         {
-            std::scoped_lock lock{m_run_loop_state_mutex};
+            const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::starting;
         }
         try {
             m_loop_thread = std::jthread{[this] { run_loop(); }};
             return {};
         } catch (const std::exception& ex) {
-            std::scoped_lock lock{m_run_loop_state_mutex};
+            const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::stopped;
             return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
         }
@@ -543,7 +546,7 @@ private:
 
     void run_loop() {
         {
-            std::scoped_lock lock{m_run_loop_state_mutex};
+            const std::scoped_lock lock{m_run_loop_state_mutex};
             if (m_run_loop_state != RunLoopState::starting) {
                 std::abort();
             }
@@ -552,7 +555,7 @@ private:
         m_start_cv.notify_all();
         while (true) {
             {
-                std::scoped_lock lock{m_run_loop_state_mutex};
+                const std::scoped_lock lock{m_run_loop_state_mutex};
                 if (m_run_loop_state != RunLoopState::running) {
                     break;
                 }
@@ -562,7 +565,7 @@ private:
             }
         }
         {
-            std::scoped_lock lock{m_run_loop_state_mutex};
+            const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::stopped;
         }
         m_stop_cv.notify_all();
@@ -612,7 +615,7 @@ public:
 
         const auto domain_name{utility::uuid()};
 
-        std::unordered_map<std::string_view, std::string> xml_template_params = {
+        const std::unordered_map<std::string_view, std::string> xml_template_params = {
             {"DOMAIN_NAME", domain_name},
         };
 
@@ -636,7 +639,7 @@ public:
         const auto domain_xml{expand_libvirt_xml_template(options.domain, xml_template_params)};
 
         auto domain_create_flags{VIR_DOMAIN_START_PAUSED | VIR_DOMAIN_START_RESET_NVRAM};
-        DomainPtr domain{virDomainCreateXML(conn, domain_xml.c_str(), domain_create_flags)};
+        const DomainPtr domain{virDomainCreateXML(conn, domain_xml.c_str(), domain_create_flags)};
         if (!domain) {
             return std::unexpected{GenericError{std::format("Failed to create domain \"{}\"", domain_name)}};
         }
@@ -653,7 +656,7 @@ public:
 
         std::shared_ptr<Machine> machine;
         {
-            std::scoped_lock lock{m_map_mutex};
+            const std::scoped_lock lock{m_map_mutex};
             auto machine_{m_machine_by_domain_name.emplace(
                 domain_name,
                 std::make_shared<Machine>(std::make_unique<MachineImpl>(m_conn, domain_name, *std::move(volume_id))))};
@@ -698,7 +701,7 @@ private:
         }
         auto* conn{*conn_res};
 
-        StoragePoolPtr pool{virStoragePoolLookupByName(conn, pool_name.c_str())};
+        const StoragePoolPtr pool{virStoragePoolLookupByName(conn, pool_name.c_str())};
         if (!pool) {
             return std::unexpected{GenericError{std::format("Failed to find storage pool by name \"{}\"", pool_name)}};
         }
@@ -769,7 +772,7 @@ private:
             if (event == VIR_DOMAIN_EVENT_STARTED || event == VIR_DOMAIN_EVENT_RESUMED) {
                 return 0;
             }
-            std::scoped_lock lock{m_map_mutex};
+            const std::scoped_lock lock{m_map_mutex};
             if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_bad_state();
                 m_machine_by_domain_name.erase(domain_name);
@@ -783,7 +786,7 @@ private:
             if (state != VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED) {
                 return 0;
             }
-            std::scoped_lock lock{m_map_mutex};
+            const std::scoped_lock lock{m_map_mutex};
             if (auto machine{find_tracked_machine_by_name(domain_name)}) {
                 machine->notify_ready();
             }

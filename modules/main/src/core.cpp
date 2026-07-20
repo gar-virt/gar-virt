@@ -26,38 +26,21 @@
 
 namespace ls_gitea_runner {
 
+struct Injectables {
+    std::string runner_state_json;
+    std::string runner_config_yaml;
+    std::vector<std::byte> encoded_task;
+
+    static std::expected<Injectables, GenericError> generate(const Machine& machine, const ::runner::v1::Task& task,
+                                                             const gitea::Runner& runner);
+};
+
+namespace {
+
 template <typename... Args>
 void log_select(utility::LogLevel true_level, utility::LogLevel false_level, bool cond,
                 std::format_string<Args...> format, Args&&... args) {
     global_logger().log(cond ? true_level : false_level, std::move(format), std::forward<Args>(args)...);
-}
-
-std::expected<Injectables, GenericError> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                               const gitea::Runner& runner) {
-    auto encode_payload{gitea::encode_payload(task)};
-    if (!encode_payload) {
-        return std::unexpected{encode_payload.error()};
-    }
-    boost::json::array labels;
-    for (auto label : runner.labels()) {
-        labels.emplace_back(label);
-    }
-    return Injectables{
-        .runner_state_json = boost::json::serialize(boost::json::object{
-            {"id", runner.id()},
-            {"uuid", runner.credentials().uuid},
-            {"token", runner.credentials().token},
-            {"address", runner.forge_uri()},
-            {"labels", labels},
-            {"ephemeral", true},
-        }),
-        // TODO: Allow user-provided Gitea Runner config
-        .runner_config_yaml = std::format(R"(runner:
-  file: {}
-)",
-                                          machine.make_temp_path(".runner")),
-        .encoded_task = *encode_payload,
-    };
 }
 
 std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectables injectables) {
@@ -211,6 +194,36 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
         });
 }
 
+} // namespace
+
+std::expected<Injectables, GenericError> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
+                                                               const gitea::Runner& runner) {
+    auto encode_payload{gitea::encode_payload(task)};
+    if (!encode_payload) {
+        return std::unexpected{encode_payload.error()};
+    }
+    boost::json::array labels;
+    for (auto label : runner.labels()) {
+        labels.emplace_back(label);
+    }
+    return Injectables{
+        .runner_state_json = boost::json::serialize(boost::json::object{
+            {"id", runner.id()},
+            {"uuid", runner.credentials().uuid},
+            {"token", runner.credentials().token},
+            {"address", runner.forge_uri()},
+            {"labels", labels},
+            {"ephemeral", true},
+        }),
+        // TODO: Allow user-provided Gitea Runner config
+        .runner_config_yaml = std::format(R"(runner:
+  file: {}
+)",
+                                          machine.make_temp_path(".runner")),
+        .encoded_task = *encode_payload,
+    };
+}
+
 TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_config,
                              std::shared_ptr<const config::BackendConfig> backend_config,
                              std::shared_ptr<const config::MachineTemplateConfig> template_config,
@@ -288,7 +301,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() {
         return {};
     }
 
-    utility::Deferred machine_releaser{[&] { machine_pool.release(machine); }};
+    const utility::Deferred machine_releaser{[&] { machine_pool.release(machine); }};
 
     if (stop.is_signalled()) {
         return std::unexpected{GenericError{"Runner loop shutting down"}};
@@ -318,7 +331,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() {
     }
 
     machine_pool.activate(machine);
-    utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
+    const utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
 
     auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
                       .or_else([&](auto) -> std::expected<void, GenericError> {

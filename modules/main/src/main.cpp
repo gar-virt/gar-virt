@@ -12,6 +12,7 @@
 #include <string>
 
 namespace ls_gitea_runner {
+namespace {
 
 void main(int argc, const char* const* argv) {
     namespace po = boost::program_options;
@@ -51,9 +52,9 @@ void main(int argc, const char* const* argv) {
         .config_file = utility::u8string_from_string(vm.at("config-file").as<std::string>()),
     };
 
-    const auto config{config::load_file(options.config_file)};
+    auto config{config::load_file(options.config_file)};
     if (!config) {
-        throw config.error();
+        throw std::move(config).error();
     }
 
     if (!log_level_overridden) {
@@ -64,10 +65,11 @@ void main(int argc, const char* const* argv) {
 
     auto cmd_res{cmd_daemon(*std::move(config))};
     if (!cmd_res) {
-        throw cmd_res.error();
+        throw std::move(cmd_res).error();
     }
 }
 
+} // namespace
 } // namespace ls_gitea_runner
 
 int main(int argc, char* argv[]) {

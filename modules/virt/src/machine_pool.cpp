@@ -89,7 +89,7 @@ public:
     }
 
     void deactivate(std::shared_ptr<Machine> machine) {
-        std::unique_lock lock{m_mutex};
+        const std::unique_lock lock{m_mutex};
         deactivate_internal(machine);
     }
 
@@ -103,7 +103,7 @@ public:
     }
 
     void start() {
-        std::unique_lock lock{m_mutex};
+        const std::unique_lock lock{m_mutex};
         m_control_worker = std::jthread{[this] { control_loop(); }};
     }
 
@@ -119,7 +119,7 @@ public:
     }
 
     void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) {
-        std::scoped_lock lock{m_mutex};
+        const std::scoped_lock lock{m_mutex};
         m_stats_cb = std::move(cb);
     }
 

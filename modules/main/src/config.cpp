@@ -12,18 +12,7 @@
 #include <fstream>
 
 namespace ls_gitea_runner::config {
-
-std::vector<std::string> MachineTemplateConfig::get_label_names() const {
-    std::vector<std::string> items;
-    for (auto label : labels) {
-        auto pos{label.find_first_of(':')};
-        if (pos != std::string::npos) {
-            label = label.substr(0, pos);
-        }
-        items.push_back(std::move(label));
-    }
-    return items;
-}
+namespace {
 
 std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::path& file_path) {
     try {
@@ -57,9 +46,9 @@ ForgeConfig load_forge(const YAML::Node& from) {
 }
 
 MachineTemplateConfig load_template(const YAML::Node& from) {
-    const auto arch{Arch::from_name(from["arch"].as<std::string>())};
+    auto arch{Arch::from_name(from["arch"].as<std::string>())};
     if (!arch) {
-        throw arch.error();
+        throw std::move(arch).error();
     }
     return {
         .os = from["os"].as<std::string>(),
@@ -128,6 +117,20 @@ LogConfig load_log(const YAML::Node& from) {
     return LogConfig{
         .level = load_log_level(from["level"]),
     };
+}
+
+} // namespace
+
+std::vector<std::string> MachineTemplateConfig::get_label_names() const {
+    std::vector<std::string> items;
+    for (auto label : labels) {
+        auto pos{label.find_first_of(':')};
+        if (pos != std::string::npos) {
+            label = label.substr(0, pos);
+        }
+        items.push_back(std::move(label));
+    }
+    return items;
 }
 
 void ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {

@@ -13,7 +13,7 @@
 
 namespace ls_gitea_runner {
 
-void main(int argc, char* const argv[]) {
+void main(int argc, const char* const* argv) {
     namespace po = boost::program_options;
     using namespace std::literals;
 
@@ -70,7 +70,7 @@ void main(int argc, char* const argv[]) {
 
 } // namespace ls_gitea_runner
 
-int main(int argc, char* const argv[]) {
+int main(int argc, char* argv[]) {
     try {
         try {
             ls_gitea_runner::main(argc, argv);

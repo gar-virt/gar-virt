@@ -43,6 +43,12 @@ public:
 
     ~Impl() { std::ignore = terminate(); }
 
+    Impl(const Impl&) = delete;
+    Impl(Impl&&) = default;
+
+    Impl& operator=(const Impl&) = delete;
+    Impl& operator=(Impl&&) = default;
+
     const std::string& get_id() const { return m_id; }
 
     std::expected<void, GenericError> terminate() { return m_underlying_machine->kill(); }

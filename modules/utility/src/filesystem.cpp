@@ -2,6 +2,7 @@
 
 #include <utility/algorithm.hpp>
 
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -22,21 +23,23 @@ void read_file_into(std::span<std::byte> content, const std::filesystem::path& f
 
 std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
                                           std::optional<std::filesystem::path> base_dir) {
-    static constexpr char alphabet[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
-                                        'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-                                        'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+    static constexpr std::array<char, 36> alphabet = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+                                                      'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                                      'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+    static constexpr int max_attempts{3};
+    static constexpr int min_random_length{6};
+    static constexpr int max_random_length{32};
     const auto prefix_{prefix.value_or("tmp.")};
     const auto temp_dir{base_dir.value_or(std::filesystem::temp_directory_path())};
-    std::random_device dev;
-    std::mt19937 rng{dev()};
-    std::uniform_int_distribution<uint8_t> dist{0, (sizeof(alphabet) / sizeof(alphabet[0])) - 1};
-    for (int i{}; i < 3; ++i) {
+    thread_local std::mt19937 rng{std::random_device{}()};
+    thread_local std::uniform_int_distribution<uint8_t> dist{0, alphabet.size() - 1};
+    for (int attempt{}; attempt < max_attempts; ++attempt) {
         auto file_name{prefix_};
-        for (int j{}; j < 6; ++j) { // NOLINT(readability-magic-numbers)
-            file_name += alphabet[dist(rng)];
+        for (int i{}; i < min_random_length; ++i) {
+            file_name += alphabet[dist(rng)]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
-        for (int j{}; j < 32 - 6; ++j) { // NOLINT(readability-magic-numbers
-            file_name += alphabet[dist(rng)];
+        for (int i{}; i < max_random_length - min_random_length; ++i) {
+            file_name += alphabet[dist(rng)]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const auto p{temp_dir / file_name};
             if (!exists(p)) {
                 return p;

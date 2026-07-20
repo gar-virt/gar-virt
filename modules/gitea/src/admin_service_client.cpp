@@ -33,13 +33,9 @@ std::expected<std::string, GenericError> AdminServiceClient::get_registration_to
         return std::unexpected{res.error()};
     }
     try {
-        const auto j{boost::json::parse(
-                         std::string_view{reinterpret_cast<const char*>(res->body.data()),
-                                          reinterpret_cast<const char*>(std::next(
-                                              res->body.data(),
-                                              utility::safe_cast_int<typename std::iterator_traits<
-                                                  std::string::const_iterator>::difference_type>(res->body.size())))})
-                         .as_object()};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        const auto* body{reinterpret_cast<const char*>(res->body.data())};
+        const auto j{boost::json::parse(std::string_view{body, res->body.size()}).as_object()};
         return std::string{j.at("token").as_string()};
     } catch (const std::exception& ex) {
         return std::unexpected{GenericError{std::format("Failed to parse registration token: {}", ex.what())}};

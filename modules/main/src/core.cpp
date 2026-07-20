@@ -59,15 +59,8 @@ std::expected<Injectables, GenericError> Injectables::generate(const Machine& ma
 }
 
 std::expected<void, GenericError> inject_runner_files(Machine& machine, Injectables injectables) {
-    return machine
-        .write_file(machine.make_temp_path("runner_config.yml"),
-                    {reinterpret_cast<const std::byte*>(injectables.runner_config_yaml.data()),
-                     injectables.runner_config_yaml.size()})
-        .and_then([&] {
-            return machine.write_file(machine.make_temp_path(".runner"),
-                                      {reinterpret_cast<const std::byte*>(injectables.runner_state_json.data()),
-                                       injectables.runner_state_json.size()});
-        })
+    return machine.write_file(machine.make_temp_path("runner_config.yml"), injectables.runner_config_yaml)
+        .and_then([&] { return machine.write_file(machine.make_temp_path(".runner"), injectables.runner_state_json); })
         .and_then([&] { return machine.write_file(machine.make_temp_path("runner_task"), injectables.encoded_task); });
 }
 

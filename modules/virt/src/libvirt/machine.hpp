@@ -19,10 +19,12 @@ public:
     shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const override;
     std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
                                                            utility::ShutdownSignal stop) override;
-    std::expected<void, GenericError> write_file(const std::string& remote_path, std::span<const std::byte>) override;
     const Info& info() const override;
 
 private:
+    std::expected<void, GenericError> write_file_impl(const std::string& remote_path,
+                                                      std::span<const std::byte>) override;
+
     class Impl;
     std::unique_ptr<Impl> m_impl;
 };

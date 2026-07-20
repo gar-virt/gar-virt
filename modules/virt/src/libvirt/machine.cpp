@@ -113,8 +113,8 @@ std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chro
     return m_impl->wait_for_guest_agent(timeout, stop);
 }
 
-std::expected<void, GenericError> LibvirtMachine::write_file(const std::string& remote_path,
-                                                             std::span<const std::byte> content) {
+std::expected<void, GenericError> LibvirtMachine::write_file_impl(const std::string& remote_path,
+                                                                  std::span<const std::byte> content) {
     return m_impl->write_file(remote_path, content);
 }
 

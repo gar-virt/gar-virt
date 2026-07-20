@@ -22,13 +22,15 @@
 #include <expected>
 #include <format>
 #include <optional>
-#include <print>
 #include <string>
 
-#define LOG_SELECT(true_level, false_level, cond, ...)                                                                 \
-    global_logger().log((cond) ? (utility::LogLevel::true_level) : (utility::LogLevel::false_level), __VA_ARGS__);
-
 namespace ls_gitea_runner {
+
+template <typename... Args>
+void log_select(utility::LogLevel true_level, utility::LogLevel false_level, bool cond,
+                std::format_string<Args...> format, Args&&... args) {
+    global_logger().log(cond ? true_level : false_level, std::move(format), std::forward<Args>(args)...);
+}
 
 std::expected<Injectables, GenericError> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
                                                                const gitea::Runner& runner) {
@@ -202,7 +204,7 @@ std::expected<void, GenericError> execute_task_in_machine(const ::runner::v1::Ta
                              machine.make_temp_path("runner_task")},
                             3h) // TODO: configurable timeout
                 .and_then([&](auto res) -> std::expected<void, GenericError> {
-                    LOG_SELECT(debug, error, res.exit_code == 0,
+                    log_select(utility::LogLevel::debug, utility::LogLevel::error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", id, res.exit_code, res.output);
                     return {};
                 });

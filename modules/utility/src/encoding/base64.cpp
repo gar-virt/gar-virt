@@ -9,10 +9,10 @@ namespace ls_gitea_runner::utility {
 std::string base64_encode(std::span<const std::byte> input) { return cppcodec::base64_rfc4648::encode(input); }
 
 std::vector<std::byte> base64_decode_to_bytes(std::string_view input) {
-    std::vector<uint8_t> output_u8;
-    cppcodec::base64_rfc4648::decode(output_u8, input);
-    const auto* p{reinterpret_cast<const std::byte*>(output_u8.data())};
-    return std::vector<std::byte>{p, p + (output_u8.size() * sizeof(output_u8[0]))};
+    std::vector<std::byte> output(cppcodec::base64_rfc4648::decoded_max_size(input.size()), std::byte{});
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    cppcodec::base64_rfc4648::decode(reinterpret_cast<uint8_t*>(output.data()), output.size(), input);
+    return output;
 }
 
 std::string base64_decode_to_string(std::string_view input) {

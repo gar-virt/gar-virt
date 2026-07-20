@@ -62,12 +62,14 @@ std::string narrow_string(const std::wstring& input) { return narrow_string(inpu
 std::string string_from_u8string(const std::u8string& from) { return string_from_u8string(std::u8string_view{from}); }
 
 std::string string_from_u8string(std::u8string_view from) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return {reinterpret_cast<const char*>(from.data()), from.size()};
 }
 
 std::u8string u8string_from_string(const std::string& from) { return u8string_from_string(std::string_view{from}); }
 
 std::u8string u8string_from_string(std::string_view from) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
@@ -235,7 +237,7 @@ std::string string_replace(std::string_view input, std::string_view pattern, std
             break;
         }
         result += replacement;
-        left = found + pattern.length();
+        left = found + pattern.length(); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
     return result;
 }

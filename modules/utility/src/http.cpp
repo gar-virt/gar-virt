@@ -24,6 +24,7 @@ size_t write_body_fn(const void* buffer, size_t size, size_t count, std::vector<
     try {
         const auto old_size{output->size()};
         output->resize(output->size() + (size * count));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         auto* output_offset{output->data() + old_size};
         std::memcpy(output_offset, buffer, size * count);
         return size * count;

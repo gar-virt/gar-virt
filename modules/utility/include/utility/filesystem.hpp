@@ -24,6 +24,7 @@ template <typename T>
 void read_file_into(T& content, const std::filesystem::path& file_path) {
     const auto file_size{std::filesystem::file_size(file_path)};
     content.resize(file_size);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     detail::read_file_into(std::span<std::byte>{reinterpret_cast<std::byte*>(content.data()), content.size()},
                            file_path);
 }

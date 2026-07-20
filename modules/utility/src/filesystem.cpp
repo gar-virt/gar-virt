@@ -17,6 +17,7 @@ namespace detail {
 void read_file_into(std::span<std::byte> content, const std::filesystem::path& file_path) {
     std::ifstream stream{file_path, std::ios_base::binary};
     stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     stream.read(reinterpret_cast<char*>(content.data()), utility::safe_cast_int<std::streamsize>(content.size_bytes()));
 }
 
@@ -53,6 +54,7 @@ std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
 void write_file(const std::filesystem::path& file_path, std::span<const std::byte> content) {
     std::ofstream stream{file_path, std::ios_base::binary};
     stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     stream.write(reinterpret_cast<const char*>(content.data()),
                  utility::safe_cast_int<std::streamsize>(content.size()));
 }

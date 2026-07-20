@@ -24,6 +24,7 @@ template <typename T> std::expected<T, GenericError> decode_payload(const std::v
     return msg;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
     template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg);                      \
     template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload);

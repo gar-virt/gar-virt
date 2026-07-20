@@ -3,6 +3,7 @@ Checks:
   - -*
   - bugprone-*
   - concurrency-*
+  - cppcoreguidelines-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters
@@ -15,6 +16,7 @@ FormatStyle: file
 HeaderFileExtensions: ["h", "hpp"]
 ImplementationFileExtensions: ["c", "cpp"]
 CheckOptions:
+  cppcoreguidelines-avoid-non-const-global-variables.AllowInternalLinkage: true
   readability-implicit-bool-conversion.AllowPointerConditions: true
 SystemHeaders:   false
 WarningsAsErrors: ""

@@ -5,10 +5,13 @@ Checks:
   - concurrency-*
   - cppcoreguidelines-*
   - misc-*
+  - modernize-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters
   - -misc-include-cleaner
+  - -modernize-use-nodiscard
+  - -modernize-use-trailing-return-type
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration

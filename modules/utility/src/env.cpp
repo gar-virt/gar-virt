@@ -4,7 +4,7 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
-#include <stdlib.h>
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 #include <string>
 
 #ifdef _WIN32

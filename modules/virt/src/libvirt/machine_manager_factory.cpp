@@ -3,7 +3,7 @@
 
 namespace ls_gitea_runner {
 
-LibvirtMachineManagerFactory::~LibvirtMachineManagerFactory() {}
+LibvirtMachineManagerFactory::~LibvirtMachineManagerFactory() = default;
 
 std::unique_ptr<MachineManager> LibvirtMachineManagerFactory::create() {
     return std::make_unique<LibvirtMachineManager>();

@@ -5,7 +5,7 @@
 namespace ls_gitea_runner::utility {
 
 FileHandle::FileHandle(FILE* fp) : m_fp{fp} {}
-FileHandle::~FileHandle() {}
+FileHandle::~FileHandle() = default;
 FileHandle::FileHandle(FileHandle&& other) noexcept { *this = std::move(other); }
 
 FileHandle& FileHandle::operator=(FileHandle&& other) noexcept {

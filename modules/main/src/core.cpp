@@ -228,9 +228,10 @@ TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_conf
                              std::shared_ptr<const config::BackendConfig> backend_config,
                              std::shared_ptr<const config::MachineTemplateConfig> template_config,
                              utility::ShutdownSignal stop)
-        : stop{std::move(stop)}, main_config{main_config}, backend_config{backend_config},
-          template_config{template_config}, admin_service{std::make_shared<gitea::AdminServiceClient>(
-                                                main_config->forge.uri, main_config->forge.token.resolved_token)},
+        : stop{std::move(stop)}, main_config{main_config}, backend_config{std::move(backend_config)},
+          template_config{std::move(template_config)},
+          admin_service{std::make_shared<gitea::AdminServiceClient>(main_config->forge.uri,
+                                                                    main_config->forge.token.resolved_token)},
           machine_pool{create_pool()} {
     machine_pool.start();
 }

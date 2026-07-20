@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <time.h>
+#include <time.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 
 namespace ls_gitea_runner::utility {
 namespace {

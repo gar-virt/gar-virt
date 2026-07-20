@@ -91,7 +91,7 @@ struct HttpClient::Private final {
     std::array<std::mutex, static_cast<size_t>(CURL_LOCK_DATA_LAST)> m_curl_mutexes;
 };
 
-HttpClient::HttpClient(const std::string& base_url) : m_priv{std::make_unique<Private>()}, m_base_url{base_url} {}
+HttpClient::HttpClient(std::string base_url) : m_priv{std::make_unique<Private>()}, m_base_url{std::move(base_url)} {}
 
 HttpClient::~HttpClient() = default;
 

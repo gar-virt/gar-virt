@@ -10,7 +10,7 @@ namespace ls_gitea_runner::gitea {
 
 class AdminServiceClient final {
 public:
-    AdminServiceClient(const std::string& instance_url, const std::string& token);
+    AdminServiceClient(const std::string& instance_url, std::string token);
     ~AdminServiceClient();
 
     AdminServiceClient(const AdminServiceClient&) = delete;

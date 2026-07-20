@@ -34,7 +34,7 @@ using HttpRequestMiddleware = std::function<bool(HttpRequest& req)>;
 
 class HttpClient {
 public:
-    HttpClient(const std::string& base_url);
+    HttpClient(std::string base_url);
     ~HttpClient();
 
     HttpClient(const HttpClient&) = delete;

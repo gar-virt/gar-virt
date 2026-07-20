@@ -45,7 +45,7 @@ public:
 
 LibvirtMachineManager::LibvirtMachineManager() : m_impl{std::make_unique<Impl>()} {}
 
-LibvirtMachineManager::~LibvirtMachineManager() {}
+LibvirtMachineManager::~LibvirtMachineManager() = default;
 
 std::expected<std::unique_ptr<Machine>, GenericError>
 LibvirtMachineManager::spawn(const Machine::Info& info, const std::string& serialized_pool_details,

@@ -8,6 +8,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <format>
 #include <fstream>
 
@@ -62,8 +63,8 @@ MachineTemplateConfig load_template(const YAML::Node& from) {
                 const auto& runner_labels{from["labels"]};
                 std::vector<std::string> labels;
                 labels.reserve(runner_labels.size());
-                std::transform(runner_labels.begin(), runner_labels.end(), std::back_inserter(labels),
-                               [](const YAML::Node& l) { return l.as<std::string>(); });
+                std::ranges::transform(runner_labels, std::back_inserter(labels),
+                                       [](const YAML::Node& l) { return l.as<std::string>(); });
                 return labels;
             }(),
         .raw_details = to_yaml_string(from["details"]),

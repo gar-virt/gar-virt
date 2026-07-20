@@ -120,9 +120,9 @@ bool string_contains_ci(std::string_view needle, std::string_view haystack) noex
     if (haystack.empty()) {
         return false;
     }
-    const auto* const match{std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
-                                        [](auto a, auto b) { return std::toupper(a) == std::toupper(b); })};
-    return match != haystack.end();
+    const auto match{
+        std::ranges::search(haystack, needle, [](auto a, auto b) { return std::toupper(a) == std::toupper(b); })};
+    return !match.empty();
 }
 
 int string_compare_ci(std::string_view first, std::string_view second) noexcept {
@@ -147,13 +147,12 @@ int string_compare_ci(std::string_view first, std::string_view second) noexcept 
 }
 
 bool string_compare_less_ci(std::string_view first, std::string_view second) noexcept {
-    return std::lexicographical_compare(first.begin(), first.end(), second.begin(), second.end(),
-                                        [](auto a, auto b) { return std::toupper(a) < std::toupper(b); });
+    return std::ranges::lexicographical_compare(first, second,
+                                                [](auto a, auto b) { return std::toupper(a) < std::toupper(b); });
 }
 
 bool string_equals_ci(std::string_view first, std::string_view second) noexcept {
-    return std::equal(first.begin(), first.end(), second.begin(), second.end(),
-                      [](auto a, auto b) { return std::toupper(a) == std::toupper(b); });
+    return std::ranges::equal(first, second, [](auto a, auto b) { return std::toupper(a) == std::toupper(b); });
 }
 
 bool string_starts_with(std::string_view haystack, std::string_view needle) noexcept {

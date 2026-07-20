@@ -102,7 +102,7 @@ private:
 LibvirtMachine::LibvirtMachine(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
         : m_impl{std::make_unique<Impl>(std::move(hv), std::move(underlying_machine), std::move(info))} {}
 
-LibvirtMachine::~LibvirtMachine() {}
+LibvirtMachine::~LibvirtMachine() = default;
 
 const std::string& LibvirtMachine::get_id() const { return m_impl->get_id(); }
 

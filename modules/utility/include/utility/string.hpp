@@ -72,7 +72,4 @@ std::vector<std::string> string_split(std::string_view input, char separator);
 std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(std::string_view input, char separator);
 std::string string_replace(std::string_view input, std::string_view pattern, std::string_view replacement);
 
-std::string regex_replace_callable(const std::string& text, const std::regex& pattern,
-                                   std::function<std::string(const std::smatch&)> replacer);
-
 } // namespace ls_gitea_runner::utility

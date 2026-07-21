@@ -31,9 +31,9 @@ public:
                 utility::ShutdownSignal shutdown_signal);
     ~MachinePool();
     MachinePool(const MachinePool&) = delete;
-    MachinePool(MachinePool&&);
+    MachinePool(MachinePool&&) noexcept;
     MachinePool& operator=(const MachinePool&) = delete;
-    MachinePool& operator=(MachinePool&&);
+    MachinePool& operator=(MachinePool&&) noexcept;
     std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout);
     void activate(std::shared_ptr<Machine> machine);
     void deactivate(std::shared_ptr<Machine> machine);

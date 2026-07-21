@@ -271,9 +271,9 @@ MachinePool::MachinePool(
 
 MachinePool::~MachinePool() = default;
 
-MachinePool::MachinePool(MachinePool&&) = default;
+MachinePool::MachinePool(MachinePool&&) noexcept = default;
 
-MachinePool& MachinePool::operator=(MachinePool&&) = default;
+MachinePool& MachinePool::operator=(MachinePool&&) noexcept = default;
 
 std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::chrono::milliseconds timeout) {
     return m_impl->acquire(timeout);

@@ -7,6 +7,7 @@ Checks:
   - misc-*
   - modernize-*
   - performance-*
+  - portability-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters
@@ -14,6 +15,7 @@ Checks:
   - -modernize-use-nodiscard
   - -modernize-use-trailing-return-type
   - -performance-enum-size
+  - -portability-template-virtual-member-function # Emits warning in Boost program_options
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration

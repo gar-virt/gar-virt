@@ -432,12 +432,12 @@ std::expected<void, GenericError> Machine::wait() { return m_impl->wait(); }
 
 std::expected<void, GenericError> Machine::write_file(const std::string& file_path,
                                                       std::span<const std::byte> content) {
-    return m_impl->write_file(file_path, std::move(content));
+    return m_impl->write_file(file_path, content);
 }
 
 std::expected<SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
                                                              const std::optional<std::chrono::seconds>& timeout) {
-    return m_impl->shell_exec(cmd, std::move(timeout));
+    return m_impl->shell_exec(cmd, timeout);
 }
 
 std::expected<void, GenericError> Machine::resume() { return m_impl->resume(); }
@@ -606,7 +606,7 @@ public:
     HypervisorImpl& operator=(const HypervisorImpl&) = delete;
     HypervisorImpl& operator=(HypervisorImpl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options) {
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options) {
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -814,8 +814,8 @@ Hypervisor::~Hypervisor() = default;
 Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
 Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(SpawnOptions options) {
-    return m_impl->spawn(std::move(options));
+std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(const SpawnOptions& options) {
+    return m_impl->spawn(options);
 }
 
 std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) {

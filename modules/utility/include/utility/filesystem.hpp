@@ -16,8 +16,8 @@ void read_file_into(std::span<std::byte> content, const std::filesystem::path& f
 
 } // namespace detail
 
-std::filesystem::path temporary_file_path(std::optional<std::string> prefix = std::nullopt,
-                                          std::optional<std::filesystem::path> base_dir = std::nullopt);
+std::filesystem::path temporary_file_path(const std::optional<std::string>& prefix = std::nullopt,
+                                          const std::optional<std::filesystem::path>& base_dir = std::nullopt);
 
 template <typename T>
     requires utility::contiguous_byte_container<T>

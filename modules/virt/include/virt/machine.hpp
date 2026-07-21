@@ -35,7 +35,7 @@ public:
     virtual std::expected<SpawnResult, GenericError>
     shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const = 0;
     virtual std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
-                                                                   utility::ShutdownSignal stop) = 0;
+                                                                   const utility::ShutdownSignal& stop) = 0;
     virtual const Info& info() const = 0;
 
     std::string make_temp_path(const std::string& sub_path) const;

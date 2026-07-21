@@ -26,10 +26,18 @@ std::u8string u8string_from_string(const std::string& from);
 std::u8string u8string_from_string(std::string_view from);
 std::string string_from_u8string(const std::u8string& from);
 std::string string_from_u8string(std::u8string_view from);
-std::string_view string_trim_left(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
-std::string_view string_trim_right(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
-std::string_view string_trim(std::string_view s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
-void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+
+std::string_view string_trim_left(std::string_view s,
+                                  const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+
+std::string_view string_trim_right(std::string_view s,
+                                   const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+
+std::string_view string_trim(std::string_view s, const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+
+void string_trim_right(std::in_place_t, std::string& s,
+                       const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept;
+
 void string_trim_right(std::in_place_t, std::string& s, char c) noexcept;
 
 template <typename Container>
@@ -67,7 +75,7 @@ bool string_compare_less_ci(std::string_view first, std::string_view second) noe
 bool string_equals_ci(std::string_view first, std::string_view second) noexcept;
 bool string_starts_with(std::string_view haystack, std::string_view needle) noexcept;
 bool string_ends_with(std::string_view haystack, std::string_view needle) noexcept;
-void string_split(std::string_view input, char separator, std::function<void(std::string_view token)> cb);
+void string_split(std::string_view input, char separator, const std::function<void(std::string_view token)>& cb);
 std::vector<std::string> string_split(std::string_view input, char separator);
 std::tuple<std::vector<std::string>, std::string> string_split_with_remainder(std::string_view input, char separator);
 std::string string_replace(std::string_view input, std::string_view pattern, std::string_view replacement);

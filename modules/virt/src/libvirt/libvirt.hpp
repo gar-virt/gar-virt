@@ -72,7 +72,7 @@ public:
     // std::expected<void, GenericError> run() noexcept;
     // void stop() noexcept;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(SpawnOptions options);
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options);
 
     static std::expected<Hypervisor, GenericError> connect(const std::string& uri);
 

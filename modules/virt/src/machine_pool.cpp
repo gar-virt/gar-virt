@@ -80,6 +80,7 @@ public:
         return std::unexpected{GenericError{"Timed out while acquiring machine"}};
     }
 
+    // NOLINTNEXTLINE(performance-unnecessary-value-param): May want to own machine later (tracking)
     void activate(std::shared_ptr<Machine> /*machine*/) {
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.active;
@@ -88,9 +89,10 @@ public:
         m_control_cv.notify_one();
     }
 
-    void deactivate(std::shared_ptr<Machine> machine) {
+    // NOLINTNEXTLINE(performance-unnecessary-value-param): May want to own machine later (tracking)
+    void deactivate(std::shared_ptr<Machine> /*machine*/) {
         const std::unique_lock lock{m_mutex};
-        deactivate_internal(machine);
+        --m_machine_counters.active;
     }
 
     void release(std::shared_ptr<Machine> machine) {
@@ -118,7 +120,7 @@ public:
         m_workers.stop();
     }
 
-    void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) {
+    void set_stats_callback(std::move_only_function<void(const MachinePoolStats&) noexcept> cb) {
         const std::scoped_lock lock{m_mutex};
         m_stats_cb = std::move(cb);
     }
@@ -154,8 +156,6 @@ private:
             }
         }
     }
-
-    void deactivate_internal(std::shared_ptr<Machine> /*machine*/) noexcept { --m_machine_counters.active; }
 
     void stop_internal(std::unique_lock<std::mutex>& acquired_lock) {
         auto notify{[&] {
@@ -234,10 +234,10 @@ private:
         if (!m_stats_cb) {
             return;
         }
-        auto snapshot{m_stats};
+        const auto snapshot{m_stats};
         acquired_lock.unlock();
         try {
-            m_stats_cb(std::move(snapshot));
+            m_stats_cb(snapshot);
         } catch (...) { // NOLINT(bugprone-empty-catch)
             // Ignore exceptions in callback
         }
@@ -256,7 +256,7 @@ private:
     std::condition_variable m_idle_cv;
     std::condition_variable m_control_cv;
     MachinePoolStats m_stats;
-    std::move_only_function<void(MachinePoolStats) noexcept> m_stats_cb;
+    std::move_only_function<void(const MachinePoolStats&) noexcept> m_stats_cb;
     std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> m_machine_spawner;
     utility::ThreadPoolExecutor m_workers;
     std::jthread m_control_worker;
@@ -285,7 +285,7 @@ void MachinePool::release(std::shared_ptr<Machine> machine) { m_impl->release(st
 void MachinePool::start() { m_impl->start(); }
 void MachinePool::stop() { m_impl->stop(); }
 
-void MachinePool::set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept {
+void MachinePool::set_stats_callback(std::move_only_function<void(const MachinePoolStats&) noexcept> cb) noexcept {
     m_impl->set_stats_callback(std::move(cb));
 }
 

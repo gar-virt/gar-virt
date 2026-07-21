@@ -40,7 +40,7 @@ public:
     void release(std::shared_ptr<Machine> machine);
     void start();
     void stop();
-    void set_stats_callback(std::move_only_function<void(MachinePoolStats) noexcept> cb) noexcept;
+    void set_stats_callback(std::move_only_function<void(const MachinePoolStats&) noexcept> cb) noexcept;
 
 private:
     class Impl;

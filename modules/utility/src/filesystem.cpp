@@ -23,16 +23,16 @@ void read_file_into(std::span<std::byte> content, const std::filesystem::path& f
 
 } // namespace detail
 
-std::filesystem::path temporary_file_path(std::optional<std::string> prefix,
-                                          std::optional<std::filesystem::path> base_dir) {
+std::filesystem::path temporary_file_path(const std::optional<std::string>& prefix,
+                                          const std::optional<std::filesystem::path>& base_dir) {
     static constexpr std::array<char, 36> alphabet = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
                                                       'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
                                                       'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
     static constexpr int max_attempts{3};
     static constexpr int min_random_length{6};
     static constexpr int max_random_length{32};
-    const auto prefix_{prefix.value_or("tmp.")};
-    const auto temp_dir{base_dir.value_or(std::filesystem::temp_directory_path())};
+    const auto& prefix_{prefix.value_or("tmp.")};
+    const auto& temp_dir{base_dir.value_or(std::filesystem::temp_directory_path())};
     // NOLINTNEXTLINE(misc-use-internal-linkage): False positive
     thread_local std::mt19937 rng{std::random_device{}()};
     // NOLINTNEXTLINE(misc-use-internal-linkage): False positive

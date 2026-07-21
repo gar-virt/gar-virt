@@ -73,7 +73,7 @@ std::u8string u8string_from_string(std::string_view from) {
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
-std::string_view string_trim_left(std::string_view s, std::set<char> chars) noexcept {
+std::string_view string_trim_left(std::string_view s, const std::set<char>& chars) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         if (!chars.contains(s[i])) {
             return s.substr(i, s.size() - i);
@@ -82,7 +82,7 @@ std::string_view string_trim_left(std::string_view s, std::set<char> chars) noex
     return s;
 }
 
-std::string_view string_trim_right(std::string_view s, std::set<char> chars) noexcept {
+std::string_view string_trim_right(std::string_view s, const std::set<char>& chars) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         const auto j{s.size() - i};
         if (!chars.contains(s[j - 1])) {
@@ -92,11 +92,11 @@ std::string_view string_trim_right(std::string_view s, std::set<char> chars) noe
     return s;
 }
 
-std::string_view string_trim(std::string_view s, std::set<char> chars) noexcept {
+std::string_view string_trim(std::string_view s, const std::set<char>& chars) noexcept {
     return string_trim_left(string_trim_right(s, chars), chars);
 }
 
-void string_trim_right(std::in_place_t, std::string& s, std::set<char> chars) noexcept {
+void string_trim_right(std::in_place_t, std::string& s, const std::set<char>& chars) noexcept {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
         if (!chars.contains(*it)) {
@@ -185,7 +185,7 @@ bool string_ends_with(std::string_view haystack, std::string_view needle) noexce
     return true;
 }
 
-void string_split(std::string_view input, char separator, std::function<void(std::string_view token)> cb) {
+void string_split(std::string_view input, char separator, const std::function<void(std::string_view token)>& cb) {
     std::string::size_type a{}, b{};
     for (; (b = input.find_first_of(separator, b)) != std::string::npos; a = ++b) {
         cb(input.substr(a, b - a));

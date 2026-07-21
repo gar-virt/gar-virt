@@ -44,7 +44,7 @@ public:
     Runner& operator=(const Runner&) = delete;
     Runner& operator=(Runner&&) noexcept;
 
-    static std::expected<Runner, GenericError> connect(const RunnerOptions& options,
+    static std::expected<Runner, GenericError> connect(RunnerOptions options,
                                                        std::shared_ptr<gitea::AdminServiceClient> admin);
 
     std::expected<::runner::v1::FetchTaskResponse, GenericError> fetch_task() const;

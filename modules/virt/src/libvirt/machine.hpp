@@ -18,7 +18,7 @@ public:
     std::expected<SpawnResult, GenericError>
     shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const override;
     std::expected<void, GenericError> wait_for_guest_agent(std::chrono::seconds timeout,
-                                                           utility::ShutdownSignal stop) override;
+                                                           const utility::ShutdownSignal& stop) override;
     const Info& info() const override;
 
 private:

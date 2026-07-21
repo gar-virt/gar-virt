@@ -54,8 +54,8 @@ template <typename Request, typename Response>
 std::expected<Response, GenericError> send_post_request(const utility::HttpClient& client, const std::string& path,
                                                         const Request& req) {
     return encode_payload(req)
-        .and_then([&](auto payload) { return client.post(path, payload); })
-        .and_then([](auto res) { return decode_payload<Response>(res.body); });
+        .and_then([&](const auto& payload) { return client.post(path, payload); })
+        .and_then([](const auto& res) { return decode_payload<Response>(res.body); });
 }
 
 } // namespace
@@ -86,37 +86,37 @@ void GiteaRunnerServiceClient::set_credentials(GiteaRunnerCredentials credential
 }
 
 std::expected<::ping::v1::PingResponse, GenericError>
-GiteaRunnerServiceClient::ping(::ping::v1::PingRequest req) const {
+GiteaRunnerServiceClient::ping(const ::ping::v1::PingRequest& req) const {
     return send_post_request<::ping::v1::PingRequest, ::ping::v1::PingResponse>(m_client, "/ping.v1.PingService/Ping",
                                                                                 req);
 }
 
 std::expected<::runner::v1::RegisterResponse, GenericError>
-GiteaRunnerServiceClient::register_(::runner::v1::RegisterRequest req) const {
+GiteaRunnerServiceClient::register_(const ::runner::v1::RegisterRequest& req) const {
     return send_post_request<::runner::v1::RegisterRequest, ::runner::v1::RegisterResponse>(
         m_client, "/runner.v1.RunnerService/Register", req);
 }
 
 std::expected<::runner::v1::DeclareResponse, GenericError>
-GiteaRunnerServiceClient::declare(::runner::v1::DeclareRequest req) const {
+GiteaRunnerServiceClient::declare(const ::runner::v1::DeclareRequest& req) const {
     return send_post_request<::runner::v1::DeclareRequest, ::runner::v1::DeclareResponse>(
         m_client, "/runner.v1.RunnerService/Declare", req);
 }
 
 std::expected<::runner::v1::FetchTaskResponse, GenericError>
-GiteaRunnerServiceClient::fetch_task(::runner::v1::FetchTaskRequest req) const {
+GiteaRunnerServiceClient::fetch_task(const ::runner::v1::FetchTaskRequest& req) const {
     return send_post_request<::runner::v1::FetchTaskRequest, ::runner::v1::FetchTaskResponse>(
         m_client, "/runner.v1.RunnerService/FetchTask", req);
 }
 
 std::expected<::runner::v1::UpdateTaskResponse, GenericError>
-GiteaRunnerServiceClient::update_task(::runner::v1::UpdateTaskRequest req) const {
+GiteaRunnerServiceClient::update_task(const ::runner::v1::UpdateTaskRequest& req) const {
     return send_post_request<::runner::v1::UpdateTaskRequest, ::runner::v1::UpdateTaskResponse>(
         m_client, "/runner.v1.RunnerService/UpdateTask", req);
 }
 
 std::expected<::runner::v1::UpdateLogResponse, GenericError>
-GiteaRunnerServiceClient::update_log(::runner::v1::UpdateLogRequest req) const {
+GiteaRunnerServiceClient::update_log(const ::runner::v1::UpdateLogRequest& req) const {
     return send_post_request<::runner::v1::UpdateLogRequest, ::runner::v1::UpdateLogResponse>(
         m_client, "/runner.v1.RunnerService/UpdateLog", req);
 }

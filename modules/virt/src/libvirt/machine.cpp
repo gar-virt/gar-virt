@@ -63,7 +63,7 @@ public:
     }
 
     std::expected<void, GenericError> wait_for_guest_agent(std::chrono::milliseconds timeout,
-                                                           utility::ShutdownSignal stop) {
+                                                           const utility::ShutdownSignal& stop) {
         using namespace std::literals;
         const auto start_time{std::chrono::steady_clock::now()};
         while (true) {
@@ -115,7 +115,7 @@ LibvirtMachine::shell_exec(const std::vector<std::string>& cmd,
 }
 
 std::expected<void, GenericError> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout,
-                                                                       utility::ShutdownSignal stop) {
+                                                                       const utility::ShutdownSignal& stop) {
     return m_impl->wait_for_guest_agent(timeout, stop);
 }
 

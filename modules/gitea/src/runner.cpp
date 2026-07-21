@@ -108,7 +108,7 @@ Runner& Runner::operator=(Runner&& other) noexcept {
     return *this;
 }
 
-std::expected<Runner, GenericError> Runner::connect(const RunnerOptions& options,
+std::expected<Runner, GenericError> Runner::connect(RunnerOptions options,
                                                     std::shared_ptr<gitea::AdminServiceClient> admin) {
     const auto reg_token(admin->get_registration_token());
     if (!reg_token) {

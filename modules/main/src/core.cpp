@@ -82,7 +82,7 @@ std::expected<std::vector<std::string>, GenericError> make_ping_command(const st
 
 std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
                                                                       std::chrono::seconds timeout,
-                                                                      utility::ShutdownSignal stop) {
+                                                                      const utility::ShutdownSignal& stop) {
     using namespace std::literals;
     const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
     const auto& host{parsed_instance_url->host()};
@@ -117,7 +117,7 @@ std::expected<void, GenericError> wait_until_gitea_instance_available(Machine& m
 
 std::expected<std::unique_ptr<Machine>, GenericError>
 spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config, utility::ShutdownSignal stop) {
+              const config::MachineTemplateConfig& template_config, const utility::ShutdownSignal& stop) {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
@@ -203,7 +203,7 @@ std::expected<Injectables, GenericError> Injectables::generate(const Machine& ma
         return std::unexpected{encode_payload.error()};
     }
     boost::json::array labels;
-    for (auto label : runner.labels()) {
+    for (const auto& label : runner.labels()) {
         labels.emplace_back(label);
     }
     return Injectables{
@@ -224,11 +224,11 @@ std::expected<Injectables, GenericError> Injectables::generate(const Machine& ma
     };
 }
 
-TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_config,
+TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_config_,
                              std::shared_ptr<const config::BackendConfig> backend_config,
                              std::shared_ptr<const config::MachineTemplateConfig> template_config,
                              utility::ShutdownSignal stop)
-        : stop{std::move(stop)}, main_config{main_config}, backend_config{std::move(backend_config)},
+        : stop{std::move(stop)}, main_config{std::move(main_config_)}, backend_config{std::move(backend_config)},
           template_config{std::move(template_config)},
           admin_service{std::make_shared<gitea::AdminServiceClient>(main_config->forge.uri,
                                                                     main_config->forge.token.resolved_token)},
@@ -335,7 +335,7 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() {
     const utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
 
     auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
-                      .or_else([&](auto) -> std::expected<void, GenericError> {
+                      .or_else([&](const auto&) -> std::expected<void, GenericError> {
                           runner.set_task_failed(task);
                           return {};
                       })};
@@ -349,14 +349,14 @@ std::expected<void, GenericError> TemplateState::runner_loop_iteration() {
 std::expected<std::optional<::runner::v1::Task>, GenericError>
 TemplateState::try_fetch_task(const gitea::Runner& runner) {
     return runner.fetch_task().transform(
-        [](auto res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
+        [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }
 
 MachinePool TemplateState::create_pool() {
     MachinePool machine_pool{template_config->idle_target, template_config->max_concurrency,
                              [this] { return spawn_machine(*main_config, *backend_config, *template_config, stop); },
                              stop};
-    machine_pool.set_stats_callback([this](auto stats) noexcept {
+    machine_pool.set_stats_callback([this](const auto& stats) noexcept {
         global_logger().debug("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
                               "acquired: {}; active: {}",
                               backend_config->name, stats.provisioned, stats.warming, stats.idle, stats.acquiring,

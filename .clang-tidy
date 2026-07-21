@@ -6,12 +6,14 @@ Checks:
   - cppcoreguidelines-*
   - misc-*
   - modernize-*
+  - performance-*
   - readability-*
   # Suppressions
   - -bugprone-easily-swappable-parameters
   - -misc-include-cleaner
   - -modernize-use-nodiscard
   - -modernize-use-trailing-return-type
+  - -performance-enum-size
   - -readability-convert-member-functions-to-static
   - -readability-identifier-length
   - -readability-isolate-declaration

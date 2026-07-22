@@ -1,19 +1,53 @@
-FROM ubuntu:24.04 AS builder
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE} AS builder
+
 # Enabling Universe is needed for some packages:
 #   libboost-json-dev
 #   libboost-url-dev
 RUN echo "deb http://archive.ubuntu.com/ubuntu noble universe" >> /etc/apt/sources.list
 
+# Supported values: gcc, clang
+ARG COMPILER=gcc
+ARG GCC_VERSION=14
+ARG CLANG_VERSION=20
+
 RUN <<EOF
 set -e
+export DEBIAN_FRONTEND=noninteractive
 apt-get update
-# Toolchain
+
+# Compiler
+if [ "${COMPILER}" = "gcc" ]; then
+    apt-get install --yes --no-install-recommends \
+        "gcc-${GCC_VERSION}" \
+        "g++-${GCC_VERSION}"
+    update-alternatives --install /usr/bin/gcc gcc "/usr/bin/gcc-${GCC_VERSION}" "${GCC_VERSION}" \
+        --slave /usr/bin/g++ g++ "/usr/bin/g++-${GCC_VERSION}"
+    echo "CMAKE_C_COMPILER=gcc-${GCC_VERSION}" >> /tmp/compile_env.txt
+    echo "CMAKE_CXX_COMPILER=g++-${GCC_VERSION}" >> /tmp/compile_env.txt
+elif [ "${COMPILER}" = "clang" ]; then
+    apt-get install --yes --no-install-recommends \
+        "clang-${CLANG_VERSION}" \
+        "clang-tidy-${CLANG_VERSION}" \
+        "libstdc++-${GCC_VERSION}-dev" \
+        "libclang-rt-${CLANG_VERSION}-dev"
+    update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${CLANG_VERSION}" "${CLANG_VERSION}" \
+        --slave /usr/bin/clang++ clang++ "/usr/bin/clang++-${CLANG_VERSION}" \
+        --slave /usr/bin/clang-tidy clang-tidy "/usr/bin/clang-tidy-${CLANG_VERSION}"
+    echo "CMAKE_C_COMPILER=clang-${CLANG_VERSION}" >> /tmp/compile_env.txt
+    echo "CMAKE_CXX_COMPILER=clang-${CLANG_VERSION}" >> /tmp/compile_env.txt
+else
+    echo "Invalid compiler: ${COMPILER}"
+    exit 1
+fi
+
+# Rest of toolchain
 apt-get install --yes --no-install-recommends \
+    ca-certificates \
     cmake \
     git \
-    gcc-14 \
-    g++-14 \
     ninja-build
+
 # Development dependencies
 apt-get install --yes --no-install-recommends \
     libboost-json-dev \
@@ -31,25 +65,40 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN <<EOF
-set -e
-update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 140
-update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 140
-EOF
-
 WORKDIR /source
+ARG BUILD_TYPE=Release
 
 FROM builder AS compile
+ARG BUILD_TYPE
+COPY --from=builder /tmp/compile_env.txt /tmp/compile_env.txt
 COPY . .
 
 RUN <<EOF
 set -e
-cmake -G Ninja -B /build -S . -D CMAKE_BUILD_TYPE=Release
-cmake --build /build
-cmake --install /build --prefix /build/install --strip
+. /tmp/compile_env.txt
+cmake -G "Ninja Multi-Config" -B /build -S .
+cmake --build /build --config "${BUILD_TYPE}"
 EOF
 
-FROM ubuntu:24.04 AS dist
+FROM compile AS test
+ARG BUILD_TYPE
+COPY . .
+
+RUN <<EOF
+set -e
+ctest --build-config "${BUILD_TYPE}"
+EOF
+
+FROM compile AS dist-prep
+COPY --from=compile /build /build
+COPY . .
+
+RUN <<EOF
+set -e
+cmake --install /build --config "${BUILD_TYPE}" --prefix /build/install --strip
+EOF
+
+FROM ${BASE_IMAGE} AS dist
 ARG USERNAME=gar-virt
 ARG UID=1000
 ARG GID=1000
@@ -68,6 +117,7 @@ EOF
 
 RUN <<EOF
 set -e
+export DEBIAN_FRONTEND=noninteractive
 apt-get update
 # Runtime libraries
 apt-get install --yes --no-install-recommends \
@@ -86,7 +136,7 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
 
-COPY --from=compile /build/install/ /usr/local/
+COPY --from=dist-prep /build/install/ /usr/local/
 
 RUN cat <<EOF > /usr/local/bin/docker-entrypoint.sh
 #!/usr/bin/env sh

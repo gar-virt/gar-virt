@@ -1,4 +1,5 @@
-FROM alpine:3.24 AS builder
+ARG BASE_IMAGE=alpine:3.24
+FROM ${BASE_IMAGE} AS builder
 
 RUN <<EOF
 set -e
@@ -23,18 +24,36 @@ apk add --no-cache \
 EOF
 
 WORKDIR /source
+ARG BUILD_TYPE=Release
 
 FROM builder AS compile
 COPY . .
 
 RUN <<EOF
 set -e
-cmake -G Ninja -B /build -S . -D CMAKE_BUILD_TYPE=Release
-cmake --build /build
-cmake --install /build --prefix /build/install --strip
+cmake -G "Ninja Multi-Config" -B /build -S .
+cmake --build /build --config "${BUILD_TYPE}"
 EOF
 
-FROM alpine:3.24 AS dist
+FROM compile AS test
+ARG BUILD_TYPE
+COPY . .
+
+RUN <<EOF
+set -e
+ctest --build-config "${BUILD_TYPE}"
+EOF
+
+FROM compile AS dist-prep
+COPY --from=compile /build /build
+COPY . .
+
+RUN <<EOF
+set -e
+cmake --install /build --config "${BUILD_TYPE}" --prefix /build/install --strip
+EOF
+
+FROM ${BASE_IMAGE} AS dist
 ARG USERNAME=gar-virt
 ARG UID=1000
 ARG GID=1000
@@ -66,7 +85,7 @@ apk add --no-cache \
     libssh
 EOF
 
-COPY --from=compile /build/install/ /usr/local/
+COPY --from=dist-prep /build/install/ /usr/local/
 
 RUN cat <<EOF > /usr/local/bin/docker-entrypoint.sh
 #!/usr/bin/env sh

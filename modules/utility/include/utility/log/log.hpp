@@ -97,9 +97,23 @@ private:
         m_line = {};
     }
 
-    template <typename... Args> constexpr void append(Args&&... args) { (append_part(args), ...); }
-
-    template <typename T> constexpr void append_part(T&& part) { m_line.push_back(std::forward<T>(part)); }
+    template <typename... Args> constexpr void append(Args&&... args) {
+// Don't warn on false positive observed with GCC 14/15 and "Release" build type
+// Note: Compilers like Clang may also define __GNUC__
+#if defined(__GNUC__)
+    #pragma GCC diagnostic push
+    // Avoid warning with GCC as it doesn't accept -Wunknown-warning-option
+    #pragma GCC diagnostic ignored "-Wpragmas"
+    // Avoid warning with other compilers that don't accept -Wmaybe-uninitialized
+    #pragma GCC diagnostic ignored "-Wunknown-warning-option"
+    // The warning we actually want to suppress
+    #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+        (m_line.push_back(std::forward<Args>(args)), ...);
+#if defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
+    }
 
     void append_date() {
         append(ansi::Color{240}, format_date_for_display(utc_to_local_date(utc_date())), ansi::Reset{});

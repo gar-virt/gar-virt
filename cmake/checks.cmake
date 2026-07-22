@@ -31,8 +31,9 @@ if(GARVIRT_ENABLE_CLANG_TIDY)
     if((CMAKE_C_COMPILER_ID MATCHES "Clang$") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang$"))
         find_program(CLANG_TIDY_EXE clang-tidy REQUIRED)
         if(CLANG_TIDY_EXE)
-            set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY_EXE}")
-            set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+            set_target_properties(checks PROPERTIES
+                C_CLANG_TIDY "${CLANG_TIDY_EXE}"
+                CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
         endif()
     endif()
 endif()

@@ -1,4 +1,6 @@
 export module virt;
 
-import :api;
-import :libvirt_backend;
+export import :api;
+export import :libvirt_backend;
+
+import :libvirt;

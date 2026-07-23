@@ -12,6 +12,8 @@ module;
 
 export module virt:libvirt_backend;
 
+import utility;
+
 export namespace ls_gitea_runner {
 namespace {
 

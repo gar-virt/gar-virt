@@ -23,6 +23,8 @@ module;
 
 export module virt:libvirt;
 
+import utility;
+
 export namespace ls_gitea_runner::libvirt {
 
 struct SpawnOptions {

@@ -1,11 +1,4 @@
-#include <utility/env.hpp>
-
-#include <cstdlib>
-#include <mutex>
-#include <optional>
-#include <shared_mutex>
-#include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
-#include <string>
+module;
 
 #ifdef _WIN32
     #include <utility/string.hpp>
@@ -15,7 +8,16 @@
     #include <windows.h>
 #endif
 
-namespace ls_gitea_runner::utility {
+#include <cstdlib>
+#include <mutex>
+#include <optional>
+#include <shared_mutex>
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
+#include <string>
+
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 namespace {
 std::shared_mutex mutex;
 }

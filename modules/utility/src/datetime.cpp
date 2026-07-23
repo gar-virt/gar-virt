@@ -1,5 +1,4 @@
-#include <utility/datetime.hpp>
-#include <utility/error.hpp>
+module;
 
 #include <concepts>
 #include <cstdio>
@@ -10,7 +9,9 @@
 #include <string_view>
 #include <time.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 namespace {
 constexpr std::string_view utc_date_time_format{"yyyy-mm-ddThh:mm:ssZ"};
 constexpr std::string_view local_date_time_format{"yyyy-mm-dd hh:mm:ss"};

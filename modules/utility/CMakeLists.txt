@@ -5,7 +5,7 @@ elseif(UNIX)
 endif()
 
 add_library(utility)
-target_sources(utility PRIVATE
+target_sources(utility PUBLIC FILE_SET modules TYPE CXX_MODULES FILES
     src/encoding/base64.cpp
     src/error.cpp
     src/env.cpp
@@ -14,6 +14,8 @@ target_sources(utility PRIVATE
     src/http.cpp
     src/log/ansi.cpp
     src/log/global_logger.cpp
+    src/log/level.cpp
+    src/log/log.cpp
     src/log/stdout.cpp
     src/shutdown_signal.cpp
     src/string.cpp

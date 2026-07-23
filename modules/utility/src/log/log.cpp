@@ -1,8 +1,4 @@
-#pragma once
-
-#include <utility/datetime.hpp>
-#include <utility/log/ansi.hpp>
-#include <utility/log/level.hpp>
+module;
 
 #include <cstdlib>
 #include <format>
@@ -13,7 +9,9 @@
 #include <variant>
 #include <vector>
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 enum class LogCapability { log_thread };
 

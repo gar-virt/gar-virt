@@ -1,36 +1,44 @@
-#include <utility/shutdown_signal.hpp>
+module;
 
 #include <csignal>
 #include <memory>
 #include <mutex>
 
-namespace ls_gitea_runner::utility {
+export module utility;
 
-struct ShutdownSignal::State {
-    std::mutex mutex;
-    bool value{};
+export namespace ls_gitea_runner::utility {
+
+class ShutdownSignal {
+    struct State {
+        std::mutex mutex;
+        bool value{};
+    };
+
+public:
+    ShutdownSignal() : m_state{std::make_shared<State>()} {}
+
+    void signal() {
+        const std::scoped_lock lock{m_state->mutex};
+        m_state->value = true;
+    }
+
+    bool is_signalled() const {
+        const std::scoped_lock lock{m_state->mutex};
+        return m_state->value;
+    }
+
+    ShutdownSignal install() {
+        static ShutdownSignal sig;
+        std::once_flag once;
+        std::call_once(once, [&] {
+            std::signal(SIGINT, +[](int) { sig.signal(); });
+            std::signal(SIGTERM, +[](int) { sig.signal(); });
+        });
+        return sig;
+    }
+
+private:
+    std::shared_ptr<State> m_state;
 };
-
-ShutdownSignal::ShutdownSignal() : m_state{std::make_shared<State>()} {}
-
-void ShutdownSignal::signal() {
-    const std::scoped_lock lock{m_state->mutex};
-    m_state->value = true;
-}
-
-bool ShutdownSignal::is_signalled() const {
-    const std::scoped_lock lock{m_state->mutex};
-    return m_state->value;
-}
-
-ShutdownSignal ShutdownSignal::install() {
-    static ShutdownSignal sig;
-    std::once_flag once;
-    std::call_once(once, [&] {
-        std::signal(SIGINT, +[](int) { sig.signal(); });
-        std::signal(SIGTERM, +[](int) { sig.signal(); });
-    });
-    return sig;
-}
 
 } // namespace ls_gitea_runner::utility

@@ -1,9 +1,11 @@
-#pragma once
+module;
 
 #include <functional>
 #include <utility>
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 class Deferred {
 public:

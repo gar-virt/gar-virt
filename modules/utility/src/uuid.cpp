@@ -1,4 +1,4 @@
-#include <utility/uuid.hpp>
+module;
 
 #ifdef _WIN32
     #include <rpc.h>
@@ -9,7 +9,11 @@
     #include <uuid/uuid.h>
 #endif
 
-namespace ls_gitea_runner::utility {
+#include <string>
+
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 namespace {
 constexpr int uuid_length{36};
 }

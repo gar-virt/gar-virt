@@ -1,18 +1,21 @@
-#include <utility/filesystem.hpp>
-
-#include <utility/algorithm.hpp>
+module;
 
 #include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <random>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
-namespace ls_gitea_runner::fs {
-namespace detail {
+export module utility;
+
+export namespace ls_gitea_runner::fs {
+namespace {
 
 void read_file_into(std::span<std::byte> content, const std::filesystem::path& file_path) {
     std::ifstream stream{file_path, std::ios_base::binary};
@@ -21,10 +24,10 @@ void read_file_into(std::span<std::byte> content, const std::filesystem::path& f
     stream.read(reinterpret_cast<char*>(content.data()), utility::safe_cast_int<std::streamsize>(content.size_bytes()));
 }
 
-} // namespace detail
+} // namespace
 
-std::filesystem::path temporary_file_path(const std::optional<std::string>& prefix,
-                                          const std::optional<std::filesystem::path>& base_dir) {
+std::filesystem::path temporary_file_path(const std::optional<std::string>& prefix = std::nullopt,
+                                          const std::optional<std::filesystem::path>& base_dir = std::nullopt) {
     static constexpr std::array<char, 36> alphabet = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
                                                       'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
                                                       'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
@@ -51,6 +54,24 @@ std::filesystem::path temporary_file_path(const std::optional<std::string>& pref
         }
     }
     throw std::runtime_error{"Failed to generate a non-existing temporary file path"};
+}
+
+template <typename T>
+    requires utility::contiguous_byte_container<T>
+void read_file_into(T& content, const std::filesystem::path& file_path) {
+    const auto file_size{std::filesystem::file_size(file_path)};
+    content.resize(file_size);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    detail::read_file_into(std::span<std::byte>{reinterpret_cast<std::byte*>(content.data()), content.size()},
+                           file_path);
+}
+
+template <typename T = std::vector<std::byte>>
+    requires utility::contiguous_byte_container<T>
+T read_file(const std::filesystem::path& file_path) {
+    T content;
+    read_file_into(content, file_path);
+    return content;
 }
 
 void write_file(const std::filesystem::path& file_path, std::span<const std::byte> content) {

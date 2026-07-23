@@ -1,4 +1,4 @@
-#include <utility/string.hpp>
+module;
 
 #ifdef _WIN32
     #define NOMINMAX
@@ -7,8 +7,17 @@
 #endif
 
 #include <algorithm>
+#include <functional>
+#include <regex>
+#include <set>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 #if defined(_WIN32)
 // Converts a narrow (UTF-8-encoded) string into a wide (UTF-16-encoded) string.
@@ -73,7 +82,8 @@ std::u8string u8string_from_string(std::string_view from) {
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
 
-std::string_view string_trim_left(std::string_view s, const std::set<char>& chars) noexcept {
+std::string_view string_trim_left(std::string_view s,
+                                  const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         if (!chars.contains(s[i])) {
             return s.substr(i, s.size() - i);
@@ -82,7 +92,8 @@ std::string_view string_trim_left(std::string_view s, const std::set<char>& char
     return s;
 }
 
-std::string_view string_trim_right(std::string_view s, const std::set<char>& chars) noexcept {
+std::string_view string_trim_right(std::string_view s,
+                                   const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept {
     for (std::size_t i{}; i < s.size(); ++i) {
         const auto j{s.size() - i};
         if (!chars.contains(s[j - 1])) {
@@ -92,11 +103,12 @@ std::string_view string_trim_right(std::string_view s, const std::set<char>& cha
     return s;
 }
 
-std::string_view string_trim(std::string_view s, const std::set<char>& chars) noexcept {
+std::string_view string_trim(std::string_view s, const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept {
     return string_trim_left(string_trim_right(s, chars), chars);
 }
 
-void string_trim_right(std::in_place_t, std::string& s, const std::set<char>& chars) noexcept {
+void string_trim_right(std::in_place_t, std::string& s,
+                       const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept {
     auto length{s.size()};
     for (auto it{s.rbegin()}; it != s.rend(); ++it) {
         if (!chars.contains(*it)) {
@@ -111,6 +123,35 @@ void string_trim_right(std::in_place_t, std::string& s, const std::set<char>& ch
 
 void string_trim_right(std::in_place_t, std::string& s, char c) noexcept {
     string_trim_right(std::in_place, s, std::set<char>{c});
+}
+
+template <typename Container>
+    requires(!std::is_convertible_v<Container, std::string_view>)
+std::string string_join(std::string_view glue, const Container& container) {
+    std::string joined;
+    for (auto i = size_t{}; i < container.size(); ++i) {
+        if (i > 0) {
+            joined += glue;
+        }
+        joined += container[i];
+    }
+    return joined;
+}
+
+template <typename... Ts>
+    requires(... && std::is_convertible_v<Ts, std::string_view>)
+std::string string_join(std::string_view glue, Ts&... pieces) {
+    std::string joined;
+    size_t i{};
+    (
+        [&] {
+            if (i++ > 0) {
+                joined += glue;
+            }
+            joined += pieces;
+        }(),
+        ...);
+    return joined;
 }
 
 bool string_contains_ci(std::string_view needle, std::string_view haystack) noexcept {

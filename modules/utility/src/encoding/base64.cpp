@@ -1,10 +1,16 @@
-#include <utility/encoding/base64.hpp>
-
-#include <string>
+module;
 
 #include <cppcodec/base64_rfc4648.hpp>
 
-namespace ls_gitea_runner::utility {
+#include <cstddef>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 std::string base64_encode(std::span<const std::byte> input) { return cppcodec::base64_rfc4648::encode(input); }
 

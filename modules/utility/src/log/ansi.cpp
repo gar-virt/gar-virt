@@ -1,12 +1,4 @@
-#include <utility/log/ansi.hpp>
-
-#include <utility/env.hpp>
-
-#include <cstdio>
-#include <format>
-#include <functional>
-#include <iostream>
-#include <string>
+module;
 
 #ifdef _WIN32
     #include <io.h>
@@ -14,7 +6,25 @@
     #include <unistd.h>
 #endif
 
+#include <cstdio>
+#include <format>
+#include <functional>
+#include <iosfwd>
+#include <iostream>
+#include <string>
+#include <variant>
+
+export module utility;
+
 namespace ls_gitea_runner::utility::ansi {
+
+export struct Color {
+    int code{};
+};
+
+export struct Reset {};
+
+export using Sequence = std::variant<Color, Reset>;
 
 class SequenceVisitor {
 public:
@@ -27,17 +37,21 @@ private:
     std::move_only_function<void(const std::string&)> m_output_fn;
 };
 
-void write_escape_sequence(std::ostream& output, const Sequence& seq) { std::visit(SequenceVisitor{output}, seq); }
-void write_escape_sequence(std::string& output, const Sequence& seq) { std::visit(SequenceVisitor{output}, seq); }
+export void write_escape_sequence(std::ostream& output, const Sequence& seq) {
+    std::visit(SequenceVisitor{output}, seq);
+}
+export void write_escape_sequence(std::string& output, const Sequence& seq) {
+    std::visit(SequenceVisitor{output}, seq);
+}
 
-bool is_terminal() noexcept { return ::isatty(::fileno(stdout)) == 1; }
+export bool is_terminal() noexcept { return ::isatty(::fileno(stdout)) == 1; }
 
 // TODO: Needs Windows-specific checks
 //       Also see how to enable virtual terminal processing in cmd for Windows 10 and later:
 //       https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
-bool is_esc_seq_supported() noexcept { return is_terminal(); }
+export bool is_esc_seq_supported() noexcept { return is_terminal(); }
 
-bool is_color_undesired() {
+export bool is_color_undesired() {
     // https://no-color.org/
     // https://web.archive.org/web/20260616201813/https://no-color.org/
     // https://github.com/jcs/no_color
@@ -45,14 +59,14 @@ bool is_color_undesired() {
     return no_color && !no_color->empty();
 }
 
-bool is_color_desired_unconditionally() {
+export bool is_color_desired_unconditionally() {
     // https://force-color.org/
     // https://github.com/donatj/force-color.org
     const auto force_color{getenv("FORCE_COLOR")};
     return force_color && !force_color->empty();
 }
 
-bool is_color_supported() {
+export bool is_color_supported() {
     if (is_color_desired_unconditionally()) {
         return true;
     }

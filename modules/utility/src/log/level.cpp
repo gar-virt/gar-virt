@@ -1,11 +1,11 @@
-#pragma once
-
-#include "level.hpp"
+module;
 
 #include <cstdlib>
 #include <string_view>
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 enum class LogLevel {
     none,

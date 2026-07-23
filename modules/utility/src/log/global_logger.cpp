@@ -1,8 +1,8 @@
-#include <utility/log/global_logger.hpp>
-#include <utility/log/log.hpp>
-#include <utility/log/stdout.hpp>
+module;
 
-namespace ls_gitea_runner {
+export module utility;
+
+export namespace ls_gitea_runner {
 
 utility::Logger& global_logger() noexcept {
     static std::unique_ptr<utility::StdOutLogger> shared_instance{[] {

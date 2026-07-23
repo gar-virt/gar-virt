@@ -1,10 +1,12 @@
-#pragma once
+module;
 
 #include <concepts>
 #include <cstddef>
 #include <iterator>
 
-namespace ls_gitea_runner::utility {
+export module utility;
+
+export namespace ls_gitea_runner::utility {
 
 template <typename T>
 concept contiguous_byte_container =

@@ -9,6 +9,7 @@ target_sources(virt
             src/libvirt/libvirt.cpp
             src/libvirt/libvirt_backend.cpp
             src/api.cpp
+            src/virt_module.cpp
 )
 target_link_libraries(virt PRIVATE
     Boost::json

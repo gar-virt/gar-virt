@@ -1,8 +1,10 @@
-#pragma once
+module;
 
 #include <filesystem>
 
-namespace ls_gitea_runner {
+export module main;
+
+export namespace ls_gitea_runner {
 
 struct ProgramOptions {
     std::filesystem::path config_file;

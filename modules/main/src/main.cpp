@@ -1,6 +1,4 @@
-#include "commands.hpp"
-#include "config.hpp"
-#include "program_options.hpp"
+module;
 
 #include <utility/log/global_logger.hpp>
 #include <utility/string.hpp>
@@ -10,6 +8,8 @@
 #include <iostream>
 #include <print>
 #include <string>
+
+export module main;
 
 namespace ls_gitea_runner {
 namespace {

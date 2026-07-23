@@ -5,11 +5,13 @@ add_executable(gar_virt)
 set_target_properties(gar_virt PROPERTIES
     OUTPUT_NAME gar-virt
 )
-target_sources(gar_virt PRIVATE
+target_sources(gar_virt PRIVATE FILE_SET modules TYPE CXX_MODULES FILES
     src/commands.cpp
     src/config.cpp
     src/core.cpp
     src/main.cpp
+    src/program_options.cpp
+    src/version.cpp
 )
 target_link_libraries(gar_virt PRIVATE
     Boost::json

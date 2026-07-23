@@ -1,27 +1,42 @@
-#include "libvirt.hpp"
-
-#include <utility/defer.hpp>
-#include <utility/encoding/base64.hpp>
-#include <utility/string.hpp>
-#include <utility/uuid.hpp>
+module;
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
 #include <cstdlib>
+#include <expected>
 #include <format>
+#include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include <boost/json.hpp>
 #include <libvirt/libvirt-qemu.h>
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
-namespace ls_gitea_runner::libvirt {
+export module virt:libvirt;
+
+export namespace ls_gitea_runner::libvirt {
+
+struct SpawnOptions {
+    std::string volume;
+    std::string domain;
+    std::string storage_pool;
+};
+
+struct SpawnResult {
+    int exit_code{};
+    std::string output;
+};
+
+namespace {
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -47,8 +62,6 @@ using ConnectPtr = std::unique_ptr<virConnect, ConnectDeleter>;
 using StoragePoolPtr = std::unique_ptr<virStoragePool, StoragePoolDeleter>;
 using StorageVolPtr = std::unique_ptr<virStorageVol, StorageVolDeleter>;
 using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
-
-namespace {
 
 // Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
 constexpr auto GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(auto cb) noexcept {
@@ -91,8 +104,6 @@ std::string get_formatter_last_libvirt_error() {
     }
     return {};
 }
-
-} // namespace
 
 enum class RunLoopState { stopped, starting, running, stopping };
 
@@ -418,36 +429,6 @@ private:
     std::condition_variable m_cv;
     mutable std::mutex m_mutex;
 };
-
-Machine::Machine(std::unique_ptr<MachineImpl> impl) : m_impl{std::move(impl)} {}
-
-Machine::~Machine() = default;
-
-Machine::Machine(Machine&&) noexcept = default;
-Machine& Machine::operator=(Machine&&) noexcept = default;
-
-const std::string& Machine::get_name() const noexcept { return m_impl->get_name(); }
-
-std::expected<void, GenericError> Machine::wait() { return m_impl->wait(); }
-
-std::expected<void, GenericError> Machine::write_file(const std::string& file_path,
-                                                      std::span<const std::byte> content) {
-    return m_impl->write_file(file_path, content);
-}
-
-std::expected<SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
-                                                             const std::optional<std::chrono::seconds>& timeout) {
-    return m_impl->shell_exec(cmd, timeout);
-}
-
-std::expected<void, GenericError> Machine::resume() { return m_impl->resume(); }
-std::expected<void, GenericError> Machine::kill() { return m_impl->kill(); }
-std::expected<bool, GenericError> Machine::is_ready() const { return m_impl->is_ready(); }
-
-void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
-void Machine::notify_ready() { m_impl->notify_ready(); }
-
-std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 
 class EventLoopImpl final {
 private:
@@ -809,19 +790,65 @@ private:
     std::vector<int> m_event_handler_ids;
 };
 
-Hypervisor::~Hypervisor() = default;
+} // namespace
 
-Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
-Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
+class Machine final {
+public:
+    Machine(std::unique_ptr<MachineImpl> impl) : m_impl{std::move(impl)} {}
 
-std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(const SpawnOptions& options) {
-    return m_impl->spawn(options);
-}
+    ~Machine() = default;
 
-std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) {
-    return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
-}
+    Machine(Machine&&) noexcept = default;
+    Machine& operator=(Machine&&) noexcept = default;
 
-Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
+    const std::string& get_name() const noexcept { return m_impl->get_name(); }
 
+    std::expected<void, GenericError> wait() { return m_impl->wait(); }
+
+    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content) {
+        return m_impl->write_file(file_path, content);
+    }
+
+    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
+                                                        const std::optional<std::chrono::seconds>& timeout) {
+        return m_impl->shell_exec(cmd, timeout);
+    }
+
+    std::expected<void, GenericError> resume() { return m_impl->resume(); }
+    std::expected<void, GenericError> kill() { return m_impl->kill(); }
+    std::expected<bool, GenericError> is_ready() const { return m_impl->is_ready(); }
+
+    void notify_bad_state() { m_impl->notify_bad_state(); }
+    void notify_ready() { m_impl->notify_ready(); }
+
+    std::expected<void, GenericError> wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
+
+private:
+    friend HypervisorImpl;
+    void notify_bad_state();
+    void notify_ready();
+
+    std::unique_ptr<MachineImpl> m_impl;
+};
+
+class Hypervisor final {
+public:
+    ~Hypervisor() = default;
+
+    Hypervisor(Hypervisor&&) noexcept = default;
+    Hypervisor& operator=(Hypervisor&&) noexcept = default;
+
+    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options) {
+        return m_impl->spawn(options);
+    }
+
+    std::expected<Hypervisor, GenericError> connect(const std::string& uri) {
+        return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
+    }
+
+    Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
+
+private:
+    std::unique_ptr<HypervisorImpl> m_impl;
+};
 } // namespace ls_gitea_runner::libvirt

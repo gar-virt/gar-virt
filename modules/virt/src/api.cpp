@@ -21,7 +21,7 @@ export module virt:api;
 
 import utility;
 
-namespace ls_gitea_runner {
+export namespace ls_gitea_runner {
 
 struct Arch {
     enum Type { amd64, arm64 };

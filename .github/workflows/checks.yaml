@@ -19,14 +19,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu:26.04, ubuntu:24.04]
+        image: [ubuntu-26.04, ubuntu-24.04]
         compiler: [clang, gcc]
         build_type: [ASan, TSan]
         include:
-          - image: ubuntu:26.04
+          - image: ubuntu-26.04
             gcc_version: 15
             clang_version: 22
-          - image: ubuntu:24.04
+          - image: ubuntu-24.04
             gcc_version: 14
             clang_version: 20
     steps:
@@ -37,7 +37,7 @@ jobs:
           --tag gar-virt:ubuntu
           --target test
           --file "docker/ubuntu/Dockerfile" .
-          --build-arg BASE_IMAGE=${{ matrix.image }}
+          --build-arg "BASE_IMAGE=ghcr.io/gar-virt/runner-images:${{ matrix.image }}"
           --build-arg COMPILER=${{ matrix.compiler }}
           --build-arg BUILD_TYPE=${{ matrix.build_type }}
           --build-arg GCC_VERSION=${{ matrix.gcc_version }}

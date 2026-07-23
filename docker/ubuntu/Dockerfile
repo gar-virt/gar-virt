@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=ghcr.io/gar-virt/runner-images:ubuntu-24.04
 FROM ${BASE_IMAGE} AS builder
 
 # Enabling Universe is needed for some packages:
@@ -13,27 +13,12 @@ ARG CLANG_VERSION=20
 
 RUN <<EOF
 set -e
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
 
 # Compiler
 if [ "${COMPILER}" = "gcc" ]; then
-    apt-get install --yes --no-install-recommends \
-        "gcc-${GCC_VERSION}" \
-        "g++-${GCC_VERSION}"
-    update-alternatives --install /usr/bin/gcc gcc "/usr/bin/gcc-${GCC_VERSION}" "${GCC_VERSION}" \
-        --slave /usr/bin/g++ g++ "/usr/bin/g++-${GCC_VERSION}"
     echo "CMAKE_C_COMPILER=gcc-${GCC_VERSION}" >> /tmp/compile_env.txt
     echo "CMAKE_CXX_COMPILER=g++-${GCC_VERSION}" >> /tmp/compile_env.txt
 elif [ "${COMPILER}" = "clang" ]; then
-    apt-get install --yes --no-install-recommends \
-        "clang-${CLANG_VERSION}" \
-        "clang-tidy-${CLANG_VERSION}" \
-        "libstdc++-${GCC_VERSION}-dev" \
-        "libclang-rt-${CLANG_VERSION}-dev"
-    update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${CLANG_VERSION}" "${CLANG_VERSION}" \
-        --slave /usr/bin/clang++ clang++ "/usr/bin/clang++-${CLANG_VERSION}" \
-        --slave /usr/bin/clang-tidy clang-tidy "/usr/bin/clang-tidy-${CLANG_VERSION}"
     echo "CMAKE_C_COMPILER=clang-${CLANG_VERSION}" >> /tmp/compile_env.txt
     echo "CMAKE_CXX_COMPILER=clang-${CLANG_VERSION}" >> /tmp/compile_env.txt
 else
@@ -41,12 +26,8 @@ else
     exit 1
 fi
 
-# Rest of toolchain
-apt-get install --yes --no-install-recommends \
-    ca-certificates \
-    cmake \
-    git \
-    ninja-build
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
 
 # Development dependencies
 apt-get install --yes --no-install-recommends \

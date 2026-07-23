@@ -1,6 +1,4 @@
-#pragma once
-
-#include <utility/uuid.hpp>
+module;
 
 #include <cassert>
 #include <condition_variable>
@@ -13,7 +11,9 @@
 #include <unordered_map>
 #include <vector>
 
-namespace ls_gitea_runner::utility {
+export module utility:thread_pool_executor;
+
+export namespace ls_gitea_runner::utility {
 
 class ThreadPoolExecutor final {
     using ULock = std::unique_lock<std::mutex>;

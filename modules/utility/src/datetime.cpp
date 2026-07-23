@@ -9,7 +9,7 @@ module;
 #include <string_view>
 #include <time.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 
-export module utility;
+export module utility:datetime;
 
 export namespace ls_gitea_runner::utility {
 namespace {

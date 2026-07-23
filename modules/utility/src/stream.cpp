@@ -1,7 +1,4 @@
-#pragma once
-
-#include "algorithm.hpp"
-#include "memstream.hpp"
+module;
 
 #include <cstdint>
 #include <filesystem>
@@ -12,7 +9,9 @@
 #include <streambuf>
 #include <string>
 
-namespace ls_gitea_runner::utility {
+export module utility:stream;
+
+export namespace ls_gitea_runner::utility {
 
 class SharedStreamOperations {
 public:

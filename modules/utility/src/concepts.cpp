@@ -4,7 +4,7 @@ module;
 #include <cstddef>
 #include <iterator>
 
-export module utility;
+export module utility:concepts;
 
 export namespace ls_gitea_runner::utility {
 

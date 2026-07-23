@@ -12,7 +12,7 @@ module;
 #include <string>
 #include <vector>
 
-export module utility;
+export module utility:fs;
 
 export namespace ls_gitea_runner::fs {
 namespace {

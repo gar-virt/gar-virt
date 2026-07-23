@@ -4,7 +4,7 @@ module;
 #include <memory>
 #include <mutex>
 
-export module utility;
+export module utility:shutdown_signal;
 
 export namespace ls_gitea_runner::utility {
 

@@ -2,7 +2,7 @@ module;
 
 #include <string_view>
 
-export module main;
+export module main:version;
 
 export namespace ls_gitea_runner {
 

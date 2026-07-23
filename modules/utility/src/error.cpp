@@ -4,7 +4,7 @@ module;
 #include <stdexcept>
 #include <string>
 
-export module utility;
+export module utility:error;
 
 namespace ls_gitea_runner {
 

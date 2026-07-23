@@ -1,7 +1,4 @@
-#pragma once
-
-#include "filesystem.hpp"
-#include "stream.hpp"
+module;
 
 #ifdef _WIN32
     #include "string.hpp"
@@ -13,7 +10,9 @@
 #include <optional>
 #include <utility>
 
-namespace ls_gitea_runner::fs {
+export module utility:temporary_file;
+
+export namespace ls_gitea_runner::fs {
 
 class TemporaryFile {
 public:

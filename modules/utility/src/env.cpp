@@ -15,7 +15,7 @@ module;
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 #include <string>
 
-export module utility;
+export module utility:env;
 
 export namespace ls_gitea_runner::utility {
 namespace {

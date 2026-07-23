@@ -11,7 +11,7 @@ module;
 
 #include <string>
 
-export module utility;
+export module utility:uuid;
 
 export namespace ls_gitea_runner::utility {
 namespace {

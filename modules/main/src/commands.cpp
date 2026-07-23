@@ -5,7 +5,7 @@ module;
 #include <expected>
 #include <thread>
 
-export module main;
+export module main:commands;
 
 export namespace ls_gitea_runner {
 

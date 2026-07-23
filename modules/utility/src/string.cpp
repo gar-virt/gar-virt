@@ -15,7 +15,7 @@ module;
 #include <utility>
 #include <vector>
 
-export module utility;
+export module utility:string;
 
 export namespace ls_gitea_runner::utility {
 

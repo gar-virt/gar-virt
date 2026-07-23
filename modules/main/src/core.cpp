@@ -21,7 +21,7 @@ module;
 #include <optional>
 #include <string>
 
-export module main;
+export module main:core;
 
 namespace ls_gitea_runner {
 

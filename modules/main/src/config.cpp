@@ -1,11 +1,5 @@
 module;
 
-#include <utility/algorithm.hpp>
-#include <utility/env.hpp>
-#include <utility/error.hpp>
-#include <utility/filesystem.hpp>
-#include <utility/log/log.hpp>
-#include <utility/string.hpp>
 #include <virt/arch.hpp>
 
 #include <yaml-cpp/yaml.h>
@@ -18,7 +12,9 @@ module;
 #include <string>
 #include <vector>
 
-export module main;
+export module main:config;
+
+import utility;
 
 namespace ls_gitea_runner::config {
 

@@ -9,6 +9,7 @@ target_sources(app
     PRIVATE
         FILE_SET CXX_MODULES
         FILES
+            src/app_main_impl.cpp
             src/app_main.cpp
             src/app_module.cpp
             src/commands.cpp

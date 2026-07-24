@@ -14,7 +14,7 @@ module;
 #include <string>
 #include <variant>
 
-export module utility;
+export module utility:log_ansi;
 
 namespace ls_gitea_runner::utility::ansi {
 

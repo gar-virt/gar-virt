@@ -1,6 +1,6 @@
 module;
 
-export module utility;
+export module utility:log_global_logger;
 
 export namespace ls_gitea_runner {
 

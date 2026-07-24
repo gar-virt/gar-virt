@@ -9,7 +9,7 @@ module;
 #include <variant>
 #include <vector>
 
-export module utility;
+export module utility:log;
 
 export namespace ls_gitea_runner::utility {
 

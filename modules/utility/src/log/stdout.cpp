@@ -1,6 +1,7 @@
 module;
 
 #include <iostream>
+#include <variant>
 
 export module utility.log:stdout_;
 

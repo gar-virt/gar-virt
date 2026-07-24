@@ -1,14 +1,9 @@
-module;
-
-#ifdef _WIN32
-    #include "string.hpp"
-#endif
-
 export module utility.fs:temporary_file;
 
 import :util;
 
 import utility.io;
+import utility.misc;
 
 import std;
 

@@ -5,7 +5,7 @@ module;
 #include <boost/json.hpp>
 #include <boost/url.hpp>
 
-export module app:core;
+module app:core;
 
 import :config;
 import :version;

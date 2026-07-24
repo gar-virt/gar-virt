@@ -6,7 +6,6 @@ export module app:app_main;
 
 import :commands;
 import :config;
-import :program_options;
 
 import utility.log;
 import utility.misc;
@@ -14,6 +13,10 @@ import utility.misc;
 import std;
 
 namespace ls_gitea_runner {
+
+export struct ProgramOptions {
+    std::filesystem::path config_file;
+};
 
 export void app_main(int argc, const char* const* argv) {
     namespace po = boost::program_options;

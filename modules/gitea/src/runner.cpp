@@ -132,8 +132,8 @@ public:
         return *this;
     }
 
-    std::expected<Runner, GenericError> connect(RunnerOptions options,
-                                                std::shared_ptr<gitea::AdminServiceClient> admin) {
+    static std::expected<Runner, GenericError> connect(RunnerOptions options,
+                                                       std::shared_ptr<gitea::AdminServiceClient> admin) {
         const auto reg_token(admin->get_registration_token());
         if (!reg_token) {
             return std::unexpected{reg_token.error()};

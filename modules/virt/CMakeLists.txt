@@ -3,9 +3,10 @@ find_package(libvirt REQUIRED)
 
 add_library(virt)
 target_sources(virt PUBLIC FILE_SET CXX_MODULES FILES
-    src/libvirt/libvirt.cpp
-    src/libvirt/libvirt_backend.cpp
     src/api.cpp
+    src/factory.cpp
+    src/libvirt/libvirt_backend.cpp
+    src/libvirt/libvirt.cpp
     src/virt_module.cpp
 )
 target_link_libraries(virt PRIVATE
@@ -13,5 +14,6 @@ target_link_libraries(virt PRIVATE
     libvirt::virt
     libvirt::qemu
     checks
+    std_wrapper
     utility
 )

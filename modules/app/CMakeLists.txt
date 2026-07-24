@@ -10,10 +10,10 @@ target_sources(gar_virt
         FILE_SET CXX_MODULES
         FILES
             src/app_main.cpp
+            src/app_module.cpp
             src/commands.cpp
             src/config.cpp
             src/core.cpp
-            src/main_module.cpp
             src/program_options.cpp
             src/version.cpp
     PRIVATE

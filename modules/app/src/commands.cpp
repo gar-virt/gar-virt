@@ -1,11 +1,12 @@
-module;
+export module app:commands;
 
-#include <utility/shutdown_signal.hpp>
+import :config;
+import :core;
 
-#include <expected>
-#include <thread>
+import utility.misc;
 
-export module main:commands;
+import std;
+import std.compat;
 
 namespace ls_gitea_runner {
 

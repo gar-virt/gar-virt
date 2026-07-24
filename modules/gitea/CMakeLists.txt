@@ -5,8 +5,8 @@ find_package(CURL REQUIRED)
 add_library(gitea)
 target_sources(gitea PUBLIC FILE_SET CXX_MODULES FILES
     src/admin_service_client.cpp
+    src/gitea_module.cpp
     src/runner_credentials.cpp
-    src/runner_module.cpp
     src/runner_service_client.cpp
     src/runner.cpp
 )
@@ -20,5 +20,6 @@ target_link_libraries(gitea
         gRPC::grpc++
         CURL::libcurl
         checks
+        std_wrapper
         utility
 )

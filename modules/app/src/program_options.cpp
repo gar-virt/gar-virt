@@ -2,7 +2,7 @@ module;
 
 #include <filesystem>
 
-export module main:program_options;
+export module app:program_options;
 
 namespace ls_gitea_runner {
 

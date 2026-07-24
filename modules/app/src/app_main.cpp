@@ -1,15 +1,17 @@
 module;
 
-#include <utility/log/global_logger.hpp>
-#include <utility/string.hpp>
-
 #include <boost/program_options.hpp>
 
-#include <iostream>
-#include <print>
-#include <string>
+export module app:app_main;
 
-export module main:app_main;
+import :commands;
+import :config;
+import :program_options;
+
+import utility.log;
+import utility.misc;
+
+import std;
 
 namespace ls_gitea_runner {
 

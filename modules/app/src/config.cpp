@@ -1,20 +1,16 @@
 module;
 
-#include <virt/arch.hpp>
-
 #include <yaml-cpp/yaml.h>
 
-#include <algorithm>
-#include <expected>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <string>
-#include <vector>
+export module app:config;
 
-export module main:config;
+import utility.fs;
+import utility.log;
+import utility.misc;
+import virt;
 
-import utility;
+import std;
+
 
 namespace ls_gitea_runner::config {
 

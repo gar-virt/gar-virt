@@ -2,19 +2,17 @@ module;
 
 #include <yaml-cpp/yaml.h>
 
-#include <chrono>
-#include <expected>
-#include <filesystem>
-#include <memory>
-#include <string>
-#include <thread>
-#include <tuple>
-
 export module virt:libvirt_backend;
 
-import utility;
+import :api;
+import :libvirt;
 
-export namespace ls_gitea_runner {
+import utility.fs;
+import utility.misc;
+
+import std;
+
+namespace ls_gitea_runner {
 namespace {
 
 std::expected<std::vector<std::string>, GenericError>
@@ -45,14 +43,7 @@ add_command_output_redirection(const std::string& target_os, const std::vector<s
 
 } // namespace
 
-class LibvirtMachineManagerFactory final : public MachineManagerFactory {
-public:
-    ~LibvirtMachineManagerFactory() = default;
-
-    std::unique_ptr<MachineManager> create() override { return std::make_unique<LibvirtMachineManager>(); }
-};
-
-struct LibvirtMachineTemplateDetails {
+export struct LibvirtMachineTemplateDetails {
     std::filesystem::path domain_template_path;
     std::filesystem::path volume_template_path;
     std::string storage_pool_name;
@@ -80,7 +71,7 @@ struct LibvirtMachineTemplateDetails {
     }
 };
 
-struct LibvirtMachinePoolDetails {
+export struct LibvirtMachinePoolDetails {
     std::string hypervisor_uri;
 
     static std::expected<LibvirtMachinePoolDetails, GenericError> load(const std::string& details) {
@@ -95,60 +86,10 @@ struct LibvirtMachinePoolDetails {
     }
 };
 
-class LibvirtMachineManager final : public MachineManager {
+export class LibvirtMachine final : public Machine {
     class Impl final {
     public:
-        std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
-                                                                    const std::string& serialized_pool_details,
-                                                                    const std::string& serialized_template_details,
-                                                                    const std::filesystem::path& config_dir) {
-            const auto pool_details{LibvirtMachinePoolDetails::load(serialized_pool_details)};
-            if (!pool_details) {
-                return std::unexpected{pool_details.error()};
-            }
-
-            const auto template_details{LibvirtMachineTemplateDetails::load(serialized_template_details, config_dir)};
-            if (!template_details) {
-                return std::unexpected{template_details.error()};
-            }
-
-            auto hv{libvirt::Hypervisor::connect(pool_details->hypervisor_uri)};
-            if (!hv) {
-                return std::unexpected{hv.error()};
-            }
-
-            auto spawn_res{hv->spawn({
-                .volume = fs::read_file<std::string>(template_details->volume_template_path),
-                .domain = fs::read_file<std::string>(template_details->domain_template_path),
-                .storage_pool = template_details->storage_pool_name,
-            })};
-            if (!spawn_res) {
-                return std::unexpected{spawn_res.error()};
-            }
-
-            return std::make_unique<LibvirtMachine>(*std::move(hv), *std::move(spawn_res), info);
-        }
-    };
-
-public:
-    LibvirtMachineManager() : m_impl{std::make_unique<Impl>()} {}
-    ~LibvirtMachineManager() = default;
-
-    std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
-                                                                const std::string& serialized_pool_details,
-                                                                const std::string& serialized_template_details,
-                                                                const std::filesystem::path& config_dir) override {
-        return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);
-    }
-
-private:
-    std::unique_ptr<Impl> m_impl;
-};
-
-class LibvirtMachine final : public Machine {
-    class Impl final {
-    public:
-        Impl(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
+        Impl(std::shared_ptr<libvirt::Hypervisor> hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
                 : m_hv{std::move(hv)}, m_underlying_machine{std::move(underlying_machine)},
                   m_id{m_underlying_machine->get_name()}, m_info{std::move(info)} {}
 
@@ -205,17 +146,14 @@ class LibvirtMachine final : public Machine {
         const Machine::Info& info() const { return m_info; }
 
     private:
-        libvirt::Hypervisor m_hv;
+        std::shared_ptr<libvirt::Hypervisor> m_hv;
         std::shared_ptr<libvirt::Machine> m_underlying_machine;
         std::string m_id;
         Machine::Info m_info;
     };
 
 public:
-    LibvirtMachine(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info);
-    ~LibvirtMachine();
-
-    LibvirtMachine(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
+    LibvirtMachine(std::shared_ptr<libvirt::Hypervisor> hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
             : m_impl{std::make_unique<Impl>(std::move(hv), std::move(underlying_machine), std::move(info))} {}
 
     ~LibvirtMachine() = default;
@@ -234,20 +172,74 @@ public:
         return m_impl->wait_for_guest_agent(timeout, stop);
     }
 
+    const Machine::Info& info() const override { return m_impl->info(); }
+
+private:
     std::expected<void, GenericError> write_file_impl(const std::string& remote_path,
                                                       std::span<const std::byte> content) override {
         return m_impl->write_file(remote_path, content);
     }
 
-    const Machine::Info& info() const override { return m_impl->info(); }
+    std::unique_ptr<Impl> m_impl;
+};
 
-private:
-    std::expected<void, GenericError> write_file_impl(const std::string& remote_path,
-                                                      std::span<const std::byte>) override {
-        return m_impl->write_file(remote_path, content);
+export class LibvirtMachineManager final : public MachineManager {
+    class Impl final {
+    public:
+        std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
+                                                                    const std::string& serialized_pool_details,
+                                                                    const std::string& serialized_template_details,
+                                                                    const std::filesystem::path& config_dir) {
+            const auto pool_details{LibvirtMachinePoolDetails::load(serialized_pool_details)};
+            if (!pool_details) {
+                return std::unexpected{pool_details.error()};
+            }
+
+            const auto template_details{LibvirtMachineTemplateDetails::load(serialized_template_details, config_dir)};
+            if (!template_details) {
+                return std::unexpected{template_details.error()};
+            }
+
+            auto hv_res{libvirt::Hypervisor::connect(pool_details->hypervisor_uri)};
+            if (!hv_res) {
+                return std::unexpected{std::move(hv_res).error()};
+            }
+
+            auto hv{std::move(hv_res).value()};
+
+            auto spawn_res{hv->spawn({
+                .volume = fs::read_file<std::string>(template_details->volume_template_path),
+                .domain = fs::read_file<std::string>(template_details->domain_template_path),
+                .storage_pool = template_details->storage_pool_name,
+            })};
+            if (!spawn_res) {
+                return std::unexpected{spawn_res.error()};
+            }
+
+            return std::make_unique<LibvirtMachine>(std::move(hv), *std::move(spawn_res), info);
+        }
+    };
+
+public:
+    LibvirtMachineManager() : m_impl{std::make_unique<Impl>()} {}
+    ~LibvirtMachineManager() = default;
+
+    std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
+                                                                const std::string& serialized_pool_details,
+                                                                const std::string& serialized_template_details,
+                                                                const std::filesystem::path& config_dir) override {
+        return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);
     }
 
+private:
     std::unique_ptr<Impl> m_impl;
+};
+
+export class LibvirtMachineManagerFactory final : public MachineManagerFactory {
+public:
+    ~LibvirtMachineManagerFactory() = default;
+
+    std::unique_ptr<MachineManager> create() override { return std::make_unique<LibvirtMachineManager>(); }
 };
 
 } // namespace ls_gitea_runner

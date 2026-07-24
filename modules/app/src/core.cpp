@@ -1,27 +1,22 @@
 module;
 
-#include <gitea/admin_service_client.hpp>
-#include <gitea/runner.hpp>
-#include <gitea/runner_service_client.hpp>
 #include <runner/v1/messages.pb.h>
-#include <utility/algorithm.hpp>
-#include <utility/defer.hpp>
-#include <utility/log/global_logger.hpp>
-#include <utility/shutdown_signal.hpp>
-#include <utility/string.hpp>
-#include <utility/thread_pool_executor.hpp>
-#include <virt/machine_manager_factory_selector.hpp>
-#include <virt/machine_pool.hpp>
 
 #include <boost/json.hpp>
 #include <boost/url.hpp>
 
-#include <expected>
-#include <format>
-#include <optional>
-#include <string>
+export module app:core;
 
-export module main:core;
+import :config;
+import :version;
+
+import gitea;
+import utility.concurrency;
+import utility.log;
+import utility.misc;
+import virt;
+
+import std;
 
 namespace ls_gitea_runner {
 
@@ -266,7 +261,7 @@ struct TemplateState {
         return *std::move(task);
     }
 
-    std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine) {
+    std::expected<gitea::Runner, GenericError> create_runner(const Machine& machine) const {
         return gitea::Runner::connect(
             {
                 .forge_uri = main_config->forge.uri,
@@ -352,12 +347,12 @@ struct TemplateState {
         return {};
     }
 
-    std::expected<std::optional<::runner::v1::Task>, GenericError> try_fetch_task(const gitea::Runner& runner) {
+    static std::expected<std::optional<::runner::v1::Task>, GenericError> try_fetch_task(const gitea::Runner& runner) {
         return runner.fetch_task().transform(
             [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
     }
 
-    MachinePool create_pool() {
+    MachinePool create_pool() const {
         MachinePool machine_pool{
             template_config->idle_target, template_config->max_concurrency,
             [this] { return spawn_machine(*main_config, *backend_config, *template_config, stop); }, stop};

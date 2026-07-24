@@ -1,21 +1,5 @@
 module;
 
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <cstddef>
-#include <cstdlib>
-#include <expected>
-#include <format>
-#include <memory>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <unordered_map>
-#include <vector>
-
 #include <boost/json.hpp>
 #include <libvirt/libvirt-qemu.h>
 #include <libvirt/libvirt.h>
@@ -23,7 +7,10 @@ module;
 
 export module virt:libvirt;
 
-import utility;
+import utility.encoding;
+import utility.misc;
+
+import std;
 
 namespace ls_gitea_runner::libvirt {
 
@@ -37,8 +24,6 @@ export struct SpawnResult {
     int exit_code{};
     std::string output;
 };
-
-namespace {
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -174,12 +159,158 @@ private:
     std::unique_ptr<std::mutex> m_mutex{std::make_unique<std::mutex>()};
 };
 
-class MachineImpl {
+class EventLoopImpl final {
+private:
+    struct PrivateCtor {};
+
 public:
-    MachineImpl(std::shared_ptr<ConnectionImpl> conn, std::string domain_name, std::string volume_id)
+    EventLoopImpl(PrivateCtor) noexcept {}
+
+    ~EventLoopImpl() {
+        stop_loop();
+        if (m_loop_thread.joinable()) {
+            m_loop_thread.join();
+        }
+        unregister_event_handlers();
+    }
+
+    EventLoopImpl(const EventLoopImpl&) = delete;
+    EventLoopImpl(EventLoopImpl&&) = delete;
+
+    EventLoopImpl& operator=(const EventLoopImpl&) = delete;
+    EventLoopImpl& operator=(EventLoopImpl&&) = delete;
+
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() {
+        // Use weak pointer to allow the shared instance to be deleted sooner than app termination
+        static std::weak_ptr<EventLoopImpl> weak_instance;
+        static std::mutex m;
+        const std::scoped_lock lock{m};
+        if (auto instance{weak_instance.lock()}) {
+            return instance;
+        }
+        auto create_res{create()};
+        if (create_res) {
+            weak_instance = *create_res;
+        }
+        return create_res;
+    }
+
+private:
+    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() {
+        static std::once_flag initialized;
+        std::call_once(initialized, [] {
+            virInitialize();
+            virEventRegisterDefaultImpl();
+        });
+
+        std::shared_ptr<EventLoopImpl> impl;
+        try {
+            impl = std::make_shared<EventLoopImpl>(PrivateCtor{});
+        } catch (const std::bad_alloc& ex) {
+            return std::unexpected{GenericError{ex.what()}};
+        }
+
+        auto reg_res{impl->register_event_handlers()};
+        if (!reg_res) {
+            return std::unexpected{reg_res.error()};
+        }
+
+        auto start_res{impl->start()};
+        if (!start_res) {
+            return std::unexpected{start_res.error()};
+        }
+
+        return impl;
+    }
+
+    std::expected<void, GenericError> start() {
+        {
+            const std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::starting;
+        }
+        try {
+            m_loop_thread = std::jthread{[this] { run_loop(); }};
+            return {};
+        } catch (const std::exception& ex) {
+            const std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
+        }
+    }
+
+    std::expected<void, GenericError> register_event_handlers() {
+        constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
+        const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)};
+        if (id < 0) {
+            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
+        }
+        m_stop_event_id = id;
+        return {};
+    }
+
+    void unregister_event_handlers() {
+        if (const auto id{m_stop_event_id.exchange(-1)}; id >= 0) {
+            virEventRemoveTimeout(id);
+        }
+    }
+
+    void run_loop() {
+        {
+            const std::scoped_lock lock{m_run_loop_state_mutex};
+            if (m_run_loop_state != RunLoopState::starting) {
+                std::abort();
+            }
+            m_run_loop_state = RunLoopState::running;
+        }
+        m_start_cv.notify_all();
+        while (true) {
+            {
+                const std::scoped_lock lock{m_run_loop_state_mutex};
+                if (m_run_loop_state != RunLoopState::running) {
+                    break;
+                }
+            }
+            if (virEventRunDefaultImpl() < 0) {
+                break;
+            }
+        }
+        {
+            const std::scoped_lock lock{m_run_loop_state_mutex};
+            m_run_loop_state = RunLoopState::stopped;
+        }
+        m_stop_cv.notify_all();
+    }
+
+    void stop_loop() {
+        using namespace std::chrono_literals;
+        {
+            std::unique_lock lock{m_run_loop_state_mutex};
+            m_start_cv.wait(lock, [this] { return m_run_loop_state != RunLoopState::starting; });
+            if (m_run_loop_state == RunLoopState::stopped) {
+                return;
+            }
+            m_run_loop_state = RunLoopState::stopping;
+        }
+        std::unique_lock lock{m_run_loop_state_mutex};
+        m_stop_cv.wait(lock, [this] { return m_run_loop_state == RunLoopState::stopped; });
+    }
+
+    RunLoopState m_run_loop_state{RunLoopState::stopped};
+    std::atomic<int> m_stop_event_id{-1};
+    std::condition_variable m_start_cv;
+    std::condition_variable m_stop_cv;
+    mutable std::mutex m_run_loop_state_mutex;
+    std::jthread m_loop_thread;
+};
+
+struct PrivateCtor {};
+
+export class Machine {
+public:
+    Machine(PrivateCtor, std::shared_ptr<ConnectionImpl> conn, std::string domain_name, std::string volume_id)
             : m_conn{std::move(conn)}, m_domain_name{std::move(domain_name)}, m_volume_id{std::move(volume_id)} {}
 
-    ~MachineImpl() {
+    ~Machine() {
         if (auto volume{get_volume()}) {
             // const std::string name{virStorageVolGetName(volume.get())};
             if (virStorageVolDelete(volume->get(), VIR_STORAGE_VOL_DELETE_NORMAL) < 0) {
@@ -188,11 +319,11 @@ public:
         }
     }
 
-    MachineImpl(const MachineImpl&) = delete;
-    MachineImpl(MachineImpl&&) = delete;
+    Machine(const Machine&) = delete;
+    Machine(Machine&&) = delete;
 
-    MachineImpl& operator=(const MachineImpl&) = delete;
-    MachineImpl& operator=(MachineImpl&&) = delete;
+    Machine& operator=(const Machine&) = delete;
+    Machine& operator=(Machine&&) = delete;
 
     const std::string& get_name() const noexcept { return m_domain_name; }
 
@@ -432,162 +563,18 @@ private:
     mutable std::mutex m_mutex;
 };
 
-class EventLoopImpl final {
-private:
-    struct PrivateCtor {};
-
+export class Hypervisor final {
 public:
-    EventLoopImpl(PrivateCtor) noexcept {}
-
-    ~EventLoopImpl() {
-        stop_loop();
-        if (m_loop_thread.joinable()) {
-            m_loop_thread.join();
-        }
-        unregister_event_handlers();
-    }
-
-    EventLoopImpl(const EventLoopImpl&) = delete;
-    EventLoopImpl(EventLoopImpl&&) = delete;
-
-    EventLoopImpl& operator=(const EventLoopImpl&) = delete;
-    EventLoopImpl& operator=(EventLoopImpl&&) = delete;
-
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() {
-        // Use weak pointer to allow the shared instance to be deleted sooner than app termination
-        static std::weak_ptr<EventLoopImpl> weak_instance;
-        static std::mutex m;
-        const std::scoped_lock lock{m};
-        if (auto instance{weak_instance.lock()}) {
-            return instance;
-        }
-        auto create_res{create()};
-        if (create_res) {
-            weak_instance = *create_res;
-        }
-        return create_res;
-    }
-
-private:
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() {
-        static std::once_flag initialized;
-        std::call_once(initialized, [] {
-            virInitialize();
-            virEventRegisterDefaultImpl();
-        });
-
-        std::shared_ptr<EventLoopImpl> impl;
-        try {
-            impl = std::make_shared<EventLoopImpl>(PrivateCtor{});
-        } catch (const std::bad_alloc& ex) {
-            return std::unexpected{GenericError{ex.what()}};
-        }
-
-        auto reg_res{impl->register_event_handlers()};
-        if (!reg_res) {
-            return std::unexpected{reg_res.error()};
-        }
-
-        auto start_res{impl->start()};
-        if (!start_res) {
-            return std::unexpected{start_res.error()};
-        }
-
-        return impl;
-    }
-
-    std::expected<void, GenericError> start() {
-        {
-            const std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::starting;
-        }
-        try {
-            m_loop_thread = std::jthread{[this] { run_loop(); }};
-            return {};
-        } catch (const std::exception& ex) {
-            const std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::stopped;
-            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
-        }
-    }
-
-    std::expected<void, GenericError> register_event_handlers() {
-        constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
-        const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)};
-        if (id < 0) {
-            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
-        }
-        m_stop_event_id = id;
-        return {};
-    }
-
-    void unregister_event_handlers() {
-        if (const auto id{m_stop_event_id.exchange(-1)}; id >= 0) {
-            virEventRemoveTimeout(id);
-        }
-    }
-
-    void run_loop() {
-        {
-            const std::scoped_lock lock{m_run_loop_state_mutex};
-            if (m_run_loop_state != RunLoopState::starting) {
-                std::abort();
-            }
-            m_run_loop_state = RunLoopState::running;
-        }
-        m_start_cv.notify_all();
-        while (true) {
-            {
-                const std::scoped_lock lock{m_run_loop_state_mutex};
-                if (m_run_loop_state != RunLoopState::running) {
-                    break;
-                }
-            }
-            if (virEventRunDefaultImpl() < 0) {
-                break;
-            }
-        }
-        {
-            const std::scoped_lock lock{m_run_loop_state_mutex};
-            m_run_loop_state = RunLoopState::stopped;
-        }
-        m_stop_cv.notify_all();
-    }
-
-    void stop_loop() {
-        using namespace std::chrono_literals;
-        {
-            std::unique_lock lock{m_run_loop_state_mutex};
-            m_start_cv.wait(lock, [this] { return m_run_loop_state != RunLoopState::starting; });
-            if (m_run_loop_state == RunLoopState::stopped) {
-                return;
-            }
-            m_run_loop_state = RunLoopState::stopping;
-        }
-        std::unique_lock lock{m_run_loop_state_mutex};
-        m_stop_cv.wait(lock, [this] { return m_run_loop_state == RunLoopState::stopped; });
-    }
-
-    RunLoopState m_run_loop_state{RunLoopState::stopped};
-    std::atomic<int> m_stop_event_id{-1};
-    std::condition_variable m_start_cv;
-    std::condition_variable m_stop_cv;
-    mutable std::mutex m_run_loop_state_mutex;
-    std::jthread m_loop_thread;
-};
-
-class HypervisorImpl final {
-public:
-    HypervisorImpl(std::shared_ptr<ConnectionImpl> conn, std::shared_ptr<EventLoopImpl> loop) noexcept
+    Hypervisor(PrivateCtor, std::shared_ptr<ConnectionImpl> conn, std::shared_ptr<EventLoopImpl> loop) noexcept
             : m_loop{std::move(loop)}, m_conn{std::move(conn)} {}
 
-    ~HypervisorImpl() { unregister_event_handlers(); }
+    ~Hypervisor() { unregister_event_handlers(); }
 
-    HypervisorImpl(const HypervisorImpl&) = delete;
-    HypervisorImpl(HypervisorImpl&&) = delete;
+    Hypervisor(const Hypervisor&) = delete;
+    Hypervisor(Hypervisor&&) = delete;
 
-    HypervisorImpl& operator=(const HypervisorImpl&) = delete;
-    HypervisorImpl& operator=(HypervisorImpl&&) = delete;
+    Hypervisor& operator=(const Hypervisor&) = delete;
+    Hypervisor& operator=(Hypervisor&&) = delete;
 
     std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options) {
         const auto conn_res{m_conn->get()};
@@ -641,8 +628,7 @@ public:
         {
             const std::scoped_lock lock{m_map_mutex};
             auto machine_{m_machine_by_domain_name.emplace(
-                domain_name,
-                std::make_shared<Machine>(std::make_unique<MachineImpl>(m_conn, domain_name, *std::move(volume_id))))};
+                domain_name, std::make_shared<Machine>(PrivateCtor{}, m_conn, domain_name, *std::move(volume_id)))};
             machine = machine_.first->second;
         }
 
@@ -654,25 +640,21 @@ public:
         return machine;
     }
 
-    static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) {
+    static std::expected<std::shared_ptr<Hypervisor>, GenericError> connect(const std::string& uri) {
         auto loop_res{EventLoopImpl::get()};
         if (!loop_res) {
             return std::unexpected{loop_res.error()};
         }
 
-        std::unique_ptr<HypervisorImpl> impl;
-        try {
-            impl = std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri), *std::move(loop_res));
-        } catch (const std::bad_alloc& ex) {
-            return std::unexpected{GenericError{ex.what()}};
-        }
+        auto hv{
+            std::make_shared<Hypervisor>(PrivateCtor{}, std::make_shared<ConnectionImpl>(uri), *std::move(loop_res))};
 
-        auto reg_res{impl->register_event_handlers()};
+        auto reg_res{hv->register_event_handlers()};
         if (!reg_res) {
             return std::unexpected{reg_res.error()};
         }
 
-        return impl;
+        return hv;
     }
 
 private:
@@ -712,7 +694,7 @@ private:
 
         // virConnectDomainEventCallback
         static auto lifecycle_event_cb{+[](virConnectPtr conn, virDomainPtr dom, int event, int detail, void* opaque) {
-            auto* user_data{static_cast<HypervisorImpl*>(opaque)};
+            auto* user_data{static_cast<Hypervisor*>(opaque)};
             return user_data->lifecycle_event_handler(conn, dom, event, detail);
         }};
 
@@ -727,7 +709,7 @@ private:
         // virConnectDomainEventAgentLifecycleCallback
         static auto agent_lifecycle_event_cb{
             +[](virConnectPtr conn, virDomainPtr dom, int state, int reason, void* opaque) {
-                auto* user_data{static_cast<HypervisorImpl*>(opaque)};
+                auto* user_data{static_cast<Hypervisor*>(opaque)};
                 return user_data->agent_lifecycle_event_handler(conn, dom, state, reason);
             }};
 
@@ -792,65 +774,4 @@ private:
     std::vector<int> m_event_handler_ids;
 };
 
-} // namespace
-
-export class Machine final {
-public:
-    Machine(std::unique_ptr<MachineImpl> impl) : m_impl{std::move(impl)} {}
-
-    ~Machine() = default;
-
-    Machine(Machine&&) noexcept = default;
-    Machine& operator=(Machine&&) noexcept = default;
-
-    const std::string& get_name() const noexcept { return m_impl->get_name(); }
-
-    std::expected<void, GenericError> wait() { return m_impl->wait(); }
-
-    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content) {
-        return m_impl->write_file(file_path, content);
-    }
-
-    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
-                                                        const std::optional<std::chrono::seconds>& timeout) {
-        return m_impl->shell_exec(cmd, timeout);
-    }
-
-    std::expected<void, GenericError> resume() { return m_impl->resume(); }
-    std::expected<void, GenericError> kill() { return m_impl->kill(); }
-    std::expected<bool, GenericError> is_ready() const { return m_impl->is_ready(); }
-
-    void notify_bad_state() { m_impl->notify_bad_state(); }
-    void notify_ready() { m_impl->notify_ready(); }
-
-    std::expected<void, GenericError> wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
-
-private:
-    friend HypervisorImpl;
-    void notify_bad_state();
-    void notify_ready();
-
-    std::unique_ptr<MachineImpl> m_impl;
-};
-
-export class Hypervisor final {
-public:
-    ~Hypervisor() = default;
-
-    Hypervisor(Hypervisor&&) noexcept = default;
-    Hypervisor& operator=(Hypervisor&&) noexcept = default;
-
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options) {
-        return m_impl->spawn(options);
-    }
-
-    std::expected<Hypervisor, GenericError> connect(const std::string& uri) {
-        return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
-    }
-
-    Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
-
-private:
-    std::unique_ptr<HypervisorImpl> m_impl;
-};
 } // namespace ls_gitea_runner::libvirt

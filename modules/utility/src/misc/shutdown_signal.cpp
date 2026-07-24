@@ -27,7 +27,7 @@ public:
         return m_state->value;
     }
 
-    ShutdownSignal install() {
+    static ShutdownSignal install() {
         static ShutdownSignal sig;
         std::once_flag once;
         std::call_once(once, [&] {

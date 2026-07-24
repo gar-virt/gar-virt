@@ -1,25 +1,11 @@
-module;
-
-#include <chrono>
-#include <condition_variable>
-#include <cstddef>
-#include <cstdlib>
-#include <expected>
-#include <filesystem>
-#include <format>
-#include <functional>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <queue>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-
 export module virt:api;
 
-import utility;
+import utility.concurrency;
+import utility.log;
+import utility.misc;
+
+import std;
+import std.compat;
 
 export namespace ls_gitea_runner {
 
@@ -395,16 +381,6 @@ class MachineManagerFactory {
 public:
     virtual ~MachineManagerFactory() = default;
     virtual std::unique_ptr<MachineManager> create() = 0;
-};
-
-class MachineManagerFactorySelector final {
-public:
-    static std::expected<std::unique_ptr<MachineManagerFactory>, GenericError> get_factory(const std::string& name) {
-        if (name == "libvirt") {
-            return std::make_unique<LibvirtMachineManagerFactory>();
-        }
-        return std::unexpected{GenericError{std::format("Invalid machine manager factory name: {}", name)}};
-    }
 };
 
 std::string Machine::make_temp_path(const std::string& sub_path) const {

@@ -1,8 +1,8 @@
-#pragma once
+export module gitea:credentials;
 
-#include <string>
+import std;
 
-namespace ls_gitea_runner::gitea {
+export namespace ls_gitea_runner::gitea {
 
 struct GiteaRunnerCredentials {
     std::string uuid;

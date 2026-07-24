@@ -1,13 +1,10 @@
-module;
-
-#include <iostream>
-#include <variant>
-
 export module utility.log:stdout_;
 
 import :ansi;
 import :log;
 import :level;
+
+import std;
 
 namespace ls_gitea_runner::utility {
 namespace {

@@ -1,10 +1,6 @@
-module;
-
-#include <source_location>
-#include <stdexcept>
-#include <string>
-
 export module utility.misc:error;
+
+import std;
 
 export namespace ls_gitea_runner {
 

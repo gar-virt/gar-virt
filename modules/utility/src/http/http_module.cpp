@@ -2,20 +2,12 @@ module;
 
 #include <curl/curl.h>
 
-#include <cstddef>
-#include <cstring>
-#include <expected>
-#include <format>
-#include <functional>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <vector>
-
 export module utility.http;
 
 import utility.misc;
+
+import std;
+import std.compat;
 
 namespace ls_gitea_runner::utility {
 

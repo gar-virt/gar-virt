@@ -1,9 +1,7 @@
-module;
-
-#include <istream>
-#include <streambuf>
-
 export module utility.io:memstream;
+
+import std;
+import std.compat;
 
 namespace ls_gitea_runner::utility {
 

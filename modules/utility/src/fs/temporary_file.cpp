@@ -4,17 +4,13 @@ module;
     #include "string.hpp"
 #endif
 
-#include <cstdio>
-#include <filesystem>
-#include <fstream>
-#include <optional>
-#include <utility>
-
 export module utility.fs:temporary_file;
 
 import :util;
 
 import utility.io;
+
+import std;
 
 namespace ls_gitea_runner::fs {
 

@@ -1,9 +1,6 @@
-module;
-
-#include <functional>
-#include <utility>
-
 export module utility.misc:lifetime;
+
+import std;
 
 export namespace ls_gitea_runner::utility {
 

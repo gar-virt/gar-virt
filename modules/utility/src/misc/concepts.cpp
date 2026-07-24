@@ -1,10 +1,6 @@
-module;
-
-#include <concepts>
-#include <cstddef>
-#include <iterator>
-
 export module utility.misc:concepts;
+
+import std;
 
 export namespace ls_gitea_runner::utility {
 

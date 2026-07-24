@@ -1,11 +1,6 @@
-module;
-
-#include <concepts>
-#include <limits>
-#include <stdexcept>
-#include <type_traits>
-
 export module utility.misc:algorithm;
+
+import std;
 
 export namespace ls_gitea_runner::utility {
 

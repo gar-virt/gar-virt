@@ -1,19 +1,13 @@
 module;
 
 #include <cassert>
-#include <condition_variable>
-#include <functional>
-#include <mutex>
-#include <optional>
-#include <queue>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <vector>
 
 export module utility.concurrency:thread_pool_executor;
 
 import utility.misc;
+
+import std;
+import std.compat;
 
 export namespace ls_gitea_runner::utility {
 

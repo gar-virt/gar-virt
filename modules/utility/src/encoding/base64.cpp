@@ -2,13 +2,9 @@ module;
 
 #include <cppcodec/base64_rfc4648.hpp>
 
-#include <cstddef>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-
 export module utility.encoding:base64;
+
+import std;
 
 namespace ls_gitea_runner::utility {
 

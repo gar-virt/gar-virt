@@ -1,23 +1,16 @@
 module;
 
 #ifdef _WIN32
-    #include <utility/string.hpp>
-
-    #include <vector>
-
     #include <windows.h>
 #endif
 
-#include <cstdlib>
-#include <mutex>
-#include <optional>
-#include <shared_mutex>
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
-#include <string>
 
 export module utility.misc:env;
 
 import :string;
+
+import std;
 
 namespace ls_gitea_runner::utility {
 namespace {

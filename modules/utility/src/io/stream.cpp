@@ -1,19 +1,11 @@
-module;
-
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <istream>
-#include <memory>
-#include <optional>
-#include <streambuf>
-#include <string>
-
 export module utility.io:stream;
 
 import :memstream;
 
 import utility.misc;
+
+import std;
+import std.compat;
 
 export namespace ls_gitea_runner::utility {
 

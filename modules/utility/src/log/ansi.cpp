@@ -6,17 +6,13 @@ module;
     #include <unistd.h>
 #endif
 
-#include <cstdio>
-#include <format>
-#include <functional>
-#include <iosfwd>
-#include <iostream>
-#include <string>
-#include <variant>
+#include <stdio.h> // NOLINT(modernize-deprecated-headers): Needed for fileno()
 
 export module utility.log:ansi;
 
 import utility.misc;
+
+import std;
 
 namespace ls_gitea_runner::utility::ansi {
 

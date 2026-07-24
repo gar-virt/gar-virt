@@ -1,9 +1,6 @@
-module;
-
-#include <cstdlib>
-#include <string_view>
-
 export module utility.log:level;
+
+import std;
 
 export namespace ls_gitea_runner::utility {
 

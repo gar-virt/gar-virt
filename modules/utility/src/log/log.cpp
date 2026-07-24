@@ -1,20 +1,11 @@
-module;
-
-#include <cstdlib>
-#include <format>
-#include <memory>
-#include <mutex>
-#include <thread>
-#include <utility>
-#include <variant>
-#include <vector>
-
 export module utility.log:log;
 
 import :ansi;
 import :level;
 
 import utility.datetime;
+
+import std;
 
 export namespace ls_gitea_runner::utility {
 

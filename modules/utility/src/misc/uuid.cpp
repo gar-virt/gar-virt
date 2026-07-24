@@ -3,15 +3,13 @@ module;
 #ifdef _WIN32
     #include <rpc.h>
     #include <strsafe.h>
-
-    #include <stdexcept>
 #else
     #include <uuid/uuid.h>
 #endif
 
-#include <string>
-
 export module utility.misc:uuid;
+
+import std;
 
 namespace ls_gitea_runner::utility {
 namespace {

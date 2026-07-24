@@ -2,20 +2,13 @@ module;
 
 #ifdef _WIN32
     #define NOMINMAX
-    #include <stdexcept>
     #include <windows.h>
 #endif
 
-#include <algorithm>
-#include <functional>
-#include <regex>
-#include <set>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 export module utility.misc:string;
+
+import std;
+import std.compat;
 
 export namespace ls_gitea_runner::utility {
 

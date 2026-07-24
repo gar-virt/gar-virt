@@ -4,9 +4,9 @@ module;
 
 export module main:program_options;
 
-export namespace ls_gitea_runner {
+namespace ls_gitea_runner {
 
-struct ProgramOptions {
+export struct ProgramOptions {
     std::filesystem::path config_file;
 };
 

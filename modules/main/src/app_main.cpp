@@ -11,9 +11,9 @@ module;
 
 export module main:app_main;
 
-export namespace ls_gitea_runner {
+namespace ls_gitea_runner {
 
-void app_main(int argc, const char* const* argv) {
+export void app_main(int argc, const char* const* argv) {
     namespace po = boost::program_options;
     using namespace std::literals;
 

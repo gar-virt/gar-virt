@@ -3,7 +3,7 @@ module;
 #include <functional>
 #include <utility>
 
-export module utility:lifetime;
+export module utility.misc:lifetime;
 
 export namespace ls_gitea_runner::utility {
 

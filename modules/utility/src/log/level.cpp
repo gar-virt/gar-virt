@@ -3,7 +3,7 @@ module;
 #include <cstdlib>
 #include <string_view>
 
-export module utility:log_level;
+export module utility.log:level;
 
 export namespace ls_gitea_runner::utility {
 

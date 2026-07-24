@@ -5,7 +5,7 @@ module;
 #include <stdexcept>
 #include <type_traits>
 
-export module utility:algorithm;
+export module utility.misc:algorithm;
 
 export namespace ls_gitea_runner::utility {
 

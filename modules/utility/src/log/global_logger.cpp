@@ -1,6 +1,11 @@
 module;
 
-export module utility:log_global_logger;
+#include <memory>
+
+export module utility.log:global_logger;
+
+import :log;
+import :stdout_;
 
 export namespace ls_gitea_runner {
 

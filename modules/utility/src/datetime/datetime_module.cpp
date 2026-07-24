@@ -9,15 +9,17 @@ module;
 #include <string_view>
 #include <time.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 
-export module utility:datetime;
+export module utility.datetime;
 
-export namespace ls_gitea_runner::utility {
+import utility.misc;
+
+namespace ls_gitea_runner::utility {
 namespace {
 constexpr std::string_view utc_date_time_format{"yyyy-mm-ddThh:mm:ssZ"};
 constexpr std::string_view local_date_time_format{"yyyy-mm-dd hh:mm:ss"};
 } // namespace
 
-std::tm utc_date() {
+export std::tm utc_date() {
     auto time{std::time(nullptr)};
     std::tm result{};
 #ifdef _WIN32
@@ -28,7 +30,7 @@ std::tm utc_date() {
     return result;
 }
 
-std::string utc_date_string(const std::tm& time) {
+export std::string utc_date_string(const std::tm& time) {
     std::string result(utc_date_time_format.size(), '\0');
     if (std::strftime(result.data(), result.size() + 1, "%FT%TZ", &time) == 0) {
         throw std::runtime_error{"Failed to format date"};
@@ -36,7 +38,7 @@ std::string utc_date_string(const std::tm& time) {
     return result;
 }
 
-std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& from) {
+export std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& from) {
     std::tm time{};
     time.tm_isdst = -1;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -52,7 +54,7 @@ std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& fr
     return time;
 }
 
-std::tm utc_to_local_date(const std::tm& from) {
+export std::tm utc_to_local_date(const std::tm& from) {
     static_assert(std::same_as<std::tm, ::tm>);
     std::tm from_{from};
     std::tm result{};
@@ -66,7 +68,7 @@ std::tm utc_to_local_date(const std::tm& from) {
     return result;
 }
 
-std::string format_date_for_display(const std::tm& time) {
+export std::string format_date_for_display(const std::tm& time) {
     std::string result(local_date_time_format.size(), '\0');
     if (std::strftime(result.data(), result.size() + 1, "%F %T", &time) == 0) {
         throw std::runtime_error{"Failed to format date"};

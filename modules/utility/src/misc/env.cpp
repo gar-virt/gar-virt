@@ -15,14 +15,16 @@ module;
 #include <stdlib.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 #include <string>
 
-export module utility:env;
+export module utility.misc:env;
 
-export namespace ls_gitea_runner::utility {
+import :string;
+
+namespace ls_gitea_runner::utility {
 namespace {
 std::shared_mutex mutex;
 }
 
-std::optional<std::string> getenv(const std::string& name) {
+export std::optional<std::string> getenv(const std::string& name) {
     const std::shared_lock lock{mutex};
 #ifdef _WIN32
     const auto name_w{widen_string(name)};
@@ -55,7 +57,7 @@ std::optional<std::string> getenv(const std::string& name) {
 #endif
 }
 
-void setenv(const std::string& name, const std::string& value) {
+export void setenv(const std::string& name, const std::string& value) {
     const std::unique_lock lock{mutex};
 #ifdef _WIN32
     const auto name_w{widen_string(name)};
@@ -66,7 +68,7 @@ void setenv(const std::string& name, const std::string& value) {
 #endif
 }
 
-void unsetenv(const std::string& name) {
+export void unsetenv(const std::string& name) {
     const std::unique_lock lock{mutex};
 #ifdef _WIN32
     const auto wname{widen_string(name)};

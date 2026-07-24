@@ -9,7 +9,12 @@ module;
 #include <variant>
 #include <vector>
 
-export module utility:log;
+export module utility.log:log;
+
+import :ansi;
+import :level;
+
+import utility.datetime;
 
 export namespace ls_gitea_runner::utility {
 

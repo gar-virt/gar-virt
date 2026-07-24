@@ -15,7 +15,7 @@ module;
 #include <utility>
 #include <vector>
 
-export module utility:string;
+export module utility.misc:string;
 
 export namespace ls_gitea_runner::utility {
 
@@ -68,19 +68,19 @@ std::string narrow_string(const wchar_t* data, size_t length) {
 std::string narrow_string(const std::wstring& input) { return narrow_string(input.data(), input.size()); }
 #endif
 
-std::string string_from_u8string(const std::u8string& from) { return string_from_u8string(std::u8string_view{from}); }
-
 std::string string_from_u8string(std::u8string_view from) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return {reinterpret_cast<const char*>(from.data()), from.size()};
 }
 
-std::u8string u8string_from_string(const std::string& from) { return u8string_from_string(std::string_view{from}); }
+std::string string_from_u8string(const std::u8string& from) { return string_from_u8string(std::u8string_view{from}); }
 
 std::u8string u8string_from_string(std::string_view from) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return {reinterpret_cast<const char8_t*>(from.data()), from.size()};
 }
+
+std::u8string u8string_from_string(const std::string& from) { return u8string_from_string(std::string_view{from}); }
 
 std::string_view string_trim_left(std::string_view s,
                                   const std::set<char>& chars = {'\t', '\n', '\f', '\r', ' '}) noexcept {

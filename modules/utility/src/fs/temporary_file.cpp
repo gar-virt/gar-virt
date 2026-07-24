@@ -10,11 +10,15 @@ module;
 #include <optional>
 #include <utility>
 
-export module utility:temporary_file;
+export module utility.fs:temporary_file;
 
-export namespace ls_gitea_runner::fs {
+import :util;
 
-class TemporaryFile {
+import utility.io;
+
+namespace ls_gitea_runner::fs {
+
+export class TemporaryFile {
 public:
     TemporaryFile() : m_path{fs::temporary_file_path()} { open(); }
 

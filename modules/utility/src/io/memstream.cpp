@@ -3,31 +3,11 @@ module;
 #include <istream>
 #include <streambuf>
 
-export module utility:memstream;
+export module utility.io:memstream;
 
-export namespace ls_gitea_runner::utility {
+namespace ls_gitea_runner::utility {
 
-template <typename Char, typename Traits = std::char_traits<Char>>
-class MemoryInputStream : public std::basic_istream<Char, Traits> {
-public:
-    MemoryInputStream(const Char* start, const Char* end)
-            : std::basic_istream<Char, Traits>{nullptr}, m_buffer{cast(start), cast(end)} {
-        this->set_rdbuf(&m_buffer);
-        this->clear();
-    }
-
-    MemoryInputStream(const Char* start, size_t length) : MemoryInputStream{start, start + length} {}
-
-private:
-    static constexpr Char* cast(const Char* p) noexcept {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        return const_cast<typename std::add_pointer<typename std::remove_const<Char>::type>::type>(p);
-    }
-
-    MemoryStreambuf<Char, Traits> m_buffer;
-};
-
-template <typename Char, typename Traits = std::char_traits<Char>>
+export template <typename Char, typename Traits = std::char_traits<Char>>
 class MemoryStreambuf : public std::basic_streambuf<Char, Traits> {
 public:
     MemoryStreambuf(Char* start, Char* end) { this->setg(start, start, end); }
@@ -65,6 +45,26 @@ public:
         this->setg(this->eback(), this->eback() + pos, this->egptr());
         return static_cast<std::streambuf::pos_type>(this->gptr() - this->eback());
     }
+};
+
+export template <typename Char, typename Traits = std::char_traits<Char>>
+class MemoryInputStream : public std::basic_istream<Char, Traits> {
+public:
+    MemoryInputStream(const Char* start, const Char* end)
+            : std::basic_istream<Char, Traits>{nullptr}, m_buffer{cast(start), cast(end)} {
+        this->set_rdbuf(&m_buffer);
+        this->clear();
+    }
+
+    MemoryInputStream(const Char* start, size_t length) : MemoryInputStream{start, start + length} {}
+
+private:
+    static constexpr Char* cast(const Char* p) noexcept {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        return const_cast<typename std::add_pointer<typename std::remove_const<Char>::type>::type>(p);
+    }
+
+    MemoryStreambuf<Char, Traits> m_buffer;
 };
 
 } // namespace ls_gitea_runner::utility

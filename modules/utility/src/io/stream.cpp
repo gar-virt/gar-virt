@@ -9,7 +9,11 @@ module;
 #include <streambuf>
 #include <string>
 
-export module utility:stream;
+export module utility.io:stream;
+
+import :memstream;
+
+import utility.misc;
 
 export namespace ls_gitea_runner::utility {
 

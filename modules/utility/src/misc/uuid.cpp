@@ -11,14 +11,14 @@ module;
 
 #include <string>
 
-export module utility:uuid;
+export module utility.misc:uuid;
 
-export namespace ls_gitea_runner::utility {
+namespace ls_gitea_runner::utility {
 namespace {
 constexpr int uuid_length{36};
 }
 
-std::string uuid() {
+export std::string uuid() {
     std::string uuid_str(uuid_length, '\0');
 
 #ifdef _WIN32

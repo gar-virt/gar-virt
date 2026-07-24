@@ -7,9 +7,9 @@ module;
 
 export module main:commands;
 
-export namespace ls_gitea_runner {
+namespace ls_gitea_runner {
 
-std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) {
+export std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) {
     using namespace std::chrono_literals;
 
     auto stop{utility::ShutdownSignal::install()};

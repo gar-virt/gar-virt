@@ -13,9 +13,11 @@ module;
 #include <string>
 #include <vector>
 
-export module utility:http;
+export module utility.http;
 
-export namespace ls_gitea_runner::utility {
+import utility.misc;
+
+namespace ls_gitea_runner::utility {
 
 namespace {
 size_t write_header_fn(const char* buffer, size_t size, size_t count, std::string* output) noexcept {
@@ -45,23 +47,23 @@ struct HttpStatusRange {
 };
 } // namespace
 
-enum class HttpMethod { get, post, del };
+export enum class HttpMethod { get, post, del };
 
-struct HttpRequest {
+export struct HttpRequest {
     HttpMethod method;
     std::string path;
     std::vector<std::byte> payload;
     std::map<std::string, std::string> headers;
 };
 
-struct HttpResponse {
+export struct HttpResponse {
     int status{};
     std::vector<std::byte> body;
 };
 
-using HttpRequestMiddleware = std::function<bool(HttpRequest& req)>;
+export using HttpRequestMiddleware = std::function<bool(HttpRequest& req)>;
 
-std::string http_path_join(const std::string& first, const std::string& second) {
+export std::string http_path_join(const std::string& first, const std::string& second) {
     const auto first_delim{first.ends_with('/')};
     const auto second_delim{second.starts_with('/')};
     if (first_delim && second_delim) {
@@ -73,7 +75,7 @@ std::string http_path_join(const std::string& first, const std::string& second) 
     return first + second;
 }
 
-class HttpClient {
+export class HttpClient {
     struct Private final {
         Private() : share{curl_share_init()} {
             curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);

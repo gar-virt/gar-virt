@@ -4,13 +4,13 @@ module;
 #include <stdexcept>
 #include <string>
 
-export module utility:error;
+export module utility.misc:error;
 
-namespace ls_gitea_runner {
+export namespace ls_gitea_runner {
 
 class GenericError : public std::runtime_error {
 public:
-    GenericError(const std::string& message, std::source_location sloc) : runtime_error{message}, m_sloc{sloc} {}
+    GenericError(const std::string& message, std::source_location sloc = {}) : runtime_error{message}, m_sloc{sloc} {}
     const std::source_location& where() const noexcept { return m_sloc; }
 
 private:

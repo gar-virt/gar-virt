@@ -11,7 +11,9 @@ module;
 #include <unordered_map>
 #include <vector>
 
-export module utility:thread_pool_executor;
+export module utility.concurrency:thread_pool_executor;
+
+import utility.misc;
 
 export namespace ls_gitea_runner::utility {
 

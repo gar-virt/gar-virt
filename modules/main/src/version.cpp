@@ -4,8 +4,8 @@ module;
 
 export module main:version;
 
-export namespace ls_gitea_runner {
+namespace ls_gitea_runner {
 
-constexpr auto runner_version{std::string_view{"v0.1.0"}};
+export constexpr auto runner_version{std::string_view{"v0.1.0"}};
 
 }

@@ -25,15 +25,15 @@ export module virt:libvirt;
 
 import utility;
 
-export namespace ls_gitea_runner::libvirt {
+namespace ls_gitea_runner::libvirt {
 
-struct SpawnOptions {
+export struct SpawnOptions {
     std::string volume;
     std::string domain;
     std::string storage_pool;
 };
 
-struct SpawnResult {
+export struct SpawnResult {
     int exit_code{};
     std::string output;
 };
@@ -794,7 +794,7 @@ private:
 
 } // namespace
 
-class Machine final {
+export class Machine final {
 public:
     Machine(std::unique_ptr<MachineImpl> impl) : m_impl{std::move(impl)} {}
 
@@ -833,7 +833,7 @@ private:
     std::unique_ptr<MachineImpl> m_impl;
 };
 
-class Hypervisor final {
+export class Hypervisor final {
 public:
     ~Hypervisor() = default;
 

@@ -13,6 +13,7 @@ target_sources(app
             src/app_module.cpp
             src/commands.cpp
             src/config.cpp
+            src/config_impl.cpp
             src/core.cpp
             src/version.cpp
     PRIVATE

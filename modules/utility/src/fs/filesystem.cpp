@@ -1,20 +1,9 @@
-module;
-
-#include <array>
-#include <cstddef>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <optional>
-#include <random>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
 export module utility.fs:util;
 
 import utility.misc;
+
+import std;
+import std.compat;
 
 namespace ls_gitea_runner::fs {
 

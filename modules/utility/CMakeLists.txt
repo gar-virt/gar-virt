@@ -41,4 +41,5 @@ target_link_libraries(utility PRIVATE
     ${UUID_LIBRARIES}
     cppcodec
     checks
+    std_wrapper
 )

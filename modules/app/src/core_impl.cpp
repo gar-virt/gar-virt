@@ -115,13 +115,12 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 
     const auto& backend_type{backend_config.type};
 
-    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(backend_type)};
-    if (!machine_manager_factory_res) {
-        return std::unexpected{machine_manager_factory_res.error()};
+    auto machine_manager_res{MachineManagerFactory::create(backend_type)};
+    if (!machine_manager_res) {
+        return std::unexpected{std::move(machine_manager_res).error()};
     }
 
-    auto machine_manager_factory{std::move(*machine_manager_factory_res)};
-    auto machine_manager{machine_manager_factory->create()};
+    auto machine_manager{*std::move(machine_manager_res)};
     const auto arch_name{Arch::to_name(template_config.arch)};
 
     global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os, arch_name);

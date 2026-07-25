@@ -2,7 +2,7 @@ module;
 
 #include <yaml-cpp/yaml.h>
 
-export module virt:libvirt_backend;
+module virt:libvirt_backend;
 
 import :api;
 import :libvirt;
@@ -43,7 +43,7 @@ add_command_output_redirection(const std::string& target_os, const std::vector<s
 
 } // namespace
 
-export struct LibvirtMachineTemplateDetails {
+struct LibvirtMachineTemplateDetails {
     std::filesystem::path domain_template_path;
     std::filesystem::path volume_template_path;
     std::string storage_pool_name;
@@ -71,7 +71,7 @@ export struct LibvirtMachineTemplateDetails {
     }
 };
 
-export struct LibvirtMachinePoolDetails {
+struct LibvirtMachinePoolDetails {
     std::string hypervisor_uri;
 
     static std::expected<LibvirtMachinePoolDetails, GenericError> load(const std::string& details) {
@@ -86,7 +86,7 @@ export struct LibvirtMachinePoolDetails {
     }
 };
 
-export class LibvirtMachine final : public Machine {
+class LibvirtMachine final : public Machine {
     class Impl final {
     public:
         Impl(std::shared_ptr<libvirt::Hypervisor> hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
@@ -153,7 +153,8 @@ export class LibvirtMachine final : public Machine {
     };
 
 public:
-    LibvirtMachine(std::shared_ptr<libvirt::Hypervisor> hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
+    LibvirtMachine(std::shared_ptr<libvirt::Hypervisor> hv, std::shared_ptr<libvirt::Machine> underlying_machine,
+                   Info info)
             : m_impl{std::make_unique<Impl>(std::move(hv), std::move(underlying_machine), std::move(info))} {}
 
     ~LibvirtMachine() = default;
@@ -183,7 +184,7 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-export class LibvirtMachineManager final : public MachineManager {
+class LibvirtMachineManager final : public MachineManager {
     class Impl final {
     public:
         std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
@@ -233,13 +234,8 @@ public:
 
 private:
     std::unique_ptr<Impl> m_impl;
-};
 
-export class LibvirtMachineManagerFactory final : public MachineManagerFactory {
-public:
-    ~LibvirtMachineManagerFactory() = default;
-
-    std::unique_ptr<MachineManager> create() override { return std::make_unique<LibvirtMachineManager>(); }
+    static inline MachineManagerFactory::Reg m_reg{"libvirt", [] { return std::make_unique<LibvirtMachineManager>(); }};
 };
 
 } // namespace ls_gitea_runner

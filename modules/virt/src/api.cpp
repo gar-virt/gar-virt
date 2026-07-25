@@ -377,10 +377,28 @@ public:
                                                                         const std::filesystem::path& config_dir) = 0;
 };
 
-class MachineManagerFactory {
+class MachineManagerFactory final {
 public:
-    virtual ~MachineManagerFactory() = default;
-    virtual std::unique_ptr<MachineManager> create() = 0;
+    using CreateFn = std::move_only_function<std::unique_ptr<MachineManager>()>;
+
+    class Reg final {
+    public:
+        Reg(const std::string& name, CreateFn create_fn) { MachineManagerFactory::add(name, std::move(create_fn)); }
+    };
+
+    [[nodiscard]] static std::expected<std::unique_ptr<MachineManager>, GenericError> create(const std::string& name) {
+        if (auto found{m_factories.find(name)}; found != m_factories.end()) {
+            return found->second();
+        }
+        return std::unexpected{GenericError{std::format("Invalid machine manager factory name: {}", name)}};
+    }
+
+private:
+    friend Reg;
+
+    static void add(const std::string& name, CreateFn create_fn) { m_factories.emplace(name, std::move(create_fn)); }
+
+    static inline std::unordered_map<std::string, CreateFn> m_factories;
 };
 
 std::string Machine::make_temp_path(const std::string& sub_path) const {

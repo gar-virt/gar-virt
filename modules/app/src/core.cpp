@@ -1,7 +1,3 @@
-module;
-
-#include <runner/v1/messages.pb.h>
-
 module app:core;
 
 import :config;

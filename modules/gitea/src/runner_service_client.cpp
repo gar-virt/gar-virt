@@ -1,12 +1,8 @@
-module;
-
-#include <ping/v1/messages.pb.h>
-#include <runner/v1/messages.pb.h>
-
 export module gitea:runner_service;
 
 import :admin;
 import :credentials;
+import :proto;
 
 import std;
 

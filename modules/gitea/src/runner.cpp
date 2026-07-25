@@ -1,11 +1,8 @@
-module;
-
-#include <runner/v1/messages.pb.h>
-
 export module gitea:runner;
 
 import :admin;
 import :credentials;
+import :proto;
 import :runner_service;
 
 import utility.misc;

@@ -1,7 +1,5 @@
 module;
 
-#include <runner/v1/messages.pb.h>
-
 #include <boost/json.hpp>
 #include <boost/url.hpp>
 

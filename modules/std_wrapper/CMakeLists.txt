@@ -25,6 +25,9 @@ endif()
 
 foreach(BASE SUB IN ZIP_LISTS BASE_DIRS SUB_PATHS)
     set(SOURCE "${BASE}/${SUB}")
-    set_source_files_properties("${SOURCE}" PROPERTIES LANGUAGE CXX)
+    set_source_files_properties("${SOURCE}" PROPERTIES
+        LANGUAGE CXX
+        COMPILE_FLAGS -Wno-reserved-module-identifier
+    )
     target_sources(std_wrapper PUBLIC FILE_SET CXX_MODULES BASE_DIRS "${BASE}" FILES "${SOURCE}")
 endforeach()

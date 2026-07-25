@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28...4.4)
 
+include(cmake/cxx_modules.cmake)
+
 project(gar_virt
     VERSION 0.1.0
     DESCRIPTION "A simple Gitea Actions runner controller/orchestrator for self-hosted runner autoscaling with local and remote libvirt/QEMU support."
@@ -9,6 +11,8 @@ project(gar_virt
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
+
+add_std_module()
 
 include(GNUInstallDirs)
 include(cmake/checks.cmake)

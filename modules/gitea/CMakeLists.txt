@@ -23,6 +23,5 @@ target_link_libraries(gitea
         gRPC::grpc++
         CURL::libcurl
         checks
-        std_wrapper
         utility
 )

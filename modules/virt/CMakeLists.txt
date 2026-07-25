@@ -14,6 +14,5 @@ target_link_libraries(virt PRIVATE
     libvirt::virt
     libvirt::qemu
     checks
-    std_wrapper
     utility
 )

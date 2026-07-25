@@ -1,8 +1,6 @@
-module;
-
-#include <string_view>
-
 module app:version;
+
+import std;
 
 namespace ls_gitea_runner {
 

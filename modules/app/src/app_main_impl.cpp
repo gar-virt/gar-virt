@@ -2,7 +2,7 @@ module;
 
 #include <boost/program_options.hpp>
 
-module app:app_main;
+module app:app_main_impl;
 
 import :commands;
 import :config;
@@ -14,7 +14,7 @@ import std;
 
 namespace ls_gitea_runner {
 
-export struct ProgramOptions {
+struct ProgramOptions {
     std::filesystem::path config_file;
 };
 

@@ -8,7 +8,8 @@ add_library(utility)
 target_sources(utility PUBLIC FILE_SET CXX_MODULES FILES
     src/concurrency/concurrency_module.cpp
     src/concurrency/thread_pool_executor.cpp
-    src/datetime/datetime_module.cpp
+    src/datetime/datetime.cpp
+    src/datetime/datetime_impl.cpp
     src/encoding/base64.cpp
     src/encoding/encoding_module.cpp
     src/fs/filesystem.cpp

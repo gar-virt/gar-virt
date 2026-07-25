@@ -15,6 +15,7 @@ import utility.misc;
 import std;
 
 namespace ls_gitea_runner::libvirt {
+namespace {
 
 // Use this instead of VIR_DOMAIN_EVENT_CALLBACK to suppress cast-function-type-mismatch warning
 constexpr auto GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(auto cb) noexcept {
@@ -57,6 +58,33 @@ std::string get_formatter_last_libvirt_error() {
     }
     return {};
 }
+
+}
+
+struct ConnectDeleter {
+    void operator()(virConnectPtr p) { virConnectClose(p); }
+};
+
+struct StoragePoolDeleter {
+    void operator()(virStoragePoolPtr p) { virStoragePoolFree(p); }
+};
+
+struct StorageVolDeleter {
+    void operator()(virStorageVolPtr p) { virStorageVolFree(p); }
+};
+
+struct StorageVolResourceDeleter {
+    void operator()(virStorageVolPtr p) { virStorageVolDelete(p, VIR_STORAGE_VOL_DELETE_NORMAL); }
+};
+
+struct DomainDeleter {
+    void operator()(virDomainPtr p) { virDomainFree(p); }
+};
+
+using ConnectPtr = std::unique_ptr<virConnect, ConnectDeleter>;
+using StoragePoolPtr = std::unique_ptr<virStoragePool, StoragePoolDeleter>;
+using StorageVolPtr = std::unique_ptr<virStorageVol, StorageVolDeleter>;
+using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
 
 enum class RunLoopState { stopped, starting, running, stopping };
 
@@ -752,8 +780,6 @@ Machine& Machine::operator=(Machine&& other) noexcept {
 }
 
 const std::string& Machine::get_name() const noexcept { return m_impl->get_name(); }
-std::expected<StorageVolPtr, GenericError> Machine::get_volume() { return m_impl->get_volume(); }
-std::expected<DomainPtr, GenericError> Machine::get_domain() { return m_impl->get_domain(); }
 std::expected<void, GenericError> Machine::wait() { return m_impl->wait(); }
 std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 std::expected<void, GenericError> Machine::resume() { return m_impl->resume(); }

@@ -1,9 +1,3 @@
-module;
-
-#include <libvirt/libvirt-qemu.h>
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
-
 export module virt:libvirt;
 
 import utility.encoding;
@@ -24,31 +18,6 @@ struct SpawnResult {
     std::string output;
 };
 
-struct ConnectDeleter {
-    void operator()(virConnectPtr p) { virConnectClose(p); }
-};
-
-struct StoragePoolDeleter {
-    void operator()(virStoragePoolPtr p) { virStoragePoolFree(p); }
-};
-
-struct StorageVolDeleter {
-    void operator()(virStorageVolPtr p) { virStorageVolFree(p); }
-};
-
-struct StorageVolResourceDeleter {
-    void operator()(virStorageVolPtr p) { virStorageVolDelete(p, VIR_STORAGE_VOL_DELETE_NORMAL); }
-};
-
-struct DomainDeleter {
-    void operator()(virDomainPtr p) { virDomainFree(p); }
-};
-
-using ConnectPtr = std::unique_ptr<virConnect, ConnectDeleter>;
-using StoragePoolPtr = std::unique_ptr<virStoragePool, StoragePoolDeleter>;
-using StorageVolPtr = std::unique_ptr<virStorageVol, StorageVolDeleter>;
-using DomainPtr = std::unique_ptr<virDomain, DomainDeleter>;
-
 class MachineImpl;
 
 class Machine {
@@ -60,8 +29,6 @@ public:
     Machine& operator=(const Machine&) = delete;
     Machine& operator=(Machine&&) noexcept;
     const std::string& get_name() const noexcept;
-    std::expected<StorageVolPtr, GenericError> get_volume();
-    std::expected<DomainPtr, GenericError> get_domain();
     std::expected<void, GenericError> wait();
     std::expected<void, GenericError> wait_for_guest_agent();
     std::expected<void, GenericError> resume();

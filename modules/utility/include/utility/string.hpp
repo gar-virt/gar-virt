@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <regex>
 #include <set>
 #include <string>
 #include <string_view>

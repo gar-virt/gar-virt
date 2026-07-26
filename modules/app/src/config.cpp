@@ -4,7 +4,7 @@
 #include <utility/env.hpp>
 #include <utility/fs/filesystem.hpp>
 #include <utility/string.hpp>
-#include <virt/arch.hpp>
+#include <virt/api.hpp>
 
 #include <yaml-cpp/yaml.h>
 

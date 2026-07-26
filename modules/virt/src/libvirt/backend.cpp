@@ -1,10 +1,21 @@
-#include "machine.hpp"
+#include "backend.hpp"
 
+#include "factory.hpp"
+#include "libvirt.hpp"
+
+#include <utility/fs/filesystem.hpp>
+#include <utility/result.hpp>
 #include <utility/string.hpp>
+#include <utility/uuid.hpp>
 
-#include <chrono>
+#include <expected>
+#include <filesystem>
+#include <format>
+#include <memory>
+#include <string>
 #include <thread>
-#include <tuple>
+
+#include <yaml-cpp/yaml.h>
 
 namespace gv::virt {
 namespace {
@@ -33,7 +44,40 @@ Result<std::vector<std::string>> add_command_output_redirection(const std::strin
     }
     return cmd;
 }
+
 } // namespace
+
+Result<LibvirtMachineTemplateDetails> LibvirtMachineTemplateDetails::load(const std::string& details,
+                                                                          const std::filesystem::path& config_dir) {
+    try {
+        const auto y{YAML::Load(details)};
+        LibvirtMachineTemplateDetails details{
+            .domain_template_path = y["domain_template_path"].as<std::string>(),
+            .volume_template_path = y["volume_template_path"].as<std::string>(),
+            .storage_pool_name = y["storage_pool_name"].as<std::string>(),
+        };
+        if (details.domain_template_path.is_relative()) {
+            details.domain_template_path = config_dir / details.domain_template_path;
+        }
+        if (details.volume_template_path.is_relative()) {
+            details.volume_template_path = config_dir / details.volume_template_path;
+        }
+        return details;
+    } catch (const std::exception& ex) {
+        return std::unexpected{std::format("Unable to parse Libvirt machine template details: {}", ex.what())};
+    }
+}
+
+Result<LibvirtMachinePoolDetails> LibvirtMachinePoolDetails::load(const std::string& details) {
+    try {
+        const auto y{YAML::Load(details)};
+        return LibvirtMachinePoolDetails{
+            .hypervisor_uri = y["hypervisor_uri"].as<std::string>(),
+        };
+    } catch (const std::exception& ex) {
+        return std::unexpected{std::format("Unable to parse Libvirt machine pool details: {}", ex.what())};
+    }
+}
 
 class LibvirtMachine::Impl final {
 public:
@@ -97,8 +141,7 @@ private:
     Machine::Info m_info;
 };
 
-LibvirtMachine::LibvirtMachine(libvirt::Hypervisor hv, std::shared_ptr<libvirt::Machine> underlying_machine, Info info)
-        : m_impl{std::make_unique<Impl>(std::move(hv), std::move(underlying_machine), std::move(info))} {}
+LibvirtMachine::LibvirtMachine(std::unique_ptr<Impl> impl) : m_impl{std::move(impl)} {}
 
 LibvirtMachine::~LibvirtMachine() = default;
 
@@ -120,5 +163,52 @@ Result<void> LibvirtMachine::write_file_impl(const std::string& remote_path, std
 }
 
 const Machine::Info& LibvirtMachine::info() const { return m_impl->info(); }
+
+class LibvirtBackend::Impl final {
+public:
+    Result<std::unique_ptr<Machine>> spawn(const Machine::Info& info, const std::string& serialized_pool_details,
+                                           const std::string& serialized_template_details,
+                                           const std::filesystem::path& config_dir) {
+        const auto pool_details{LibvirtMachinePoolDetails::load(serialized_pool_details)};
+        if (!pool_details) {
+            return std::unexpected{pool_details.error()};
+        }
+
+        const auto template_details{LibvirtMachineTemplateDetails::load(serialized_template_details, config_dir)};
+        if (!template_details) {
+            return std::unexpected{template_details.error()};
+        }
+
+        auto hv{libvirt::Hypervisor::connect(pool_details->hypervisor_uri)};
+        if (!hv) {
+            return std::unexpected{hv.error()};
+        }
+
+        auto spawn_res{hv->spawn({
+            .volume = fs::read_file<std::string>(template_details->volume_template_path),
+            .domain = fs::read_file<std::string>(template_details->domain_template_path),
+            .storage_pool = template_details->storage_pool_name,
+        })};
+        if (!spawn_res) {
+            return std::unexpected{spawn_res.error()};
+        }
+
+        return std::make_unique<LibvirtMachine>(
+            std::make_unique<LibvirtMachine::Impl>(*std::move(hv), *std::move(spawn_res), info));
+    }
+};
+
+LibvirtBackend::LibvirtBackend() : m_impl{std::make_unique<Impl>()} {}
+
+LibvirtBackend::~LibvirtBackend() = default;
+
+Result<std::unique_ptr<Machine>> LibvirtBackend::spawn(const Machine::Info& info,
+                                                       const std::string& serialized_pool_details,
+                                                       const std::string& serialized_template_details,
+                                                       const std::filesystem::path& config_dir) {
+    return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);
+}
+
+Result<std::unique_ptr<Backend>> create_libvirt_backend() { return std::make_unique<LibvirtBackend>(); }
 
 } // namespace gv::virt

@@ -6,7 +6,7 @@
 #include <gitea/runner.hpp>
 #include <runner/v1/messages.pb.h>
 #include <utility/shutdown_signal.hpp>
-#include <virt/machine_pool.hpp>
+#include <virt/api.hpp>
 
 #include <expected>
 #include <optional>

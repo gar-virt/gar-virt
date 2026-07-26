@@ -820,4 +820,4 @@ Result<Hypervisor> Hypervisor::connect(const std::string& uri) {
 
 Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
 
-} // namespace gv::virt::libvirt
+} // namespace gv::libvirt

@@ -13,8 +13,7 @@
 #include <utility/log/global_logger.hpp>
 #include <utility/shutdown_signal.hpp>
 #include <utility/string.hpp>
-#include <virt/machine_manager_factory_selector.hpp>
-#include <virt/machine_pool.hpp>
+#include <virt/api.hpp>
 
 #include <boost/json.hpp>
 #include <boost/url.hpp>
@@ -120,18 +119,17 @@ Result<std::unique_ptr<virt::Machine>> spawn_machine(const config::MainConfig& m
 
     const auto& backend_type{backend_config.type};
 
-    auto machine_manager_factory_res{virt::MachineManagerFactorySelector::get_factory(backend_type)};
-    if (!machine_manager_factory_res) {
-        return std::unexpected{machine_manager_factory_res.error()};
+    auto backend_res{virt::create_backend(backend_type)};
+    if (!backend_res) {
+        return std::unexpected{backend_res.error()};
     }
 
-    auto machine_manager_factory{std::move(*machine_manager_factory_res)};
-    auto machine_manager{machine_manager_factory->create()};
+    auto& backend{*backend_res};
     const auto arch_name{virt::Arch::to_name(template_config.arch)};
 
     global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os, arch_name);
 
-    auto machine_res{machine_manager->spawn(
+    auto machine_res{backend->spawn(
         virt::Machine::Info{
             .os = template_config.os,
             .arch = template_config.arch,

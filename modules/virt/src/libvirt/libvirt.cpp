@@ -113,7 +113,7 @@ public:
     ConnectionImpl(ConnectionImpl&&) noexcept = default;
     ConnectionImpl& operator=(ConnectionImpl&&) noexcept = default;
 
-    std::expected<virConnectPtr, GenericError> get() {
+    std::expected<virConnectPtr, Error> get() {
         const std::scoped_lock lock{*m_mutex};
         if (m_conn) {
             return m_conn.get();
@@ -127,17 +127,17 @@ public:
     }
 
 private:
-    static std::expected<ConnectPtr, GenericError> connect(const std::string& uri) {
+    static std::expected<ConnectPtr, Error> connect(const std::string& uri) {
         ConnectPtr conn{virConnectOpen(uri.c_str())};
         if (!conn) {
-            return std::unexpected{GenericError{"Failed to connect to hypervisor"}};
+            return std::unexpected{Error{"Failed to connect to hypervisor"}};
         }
         return conn;
     }
 
-    static std::expected<void, GenericError> register_event_handlers(ConnectionImpl& self, ConnectPtr& conn) {
+    static std::expected<void, Error> register_event_handlers(ConnectionImpl& self, ConnectPtr& conn) {
         if (virConnectRegisterCloseCallback(conn.get(), &ConnectionImpl::close_event_cb_internal, &self, nullptr) < 0) {
-            return std::unexpected{GenericError{"Failed to register connection closed event handler"}};
+            return std::unexpected{Error{"Failed to register connection closed event handler"}};
         }
         return {};
     }
@@ -183,31 +183,31 @@ public:
 
     const std::string& get_name() const noexcept { return m_domain_name; }
 
-    std::expected<StorageVolPtr, GenericError> get_volume() {
-        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<StorageVolPtr, GenericError> {
+    std::expected<StorageVolPtr, Error> get_volume() {
+        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<StorageVolPtr, Error> {
             if (auto volume_ptr{virStorageVolLookupByKey(conn_ptr, m_volume_id.c_str())}) {
                 return StorageVolPtr{volume_ptr};
             }
-            return std::unexpected{GenericError{std::format("Unable to find volume by UUID: {}", m_volume_id)}};
+            return std::unexpected{Error{std::format("Unable to find volume by UUID: {}", m_volume_id)}};
         });
     }
 
-    std::expected<DomainPtr, GenericError> get_domain() {
-        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<DomainPtr, GenericError> {
+    std::expected<DomainPtr, Error> get_domain() {
+        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<DomainPtr, Error> {
             if (auto volume_ptr{virDomainLookupByName(conn_ptr, m_domain_name.c_str())}) {
                 return DomainPtr{volume_ptr};
             }
-            return std::unexpected{GenericError{std::format("Unable to find domain by name: {}", m_domain_name)}};
+            return std::unexpected{Error{std::format("Unable to find domain by name: {}", m_domain_name)}};
         });
     }
 
-    std::expected<void, GenericError> wait() {
+    std::expected<void, Error> wait() {
         std::unique_lock lock{m_mutex};
         m_cv.wait(lock, [&] -> bool { return m_quit; });
         return {};
     }
 
-    std::expected<void, GenericError> wait_for_guest_agent() {
+    std::expected<void, Error> wait_for_guest_agent() {
         std::unique_lock lock{m_mutex};
         if (m_ready) {
             return {};
@@ -215,40 +215,40 @@ public:
         m_cv.wait(lock, [&] -> bool { return m_quit || m_ready; });
         if (m_quit) {
             return std::unexpected{
-                GenericError{std::format("Domain \"{}\" decayed while waiting for guest agent", m_domain_name)}};
+                Error{std::format("Domain \"{}\" decayed while waiting for guest agent", m_domain_name)}};
         }
         return {};
     }
 
-    std::expected<void, GenericError> resume() {
-        return get_domain().and_then([this](auto domain) -> std::expected<void, GenericError> {
+    std::expected<void, Error> resume() {
+        return get_domain().and_then([this](auto domain) -> std::expected<void, Error> {
             if (virDomainResume(domain.get()) < 0) {
-                return std::unexpected{GenericError{std::format("Failed to resume domain \"{}\"", m_domain_name)}};
+                return std::unexpected{Error{std::format("Failed to resume domain \"{}\"", m_domain_name)}};
             }
             return {};
         });
     }
 
-    std::expected<void, GenericError> kill() {
-        return get_domain().and_then([this](auto domain) -> std::expected<void, GenericError> {
+    std::expected<void, Error> kill() {
+        return get_domain().and_then([this](auto domain) -> std::expected<void, Error> {
             if (virDomainDestroy(domain.get()) < 0) {
-                return std::unexpected{GenericError{std::format("Failed to kill domain \"{}\"", m_domain_name)}};
+                return std::unexpected{Error{std::format("Failed to kill domain \"{}\"", m_domain_name)}};
             }
             return {};
         });
     }
 
-    std::expected<bool, GenericError> is_ready() const {
+    std::expected<bool, Error> is_ready() const {
         if (m_quit) {
-            return std::unexpected{GenericError{std::format("Domain \"{}\" has decayed.", m_domain_name)}};
+            return std::unexpected{Error{std::format("Domain \"{}\" has decayed.", m_domain_name)}};
         }
         return m_ready;
     }
 
-    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content) {
+    std::expected<void, Error> write_file(const std::string& file_path, std::span<const std::byte> content) {
         // TODO: timeouts
         std::optional<int> file_handle;
-        std::optional<GenericError> error;
+        std::optional<Error> error;
         const utility::Deferred file_closer{[&] {
             if (!file_handle) {
                 return;
@@ -268,10 +268,10 @@ public:
                 auto* res{
                     virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0)};
                 if (!res) {
-                    error = std::make_optional<GenericError>("Failed to close file on machine");
+                    error = std::make_optional<Error>("Failed to close file on machine");
                 }
             } catch (const std::exception& ex) {
-                error = std::make_optional<GenericError>(
+                error = std::make_optional<Error>(
                     std::format("Error while attempting to close file on machine: {}", ex.what()));
             }
         }};
@@ -302,13 +302,13 @@ public:
                                                                 }});
                 res = virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
                 if (!res) {
-                    error = std::make_optional<GenericError>("Failed to write file to machine");
+                    error = std::make_optional<Error>("Failed to write file to machine");
                 }
             } else {
-                error = std::make_optional<GenericError>("Failed to open file on machine");
+                error = std::make_optional<Error>("Failed to open file on machine");
             }
         } catch (const std::exception& ex) {
-            error = std::make_optional<GenericError>(
+            error = std::make_optional<Error>(
                 std::format("Error while attempting to write file to machine: {}", ex.what()));
         }
         if (error) {
@@ -317,11 +317,11 @@ public:
         return {};
     }
 
-    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
+    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
                                                         const std::optional<std::chrono::seconds>& timeout) {
         using namespace std::chrono_literals;
         if (timeout && *timeout < 1s) {
-            return std::unexpected{GenericError{"Timeout must be >= 1s"}};
+            return std::unexpected{Error{"Timeout must be >= 1s"}};
         }
         auto domain{get_domain()};
         if (!domain) {
@@ -347,7 +347,7 @@ public:
             auto* res{virDomainQemuAgentCommand(domain->get(), req.c_str(), qemu_timeout, 0)};
             if (!res) {
                 return std::unexpected{
-                    GenericError{"Failed to execute command in machine: " + get_formatter_last_libvirt_error()}};
+                    Error{"Failed to execute command in machine: " + get_formatter_last_libvirt_error()}};
             }
 
             const auto pid{boost::json::parse(res).as_object().at("return").as_object().at("pid").as_int64()};
@@ -366,7 +366,7 @@ public:
                                                                 }});
                 res = virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
                 if (!res) {
-                    return std::unexpected{GenericError{"Failed to get command execution status from machine: " +
+                    return std::unexpected{Error{"Failed to get command execution status from machine: " +
                                                         get_formatter_last_libvirt_error()}};
                 }
 
@@ -394,7 +394,7 @@ public:
             return SpawnResult{.exit_code = exit_code, .output = std::move(output)};
         } catch (const std::exception& ex) {
             return std::unexpected{
-                GenericError{std::format("Error while attempting to execute command in machine: {}", ex.what())}};
+                Error{std::format("Error while attempting to execute command in machine: {}", ex.what())}};
         }
     }
 
@@ -428,26 +428,26 @@ Machine& Machine::operator=(Machine&&) noexcept = default;
 
 const std::string& Machine::get_name() const noexcept { return m_impl->get_name(); }
 
-std::expected<void, GenericError> Machine::wait() { return m_impl->wait(); }
+std::expected<void, Error> Machine::wait() { return m_impl->wait(); }
 
-std::expected<void, GenericError> Machine::write_file(const std::string& file_path,
+std::expected<void, Error> Machine::write_file(const std::string& file_path,
                                                       std::span<const std::byte> content) {
     return m_impl->write_file(file_path, content);
 }
 
-std::expected<SpawnResult, GenericError> Machine::shell_exec(const std::vector<std::string>& cmd,
+std::expected<SpawnResult, Error> Machine::shell_exec(const std::vector<std::string>& cmd,
                                                              const std::optional<std::chrono::seconds>& timeout) {
     return m_impl->shell_exec(cmd, timeout);
 }
 
-std::expected<void, GenericError> Machine::resume() { return m_impl->resume(); }
-std::expected<void, GenericError> Machine::kill() { return m_impl->kill(); }
-std::expected<bool, GenericError> Machine::is_ready() const { return m_impl->is_ready(); }
+std::expected<void, Error> Machine::resume() { return m_impl->resume(); }
+std::expected<void, Error> Machine::kill() { return m_impl->kill(); }
+std::expected<bool, Error> Machine::is_ready() const { return m_impl->is_ready(); }
 
 void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
 void Machine::notify_ready() { m_impl->notify_ready(); }
 
-std::expected<void, GenericError> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
+std::expected<void, Error> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 
 class EventLoopImpl final {
 private:
@@ -470,7 +470,7 @@ public:
     EventLoopImpl& operator=(const EventLoopImpl&) = delete;
     EventLoopImpl& operator=(EventLoopImpl&&) = delete;
 
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> get() {
+    static std::expected<std::shared_ptr<EventLoopImpl>, Error> get() {
         // Use weak pointer to allow the shared instance to be deleted sooner than app termination
         static std::weak_ptr<EventLoopImpl> weak_instance;
         static std::mutex m;
@@ -486,7 +486,7 @@ public:
     }
 
 private:
-    static std::expected<std::shared_ptr<EventLoopImpl>, GenericError> create() {
+    static std::expected<std::shared_ptr<EventLoopImpl>, Error> create() {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
             virInitialize();
@@ -497,7 +497,7 @@ private:
         try {
             impl = std::make_shared<EventLoopImpl>(PrivateCtor{});
         } catch (const std::bad_alloc& ex) {
-            return std::unexpected{GenericError{ex.what()}};
+            return std::unexpected{Error{ex.what()}};
         }
 
         auto reg_res{impl->register_event_handlers()};
@@ -513,7 +513,7 @@ private:
         return impl;
     }
 
-    std::expected<void, GenericError> start() {
+    std::expected<void, Error> start() {
         {
             const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::starting;
@@ -524,15 +524,15 @@ private:
         } catch (const std::exception& ex) {
             const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::stopped;
-            return std::unexpected{GenericError{std::format("Failed to start run loop thread: {}", ex.what())}};
+            return std::unexpected{Error{std::format("Failed to start run loop thread: {}", ex.what())}};
         }
     }
 
-    std::expected<void, GenericError> register_event_handlers() {
+    std::expected<void, Error> register_event_handlers() {
         constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
         const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)};
         if (id < 0) {
-            return std::unexpected{GenericError{"Unable to register libvirt timeout event needed to stop run loop"}};
+            return std::unexpected{Error{"Unable to register libvirt timeout event needed to stop run loop"}};
         }
         m_stop_event_id = id;
         return {};
@@ -606,7 +606,7 @@ public:
     HypervisorImpl& operator=(const HypervisorImpl&) = delete;
     HypervisorImpl& operator=(HypervisorImpl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options) {
+    std::expected<std::shared_ptr<Machine>, Error> spawn(const SpawnOptions& options) {
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -625,10 +625,10 @@ public:
         if (!volume) {
             return std::unexpected{volume.error()};
         }
-        auto volume_id{[&] -> std::expected<std::string, GenericError> {
+        auto volume_id{[&] -> std::expected<std::string, Error> {
             const auto* key{virStorageVolGetKey(volume->get())};
             if (!key) {
-                return std::unexpected{GenericError{"Unable to get storage volume key"}};
+                return std::unexpected{Error{"Unable to get storage volume key"}};
             }
             return key;
         }()};
@@ -641,7 +641,7 @@ public:
         auto domain_create_flags{VIR_DOMAIN_START_PAUSED | VIR_DOMAIN_START_RESET_NVRAM};
         const DomainPtr domain{virDomainCreateXML(conn, domain_xml.c_str(), domain_create_flags)};
         if (!domain) {
-            return std::unexpected{GenericError{std::format("Failed to create domain \"{}\"", domain_name)}};
+            return std::unexpected{Error{std::format("Failed to create domain \"{}\"", domain_name)}};
         }
 
         for (const auto lifecycle :
@@ -649,7 +649,7 @@ public:
             const auto action{VIR_DOMAIN_LIFECYCLE_ACTION_DESTROY};
             if (virDomainSetLifecycleAction(domain.get(), lifecycle, action, VIR_DOMAIN_AFFECT_CURRENT) < 0) {
                 return std::unexpected{
-                    GenericError{std::format("Failed to set lifecycle {} action {} for domain \"{}\"",
+                    Error{std::format("Failed to set lifecycle {} action {} for domain \"{}\"",
                                              static_cast<int>(lifecycle), static_cast<int>(action), domain_name)}};
             }
         }
@@ -671,7 +671,7 @@ public:
         return machine;
     }
 
-    static std::expected<std::unique_ptr<HypervisorImpl>, GenericError> create(const std::string& uri) {
+    static std::expected<std::unique_ptr<HypervisorImpl>, Error> create(const std::string& uri) {
         auto loop_res{EventLoopImpl::get()};
         if (!loop_res) {
             return std::unexpected{loop_res.error()};
@@ -681,7 +681,7 @@ public:
         try {
             impl = std::make_unique<HypervisorImpl>(std::make_shared<ConnectionImpl>(uri), *std::move(loop_res));
         } catch (const std::bad_alloc& ex) {
-            return std::unexpected{GenericError{ex.what()}};
+            return std::unexpected{Error{ex.what()}};
         }
 
         auto reg_res{impl->register_event_handlers()};
@@ -693,7 +693,7 @@ public:
     }
 
 private:
-    std::expected<StorageVolPtr, GenericError> create_volume(const std::string& volume_xml,
+    std::expected<StorageVolPtr, Error> create_volume(const std::string& volume_xml,
                                                              const std::string& pool_name) {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
@@ -703,7 +703,7 @@ private:
 
         const StoragePoolPtr pool{virStoragePoolLookupByName(conn, pool_name.c_str())};
         if (!pool) {
-            return std::unexpected{GenericError{std::format("Failed to find storage pool by name \"{}\"", pool_name)}};
+            return std::unexpected{Error{std::format("Failed to find storage pool by name \"{}\"", pool_name)}};
         }
 
         StorageVolPtr volume{virStorageVolCreateXML(pool.get(), volume_xml.c_str(), 0)};
@@ -715,12 +715,12 @@ private:
             }
         }
         if (!volume) {
-            return std::unexpected{GenericError{"Failed to create volume"}};
+            return std::unexpected{Error{"Failed to create volume"}};
         }
         return volume;
     }
 
-    std::expected<void, GenericError> register_event_handlers() {
+    std::expected<void, Error> register_event_handlers() {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{std::move(conn_res).error()};
@@ -737,7 +737,7 @@ private:
             virConnectDomainEventRegisterAny(conn, nullptr, VIR_DOMAIN_EVENT_ID_LIFECYCLE,
                                              GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(lifecycle_event_cb), this, nullptr)};
         if (domain_lifecycle_cb_id < 0) {
-            return std::unexpected{GenericError{"Failed to register domain lifecycle event handler"}};
+            return std::unexpected{Error{"Failed to register domain lifecycle event handler"}};
         }
         m_event_handler_ids.push_back(domain_lifecycle_cb_id);
 
@@ -752,7 +752,7 @@ private:
             conn, nullptr, VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE,
             GARVIRT_VIR_DOMAIN_EVENT_CALLBACK(agent_lifecycle_event_cb), this, nullptr)};
         if (agent_lifecycle_cb_id < 0) {
-            return std::unexpected{GenericError{"Failed to register agent lifecycle event handler"}};
+            return std::unexpected{Error{"Failed to register agent lifecycle event handler"}};
         }
         m_event_handler_ids.push_back(agent_lifecycle_cb_id);
 
@@ -814,11 +814,11 @@ Hypervisor::~Hypervisor() = default;
 Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
 Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, GenericError> Hypervisor::spawn(const SpawnOptions& options) {
+std::expected<std::shared_ptr<Machine>, Error> Hypervisor::spawn(const SpawnOptions& options) {
     return m_impl->spawn(options);
 }
 
-std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& uri) {
+std::expected<Hypervisor, Error> Hypervisor::connect(const std::string& uri) {
     return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
 }
 

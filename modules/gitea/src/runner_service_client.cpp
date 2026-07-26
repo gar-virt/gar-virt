@@ -6,25 +6,25 @@
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
-    template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg);                      \
-    template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload);
+    template std::expected<std::vector<std::byte>, Error> encode_payload<T>(const T& msg);                      \
+    template std::expected<T, Error> decode_payload<T>(const std::vector<std::byte>& payload);
 
 namespace gv::gitea {
 
-template <typename T> std::expected<std::vector<std::byte>, GenericError> encode_payload(const T& msg) {
+template <typename T> std::expected<std::vector<std::byte>, Error> encode_payload(const T& msg) {
     const auto byte_size{msg.ByteSizeLong()};
     std::vector<std::byte> data;
     data.resize(static_cast<std::size_t>(byte_size));
     if (!msg.SerializeToArray(data.data(), byte_size)) {
-        return std::unexpected{GenericError{"Failed to encode gRPC message"}};
+        return std::unexpected{Error{"Failed to encode gRPC message"}};
     }
     return data;
 }
 
-template <typename T> std::expected<T, GenericError> decode_payload(const std::vector<std::byte>& payload) {
+template <typename T> std::expected<T, Error> decode_payload(const std::vector<std::byte>& payload) {
     T msg;
     if (!msg.ParseFromArray(payload.data(), static_cast<int>(payload.size()))) {
-        return std::unexpected{GenericError{"Failed to decode gRPC message"}};
+        return std::unexpected{Error{"Failed to decode gRPC message"}};
     }
     return msg;
 }
@@ -51,7 +51,7 @@ DECLARE_PAYLOAD_ENCODING_FN(::runner::v1::UpdateTaskResponse)
 namespace {
 
 template <typename Request, typename Response>
-std::expected<Response, GenericError> send_post_request(const utility::HttpClient& client, const std::string& path,
+std::expected<Response, Error> send_post_request(const utility::HttpClient& client, const std::string& path,
                                                         const Request& req) {
     return encode_payload(req)
         .and_then([&](const auto& payload) { return client.post(path, payload); })
@@ -85,37 +85,37 @@ void GiteaRunnerServiceClient::set_credentials(GiteaRunnerCredentials credential
     m_credentials = std::move(credentials);
 }
 
-std::expected<::ping::v1::PingResponse, GenericError>
+std::expected<::ping::v1::PingResponse, Error>
 GiteaRunnerServiceClient::ping(const ::ping::v1::PingRequest& req) const {
     return send_post_request<::ping::v1::PingRequest, ::ping::v1::PingResponse>(m_client, "/ping.v1.PingService/Ping",
                                                                                 req);
 }
 
-std::expected<::runner::v1::RegisterResponse, GenericError>
+std::expected<::runner::v1::RegisterResponse, Error>
 GiteaRunnerServiceClient::register_(const ::runner::v1::RegisterRequest& req) const {
     return send_post_request<::runner::v1::RegisterRequest, ::runner::v1::RegisterResponse>(
         m_client, "/runner.v1.RunnerService/Register", req);
 }
 
-std::expected<::runner::v1::DeclareResponse, GenericError>
+std::expected<::runner::v1::DeclareResponse, Error>
 GiteaRunnerServiceClient::declare(const ::runner::v1::DeclareRequest& req) const {
     return send_post_request<::runner::v1::DeclareRequest, ::runner::v1::DeclareResponse>(
         m_client, "/runner.v1.RunnerService/Declare", req);
 }
 
-std::expected<::runner::v1::FetchTaskResponse, GenericError>
+std::expected<::runner::v1::FetchTaskResponse, Error>
 GiteaRunnerServiceClient::fetch_task(const ::runner::v1::FetchTaskRequest& req) const {
     return send_post_request<::runner::v1::FetchTaskRequest, ::runner::v1::FetchTaskResponse>(
         m_client, "/runner.v1.RunnerService/FetchTask", req);
 }
 
-std::expected<::runner::v1::UpdateTaskResponse, GenericError>
+std::expected<::runner::v1::UpdateTaskResponse, Error>
 GiteaRunnerServiceClient::update_task(const ::runner::v1::UpdateTaskRequest& req) const {
     return send_post_request<::runner::v1::UpdateTaskRequest, ::runner::v1::UpdateTaskResponse>(
         m_client, "/runner.v1.RunnerService/UpdateTask", req);
 }
 
-std::expected<::runner::v1::UpdateLogResponse, GenericError>
+std::expected<::runner::v1::UpdateLogResponse, Error>
 GiteaRunnerServiceClient::update_log(const ::runner::v1::UpdateLogRequest& req) const {
     return send_post_request<::runner::v1::UpdateLogRequest, ::runner::v1::UpdateLogResponse>(
         m_client, "/runner.v1.RunnerService/UpdateLog", req);

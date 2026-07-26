@@ -15,12 +15,12 @@
 namespace gv::config {
 namespace {
 
-std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::path& file_path) {
+std::expected<YAML::Node, Error> load_yaml_file(const std::filesystem::path& file_path) {
     try {
         std::ifstream is{file_path, std::ios_base::binary};
         return YAML::Load(is);
     } catch (const std::exception&) {
-        return std::unexpected{GenericError{"Failed to parse workflow YAML"}};
+        return std::unexpected{Error{"Failed to parse workflow YAML"}};
     }
 }
 
@@ -111,7 +111,7 @@ utility::LogLevel load_log_level(const YAML::Node& from) {
     if (is("debug")) {
         return utility::LogLevel::debug;
     }
-    throw GenericError{std::format("Invalid log level: {}", level_name)};
+    throw Error{std::format("Invalid log level: {}", level_name)};
 }
 
 LogConfig load_log(const YAML::Node& from) {
@@ -153,7 +153,7 @@ void ForgeTokenConfig::resolve(const std::filesystem::path& base_dir) {
         resolved_token = raw_content.size() > trimmed_content.size() ? std::string{trimmed_content} : raw_content;
         return;
     }
-    throw GenericError{std::format("Invalid token source: {}", source)};
+    throw Error{std::format("Invalid token source: {}", source)};
 }
 
 void ForgeConfig::resolve(const std::filesystem::path& base_dir) { token.resolve(base_dir); }
@@ -163,7 +163,7 @@ void MainConfig::resolve(const std::filesystem::path& base_dir) {
     forge.resolve(base_dir);
 }
 
-std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path) {
+std::expected<MainConfig, Error> load_file(const std::filesystem::path& file_path) {
     try {
         const auto base_dir{file_path.parent_path()};
         auto yaml_res{load_yaml_file(file_path)};
@@ -182,7 +182,7 @@ std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& f
         return c;
     } catch (const std::exception& ex) {
         return std::unexpected{
-            GenericError{std::format("Error while loading config file \"{}\": {}",
+            Error{std::format("Error while loading config file \"{}\": {}",
                                      utility::string_from_u8string(file_path.u8string()), ex.what())}};
     }
 }

@@ -35,7 +35,7 @@ std::string utc_date_string(const std::tm& time) {
     return result;
 }
 
-std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& from) {
+std::expected<std::tm, Error> parse_utc_date_string(const std::string& from) {
     std::tm time{};
     time.tm_isdst = -1;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -43,7 +43,7 @@ std::expected<std::tm, GenericError> parse_utc_date_string(const std::string& fr
                             &time.tm_hour, &time.tm_min, &time.tm_sec)};
     constexpr static int expected_parts{6};
     if (parsed != expected_parts) {
-        return std::unexpected{GenericError{"Failed to parse date time string"}};
+        return std::unexpected{Error{"Failed to parse date time string"}};
     }
     constexpr static int epoch_year{1900};
     time.tm_year -= epoch_year;

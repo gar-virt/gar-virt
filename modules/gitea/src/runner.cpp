@@ -15,18 +15,18 @@
 namespace gv::gitea {
 namespace {
 
-std::expected<::ping::v1::PingResponse, GenericError> ping_internal(const gitea::GiteaRunnerServiceClient& client,
+std::expected<::ping::v1::PingResponse, Error> ping_internal(const gitea::GiteaRunnerServiceClient& client,
                                                                     const RunnerOptions& options) {
     auto ping_request{::ping::v1::PingRequest{}};
     ping_request.set_data(options.name);
     auto ping_response{client.ping(ping_request)};
     if (!ping_response) {
-        return std::unexpected{GenericError{std::format("Failed to send ping: {}", ping_response.error().what())}};
+        return std::unexpected{Error{std::format("Failed to send ping: {}", ping_response.error().what())}};
     }
     return *ping_response;
 }
 
-std::expected<::runner::v1::RegisterResponse, GenericError>
+std::expected<::runner::v1::RegisterResponse, Error>
 register_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOptions& options,
                   const std::string& reg_token) {
     auto reqister_request{::runner::v1::RegisterRequest{}};
@@ -40,12 +40,12 @@ register_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOpt
     auto register_response{client.register_(reqister_request)};
     if (!register_response) {
         return std::unexpected{
-            GenericError{std::format("Failed to register runner: {}", register_response.error().what())}};
+            Error{std::format("Failed to register runner: {}", register_response.error().what())}};
     }
     return *register_response;
 }
 
-std::expected<::runner::v1::DeclareResponse, GenericError>
+std::expected<::runner::v1::DeclareResponse, Error>
 declare_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOptions& options) {
     auto declare_request{::runner::v1::DeclareRequest{}};
     declare_request.set_version(options.version);
@@ -55,18 +55,18 @@ declare_internal(const gitea::GiteaRunnerServiceClient& client, const RunnerOpti
     auto declare_response{client.declare(declare_request)};
     if (!declare_response) {
         return std::unexpected{
-            GenericError{std::format("Failed to declare runner: {}", declare_response.error().what())}};
+            Error{std::format("Failed to declare runner: {}", declare_response.error().what())}};
     }
     return declare_response;
 }
 
-std::expected<::runner::v1::FetchTaskResponse, GenericError>
+std::expected<::runner::v1::FetchTaskResponse, Error>
 fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
     auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
     auto fetch_task_response = client.fetch_task(fetch_task_request);
     if (!fetch_task_response) {
         return std::unexpected{
-            GenericError{std::format("Failed to fetch any new tasks: {}", fetch_task_response.error().what())}};
+            Error{std::format("Failed to fetch any new tasks: {}", fetch_task_response.error().what())}};
     }
     return *fetch_task_response;
 }
@@ -108,7 +108,7 @@ Runner& Runner::operator=(Runner&& other) noexcept {
     return *this;
 }
 
-std::expected<Runner, GenericError> Runner::connect(RunnerOptions options,
+std::expected<Runner, Error> Runner::connect(RunnerOptions options,
                                                     std::shared_ptr<gitea::AdminServiceClient> admin) {
     const auto reg_token(admin->get_registration_token());
     if (!reg_token) {
@@ -142,7 +142,7 @@ std::expected<Runner, GenericError> Runner::connect(RunnerOptions options,
                   std::move(client), std::move(admin)};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, GenericError> Runner::fetch_task() const {
+std::expected<::runner::v1::FetchTaskResponse, Error> Runner::fetch_task() const {
     return fetch_task_internal(*m_client);
 }
 

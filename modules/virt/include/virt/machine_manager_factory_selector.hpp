@@ -9,7 +9,7 @@ namespace gv {
 
 class MachineManagerFactorySelector final {
 public:
-    static std::expected<std::unique_ptr<MachineManagerFactory>, GenericError> get_factory(const std::string& name);
+    static std::expected<std::unique_ptr<MachineManagerFactory>, Error> get_factory(const std::string& name);
 };
 
 } // namespace gv

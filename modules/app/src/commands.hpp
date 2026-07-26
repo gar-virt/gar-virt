@@ -8,6 +8,6 @@
 
 namespace gv {
 
-std::expected<void, GenericError> cmd_daemon(config::MainConfig config);
+std::expected<void, Error> cmd_daemon(config::MainConfig config);
 
 } // namespace gv

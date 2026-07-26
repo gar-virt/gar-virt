@@ -39,16 +39,16 @@ public:
     Machine& operator=(Machine&&) noexcept;
 
     const std::string& get_name() const noexcept;
-    std::expected<void, GenericError> wait();
-    std::expected<void, GenericError> wait_for_guest_agent();
+    std::expected<void, Error> wait();
+    std::expected<void, Error> wait_for_guest_agent();
 
-    std::expected<void, GenericError> write_file(const std::string& file_path, std::span<const std::byte> content);
-    std::expected<SpawnResult, GenericError> shell_exec(const std::vector<std::string>& cmd,
+    std::expected<void, Error> write_file(const std::string& file_path, std::span<const std::byte> content);
+    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
                                                         const std::optional<std::chrono::seconds>& timeout);
 
-    std::expected<void, GenericError> resume();
-    std::expected<void, GenericError> kill();
-    std::expected<bool, GenericError> is_ready() const;
+    std::expected<void, Error> resume();
+    std::expected<void, Error> kill();
+    std::expected<bool, Error> is_ready() const;
 
 private:
     friend HypervisorImpl;
@@ -69,12 +69,12 @@ public:
     Hypervisor(Hypervisor&&) noexcept;
     Hypervisor& operator=(Hypervisor&&) noexcept;
 
-    // std::expected<void, GenericError> run() noexcept;
+    // std::expected<void, Error> run() noexcept;
     // void stop() noexcept;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> spawn(const SpawnOptions& options);
+    std::expected<std::shared_ptr<Machine>, Error> spawn(const SpawnOptions& options);
 
-    static std::expected<Hypervisor, GenericError> connect(const std::string& uri);
+    static std::expected<Hypervisor, Error> connect(const std::string& uri);
 
 private:
     std::unique_ptr<HypervisorImpl> m_impl;

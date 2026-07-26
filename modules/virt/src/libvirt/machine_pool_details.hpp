@@ -10,7 +10,7 @@ namespace gv {
 struct LibvirtMachinePoolDetails {
     std::string hypervisor_uri;
 
-    static std::expected<LibvirtMachinePoolDetails, GenericError> load(const std::string& details);
+    static std::expected<LibvirtMachinePoolDetails, Error> load(const std::string& details);
 };
 
 } // namespace gv

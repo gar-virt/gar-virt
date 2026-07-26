@@ -27,7 +27,7 @@ AdminServiceClient::AdminServiceClient(const std::string& instance_url, std::str
 
 AdminServiceClient::~AdminServiceClient() = default;
 
-std::expected<std::string, GenericError> AdminServiceClient::get_registration_token() const {
+std::expected<std::string, Error> AdminServiceClient::get_registration_token() const {
     auto res{m_client.post("/actions/runners/registration-token", {})};
     if (!res) {
         return std::unexpected{res.error()};
@@ -38,11 +38,11 @@ std::expected<std::string, GenericError> AdminServiceClient::get_registration_to
         const auto j{boost::json::parse(std::string_view{body, res->body.size()}).as_object()};
         return std::string{j.at("token").as_string()};
     } catch (const std::exception& ex) {
-        return std::unexpected{GenericError{std::format("Failed to parse registration token: {}", ex.what())}};
+        return std::unexpected{Error{std::format("Failed to parse registration token: {}", ex.what())}};
     }
 }
 
-std::expected<void, GenericError> AdminServiceClient::remove_runner(uint64_t runner_id) const {
+std::expected<void, Error> AdminServiceClient::remove_runner(uint64_t runner_id) const {
     return m_client.del(std::format("/actions/runners/{}", runner_id)).transform([](const auto&) {});
 }
 

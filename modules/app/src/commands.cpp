@@ -10,7 +10,7 @@
 
 namespace gv {
 
-std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) {
+std::expected<void, Error> cmd_daemon(config::MainConfig main_config) {
     using namespace std::chrono_literals;
 
     auto stop{utility::ShutdownSignal::install()};

@@ -35,7 +35,7 @@ class MachinePool::Impl final {
 
 public:
     Impl(size_t idle_target, size_t max_concurrency,
-         std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner,
+         std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
          utility::ShutdownSignal shutdown_signal)
             : m_shutdown_signal{std::move(shutdown_signal)}, m_idle_target{idle_target},
               m_max_concurrency{max_concurrency}, m_machine_spawner{std::move(machine_spawner)},
@@ -49,7 +49,7 @@ public:
     Impl& operator=(const Impl&) = delete;
     Impl& operator=(Impl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, GenericError> acquire(std::chrono::milliseconds timeout) {
+    std::expected<std::shared_ptr<Machine>, Error> acquire(std::chrono::milliseconds timeout) {
         using namespace std::chrono_literals;
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.acquiring;
@@ -60,7 +60,7 @@ public:
                 !m_idle_cv.wait_for(lock, 500ms, [this] { return should_stop() || !m_idle_machines.empty(); })};
             if (should_stop()) {
                 --m_machine_counters.acquiring;
-                return std::unexpected{GenericError{"Shutting down machine pool"}};
+                return std::unexpected{Error{"Shutting down machine pool"}};
             }
             if (timed_out) {
                 if (std::chrono::steady_clock::now() - start_time < timeout) {
@@ -77,7 +77,7 @@ public:
             return idle_machine.machine;
         }
         --m_machine_counters.acquiring;
-        return std::unexpected{GenericError{"Timed out while acquiring machine"}};
+        return std::unexpected{Error{"Timed out while acquiring machine"}};
     }
 
     // NOLINTNEXTLINE(performance-unnecessary-value-param): May want to own machine later (tracking)
@@ -172,7 +172,7 @@ private:
         notify();
     }
 
-    std::expected<void, GenericError> add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
+    std::expected<void, Error> add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
         ++m_machine_counters.warming;
         check_stats(acquired_lock);
         // TODO: Can we get rid of the try-catch?
@@ -182,7 +182,7 @@ private:
         } catch (const std::exception& ex) {
             --m_machine_counters.warming;
             check_stats(acquired_lock);
-            return std::unexpected{GenericError{std::format("Failed to submit spawn task: {}", ex.what())}};
+            return std::unexpected{Error{std::format("Failed to submit spawn task: {}", ex.what())}};
         }
     }
 
@@ -257,14 +257,14 @@ private:
     std::condition_variable m_control_cv;
     MachinePoolStats m_stats;
     std::move_only_function<void(const MachinePoolStats&) noexcept> m_stats_cb;
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> m_machine_spawner;
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> m_machine_spawner;
     utility::ThreadPoolExecutor m_workers;
     std::jthread m_control_worker;
 };
 
 MachinePool::MachinePool(
     size_t idle_target, size_t max_concurrency,
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, GenericError>()> machine_spawner,
+    std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
     utility::ShutdownSignal shutdown_signal)
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner),
                                         std::move(shutdown_signal))} {}
@@ -275,7 +275,7 @@ MachinePool::MachinePool(MachinePool&&) noexcept = default;
 
 MachinePool& MachinePool::operator=(MachinePool&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, GenericError> MachinePool::acquire(std::chrono::milliseconds timeout) {
+std::expected<std::shared_ptr<Machine>, Error> MachinePool::acquire(std::chrono::milliseconds timeout) {
     return m_impl->acquire(timeout);
 }
 

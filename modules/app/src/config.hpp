@@ -62,6 +62,6 @@ struct MainConfig {
     void resolve(const std::filesystem::path& base_dir);
 };
 
-std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path);
+std::expected<MainConfig, Error> load_file(const std::filesystem::path& file_path);
 
 } // namespace gv::config

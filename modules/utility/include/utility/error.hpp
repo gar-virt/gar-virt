@@ -6,9 +6,9 @@
 
 namespace gv {
 
-class GenericError : public std::runtime_error {
+class Error : public std::runtime_error {
 public:
-    GenericError(const std::string& message, std::source_location sloc = std::source_location::current());
+    Error(const std::string& message, std::source_location sloc = std::source_location::current());
 
     const std::source_location& where() const noexcept;
 

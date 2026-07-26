@@ -108,7 +108,7 @@ HttpClient& HttpClient::operator=(HttpClient&& other) noexcept {
     return *this;
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) const {
+std::expected<HttpResponse, Error> HttpClient::send(HttpRequest req) const {
     for (const auto& req_middleware : m_req_middlewares) {
         if (!req_middleware(req)) {
             break;
@@ -162,20 +162,20 @@ std::expected<HttpResponse, GenericError> HttpClient::send(HttpRequest req) cons
     curl_slist_free_all(headers);
 
     if (!curl || curl_code != CURLE_OK) {
-        return std::unexpected{GenericError{
+        return std::unexpected{Error{
             std::format("HTTP request to \"{}\" failed (cURL error code: {})", url, static_cast<long>(curl_code))}};
     }
 
     const auto is_ok_already_deleted{status_code == 404 && req.method == HttpMethod::del};
     if (status_code >= HttpStatusRange::client_error_first && !is_ok_already_deleted) {
         return std::unexpected{
-            GenericError{std::format("HTTP request to \"{}\" failed with status code {}", url, status_code)}};
+            Error{std::format("HTTP request to \"{}\" failed with status code {}", url, status_code)}};
     }
 
     return HttpResponse{.status = utility::safe_cast_int<int>(status_code), .body = response_body};
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::post(std::string path, std::vector<std::byte> payload) const {
+std::expected<HttpResponse, Error> HttpClient::post(std::string path, std::vector<std::byte> payload) const {
     return send(HttpRequest{
         .method = HttpMethod::post,
         .path = std::move(path),
@@ -183,7 +183,7 @@ std::expected<HttpResponse, GenericError> HttpClient::post(std::string path, std
     });
 }
 
-std::expected<HttpResponse, GenericError> HttpClient::del(std::string path) const {
+std::expected<HttpResponse, Error> HttpClient::del(std::string path) const {
     return send(HttpRequest{
         .method = HttpMethod::del,
         .path = std::move(path),

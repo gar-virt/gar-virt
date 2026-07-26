@@ -11,7 +11,7 @@ namespace gv {
 
 class LibvirtMachineManager::Impl final {
 public:
-    std::expected<std::unique_ptr<Machine>, GenericError> spawn(const Machine::Info& info,
+    std::expected<std::unique_ptr<Machine>, Error> spawn(const Machine::Info& info,
                                                                 const std::string& serialized_pool_details,
                                                                 const std::string& serialized_template_details,
                                                                 const std::filesystem::path& config_dir) {
@@ -47,7 +47,7 @@ LibvirtMachineManager::LibvirtMachineManager() : m_impl{std::make_unique<Impl>()
 
 LibvirtMachineManager::~LibvirtMachineManager() = default;
 
-std::expected<std::unique_ptr<Machine>, GenericError>
+std::expected<std::unique_ptr<Machine>, Error>
 LibvirtMachineManager::spawn(const Machine::Info& info, const std::string& serialized_pool_details,
                              const std::string& serialized_template_details, const std::filesystem::path& config_dir) {
     return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);

@@ -32,7 +32,7 @@ struct Injectables {
     std::vector<std::byte> encoded_task;
 
     static std::expected<Injectables, Error> generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                             const gitea::Runner& runner);
+                                                      const gitea::Runner& runner);
 };
 
 namespace {
@@ -50,7 +50,7 @@ std::expected<void, Error> inject_runner_files(Machine& machine, Injectables inj
 }
 
 std::expected<std::vector<std::string>, Error> make_ping_command(const std::string& target_os,
-                                                                        const std::string& host) {
+                                                                 const std::string& host) {
     std::vector<std::string> cmd = {"ping"};
     if (utility::string_compare_ci(target_os, "linux") == 0) {
         // Count
@@ -81,8 +81,8 @@ std::expected<std::vector<std::string>, Error> make_ping_command(const std::stri
 }
 
 std::expected<void, Error> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
-                                                                      std::chrono::seconds timeout,
-                                                                      const utility::ShutdownSignal& stop) {
+                                                               std::chrono::seconds timeout,
+                                                               const utility::ShutdownSignal& stop) {
     using namespace std::literals;
     const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
     const auto& host{parsed_instance_url->host()};
@@ -100,9 +100,8 @@ std::expected<void, Error> wait_until_gitea_instance_available(Machine& machine,
         }
         auto res{machine.shell_exec(*cmd, timeout < 10s ? timeout : 10s)};
         if (!res) {
-            return std::unexpected{
-                Error{std::format("Failed to execute ping command for host {} in machine {}: {}", host,
-                                         machine.get_id(), res.error().what())}};
+            return std::unexpected{Error{std::format("Failed to execute ping command for host {} in machine {}: {}",
+                                                     host, machine.get_id(), res.error().what())}};
         }
         spawn_res = *res;
         if (spawn_res.exit_code == 0) {
@@ -112,12 +111,13 @@ std::expected<void, Error> wait_until_gitea_instance_available(Machine& machine,
     }
 
     return std::unexpected{Error{std::format("Ping timeout for host {} in machine {}, with output: {}", host,
-                                                    machine.get_id(), spawn_res.output)}};
+                                             machine.get_id(), spawn_res.output)}};
 }
 
-std::expected<std::unique_ptr<Machine>, Error>
-spawn_machine(const config::MainConfig& main_config, const config::BackendConfig& backend_config,
-              const config::MachineTemplateConfig& template_config, const utility::ShutdownSignal& stop) {
+std::expected<std::unique_ptr<Machine>, Error> spawn_machine(const config::MainConfig& main_config,
+                                                             const config::BackendConfig& backend_config,
+                                                             const config::MachineTemplateConfig& template_config,
+                                                             const utility::ShutdownSignal& stop) {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
@@ -170,8 +170,7 @@ spawn_machine(const config::MainConfig& main_config, const config::BackendConfig
 }
 
 std::expected<void, Error> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
-                                                          const config::MachineTemplateConfig& config,
-                                                          Machine& machine) {
+                                                   const config::MachineTemplateConfig& config, Machine& machine) {
     using namespace std::literals;
     const auto id{task.id()};
 
@@ -197,7 +196,7 @@ std::expected<void, Error> execute_task_in_machine(const ::runner::v1::Task& tas
 } // namespace
 
 std::expected<Injectables, Error> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                               const gitea::Runner& runner) {
+                                                        const gitea::Runner& runner) {
     auto encode_payload{gitea::encode_payload(task)};
     if (!encode_payload) {
         return std::unexpected{encode_payload.error()};
@@ -346,8 +345,7 @@ std::expected<void, Error> TemplateState::runner_loop_iteration() {
     return {};
 }
 
-std::expected<std::optional<::runner::v1::Task>, Error>
-TemplateState::try_fetch_task(const gitea::Runner& runner) {
+std::expected<std::optional<::runner::v1::Task>, Error> TemplateState::try_fetch_task(const gitea::Runner& runner) {
     return runner.fetch_task().transform(
         [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }

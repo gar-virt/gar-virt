@@ -16,9 +16,9 @@ public:
     ~LibvirtMachineManager();
 
     std::expected<std::unique_ptr<Machine>, Error> spawn(const Machine::Info& info,
-                                                                const std::string& serialized_pool_details,
-                                                                const std::string& serialized_template_details,
-                                                                const std::filesystem::path& config_dir) override;
+                                                         const std::string& serialized_pool_details,
+                                                         const std::string& serialized_template_details,
+                                                         const std::filesystem::path& config_dir) override;
 
 private:
     class Impl;

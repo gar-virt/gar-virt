@@ -45,7 +45,7 @@ public:
     Runner& operator=(Runner&&) noexcept;
 
     static std::expected<Runner, Error> connect(RunnerOptions options,
-                                                       std::shared_ptr<gitea::AdminServiceClient> admin);
+                                                std::shared_ptr<gitea::AdminServiceClient> admin);
 
     std::expected<::runner::v1::FetchTaskResponse, Error> fetch_task() const;
     int64_t id() const noexcept;

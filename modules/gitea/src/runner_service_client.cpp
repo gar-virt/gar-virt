@@ -6,7 +6,7 @@
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define DECLARE_PAYLOAD_ENCODING_FN(T)                                                                                 \
-    template std::expected<std::vector<std::byte>, Error> encode_payload<T>(const T& msg);                      \
+    template std::expected<std::vector<std::byte>, Error> encode_payload<T>(const T& msg);                             \
     template std::expected<T, Error> decode_payload<T>(const std::vector<std::byte>& payload);
 
 namespace gv::gitea {
@@ -52,7 +52,7 @@ namespace {
 
 template <typename Request, typename Response>
 std::expected<Response, Error> send_post_request(const utility::HttpClient& client, const std::string& path,
-                                                        const Request& req) {
+                                                 const Request& req) {
     return encode_payload(req)
         .and_then([&](const auto& payload) { return client.post(path, payload); })
         .and_then([](const auto& res) { return decode_payload<Response>(res.body); });

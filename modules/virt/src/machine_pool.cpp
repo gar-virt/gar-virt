@@ -262,10 +262,9 @@ private:
     std::jthread m_control_worker;
 };
 
-MachinePool::MachinePool(
-    size_t idle_target, size_t max_concurrency,
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
-    utility::ShutdownSignal shutdown_signal)
+MachinePool::MachinePool(size_t idle_target, size_t max_concurrency,
+                         std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
+                         utility::ShutdownSignal shutdown_signal)
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner),
                                         std::move(shutdown_signal))} {}
 

@@ -318,7 +318,7 @@ public:
     }
 
     std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                        const std::optional<std::chrono::seconds>& timeout) {
+                                                 const std::optional<std::chrono::seconds>& timeout) {
         using namespace std::chrono_literals;
         if (timeout && *timeout < 1s) {
             return std::unexpected{Error{"Timeout must be >= 1s"}};
@@ -367,7 +367,7 @@ public:
                 res = virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
                 if (!res) {
                     return std::unexpected{Error{"Failed to get command execution status from machine: " +
-                                                        get_formatter_last_libvirt_error()}};
+                                                 get_formatter_last_libvirt_error()}};
                 }
 
                 const auto status_res{boost::json::parse(res).as_object().at("return").as_object()};
@@ -430,13 +430,12 @@ const std::string& Machine::get_name() const noexcept { return m_impl->get_name(
 
 std::expected<void, Error> Machine::wait() { return m_impl->wait(); }
 
-std::expected<void, Error> Machine::write_file(const std::string& file_path,
-                                                      std::span<const std::byte> content) {
+std::expected<void, Error> Machine::write_file(const std::string& file_path, std::span<const std::byte> content) {
     return m_impl->write_file(file_path, content);
 }
 
 std::expected<SpawnResult, Error> Machine::shell_exec(const std::vector<std::string>& cmd,
-                                                             const std::optional<std::chrono::seconds>& timeout) {
+                                                      const std::optional<std::chrono::seconds>& timeout) {
     return m_impl->shell_exec(cmd, timeout);
 }
 
@@ -650,7 +649,7 @@ public:
             if (virDomainSetLifecycleAction(domain.get(), lifecycle, action, VIR_DOMAIN_AFFECT_CURRENT) < 0) {
                 return std::unexpected{
                     Error{std::format("Failed to set lifecycle {} action {} for domain \"{}\"",
-                                             static_cast<int>(lifecycle), static_cast<int>(action), domain_name)}};
+                                      static_cast<int>(lifecycle), static_cast<int>(action), domain_name)}};
             }
         }
 
@@ -693,8 +692,7 @@ public:
     }
 
 private:
-    std::expected<StorageVolPtr, Error> create_volume(const std::string& volume_xml,
-                                                             const std::string& pool_name) {
+    std::expected<StorageVolPtr, Error> create_volume(const std::string& volume_xml, const std::string& pool_name) {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{std::move(conn_res).error()};

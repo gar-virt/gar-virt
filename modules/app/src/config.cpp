@@ -181,9 +181,8 @@ std::expected<MainConfig, Error> load_file(const std::filesystem::path& file_pat
         c.resolve(base_dir);
         return c;
     } catch (const std::exception& ex) {
-        return std::unexpected{
-            Error{std::format("Error while loading config file \"{}\": {}",
-                                     utility::string_from_u8string(file_path.u8string()), ex.what())}};
+        return std::unexpected{Error{std::format("Error while loading config file \"{}\": {}",
+                                                 utility::string_from_u8string(file_path.u8string()), ex.what())}};
     }
 }
 

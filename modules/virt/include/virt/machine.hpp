@@ -32,10 +32,10 @@ public:
     virtual ~Machine() = default;
     virtual const std::string& get_id() const = 0;
     virtual std::expected<void, Error> terminate() = 0;
-    virtual std::expected<SpawnResult, Error>
-    shell_exec(const std::vector<std::string>& cmd, const std::optional<std::chrono::seconds>& timeout) const = 0;
+    virtual std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
+                                                         const std::optional<std::chrono::seconds>& timeout) const = 0;
     virtual std::expected<void, Error> wait_for_guest_agent(std::chrono::seconds timeout,
-                                                                   const utility::ShutdownSignal& stop) = 0;
+                                                            const utility::ShutdownSignal& stop) = 0;
     virtual const Info& info() const = 0;
 
     std::string make_temp_path(const std::string& sub_path) const;
@@ -48,7 +48,7 @@ public:
 
 protected:
     virtual std::expected<void, Error> write_file_impl(const std::string& remote_path,
-                                                              std::span<const std::byte> content) = 0;
+                                                       std::span<const std::byte> content) = 0;
 };
 
 } // namespace gv

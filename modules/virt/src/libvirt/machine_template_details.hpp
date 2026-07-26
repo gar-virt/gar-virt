@@ -14,7 +14,7 @@ struct LibvirtMachineTemplateDetails {
     std::string storage_pool_name;
 
     static std::expected<LibvirtMachineTemplateDetails, Error> load(const std::string& details,
-                                                                           const std::filesystem::path& config_dir);
+                                                                    const std::filesystem::path& config_dir);
 };
 
 } // namespace gv

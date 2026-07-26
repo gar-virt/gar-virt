@@ -44,7 +44,7 @@ public:
 
     std::expected<void, Error> write_file(const std::string& file_path, std::span<const std::byte> content);
     std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                        const std::optional<std::chrono::seconds>& timeout);
+                                                 const std::optional<std::chrono::seconds>& timeout);
 
     std::expected<void, Error> resume();
     std::expected<void, Error> kill();

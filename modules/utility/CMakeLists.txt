@@ -6,6 +6,7 @@ endif()
 
 add_library(utility)
 target_sources(utility PRIVATE
+    src/concurrency/thread_pool_executor.cpp
     src/encoding/base64.cpp
     src/error.cpp
     src/env.cpp

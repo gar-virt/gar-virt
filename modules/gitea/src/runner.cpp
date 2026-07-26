@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 namespace {
 
 std::expected<::ping::v1::PingResponse, GenericError> ping_internal(const gitea::GiteaRunnerServiceClient& client,
@@ -160,4 +160,4 @@ void Runner::set_task_failed(const ::runner::v1::Task& task) {
     std::ignore = m_client->update_task(update_req);
 }
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

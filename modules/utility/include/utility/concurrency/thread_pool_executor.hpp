@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 class ThreadPoolExecutor final {
     using ULock = std::unique_lock<std::mutex>;
@@ -151,4 +151,4 @@ private:
     std::vector<Worker> m_dead_workers;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

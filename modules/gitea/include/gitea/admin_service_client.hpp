@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <expected>
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 
 class AdminServiceClient final {
 public:
@@ -24,4 +24,4 @@ private:
     utility::HttpClient m_client;
 };
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

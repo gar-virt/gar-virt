@@ -2,7 +2,7 @@
 
 #include "libvirt/machine_manager_factory.hpp"
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<std::unique_ptr<MachineManagerFactory>, GenericError>
 MachineManagerFactorySelector::get_factory(const std::string& name) {
@@ -12,4 +12,4 @@ MachineManagerFactorySelector::get_factory(const std::string& name) {
     return std::unexpected{GenericError{std::format("Invalid machine manager factory name: {}", name)}};
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

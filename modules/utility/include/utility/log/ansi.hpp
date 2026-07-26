@@ -4,7 +4,7 @@
 #include <string>
 #include <variant>
 
-namespace ls_gitea_runner::utility::ansi {
+namespace gv::utility::ansi {
 
 struct Color {
     int code{};
@@ -23,4 +23,4 @@ bool is_color_undesired();
 bool is_color_desired_unconditionally();
 bool is_color_supported();
 
-} // namespace ls_gitea_runner::utility::ansi
+} // namespace gv::utility::ansi

@@ -15,7 +15,7 @@
     #include <windows.h>
 #endif
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 namespace {
 std::shared_mutex mutex;
 }
@@ -74,4 +74,4 @@ void unsetenv(const std::string& name) {
 #endif
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

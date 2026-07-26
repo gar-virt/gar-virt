@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<Arch::Type, GenericError> Arch::from_name(std::string_view name) noexcept {
     using namespace std::literals;
@@ -40,4 +40,4 @@ std::string Arch::to_name(Arch::Type value) {
     std::abort();
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

@@ -14,7 +14,7 @@
     #include <unistd.h>
 #endif
 
-namespace ls_gitea_runner::utility::ansi {
+namespace gv::utility::ansi {
 
 class SequenceVisitor {
 public:
@@ -62,4 +62,4 @@ bool is_color_supported() {
     return is_esc_seq_supported();
 }
 
-} // namespace ls_gitea_runner::utility::ansi
+} // namespace gv::utility::ansi

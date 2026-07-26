@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner::fs {
+namespace gv::fs {
 namespace detail {
 
 void read_file_into(std::span<std::byte> content, const std::filesystem::path& file_path);
@@ -39,4 +39,4 @@ T read_file(const std::filesystem::path& file_path) {
 
 void write_file(const std::filesystem::path& file_path, std::span<const std::byte> content);
 
-} // namespace ls_gitea_runner::fs
+} // namespace gv::fs

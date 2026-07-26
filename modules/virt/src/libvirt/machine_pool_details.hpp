@@ -5,7 +5,7 @@
 #include <expected>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 struct LibvirtMachinePoolDetails {
     std::string hypervisor_uri;
@@ -13,4 +13,4 @@ struct LibvirtMachinePoolDetails {
     static std::expected<LibvirtMachinePoolDetails, GenericError> load(const std::string& details);
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

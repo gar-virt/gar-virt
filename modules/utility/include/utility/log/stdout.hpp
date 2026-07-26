@@ -2,7 +2,7 @@
 
 #include <utility/log/log.hpp>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 class StdOutLogger final : public Logger {
 public:
@@ -14,4 +14,4 @@ private:
     bool m_enable_color{};
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

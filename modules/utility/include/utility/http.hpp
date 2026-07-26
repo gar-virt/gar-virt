@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 std::string http_path_join(const std::string& first, const std::string& second);
 
@@ -55,4 +55,4 @@ private:
     std::vector<HttpRequestMiddleware> m_req_middlewares;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

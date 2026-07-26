@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class MachineManager {
 public:
@@ -19,4 +19,4 @@ public:
                                                                         const std::filesystem::path& config_dir) = 0;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

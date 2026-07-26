@@ -6,7 +6,7 @@
 
 #include <format>
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 
 AdminServiceClient::AdminServiceClient(const std::string& instance_url, std::string token)
         : m_token{std::move(token)}, m_client{utility::http_path_join(instance_url, "/api/v1/admin")} {
@@ -46,4 +46,4 @@ std::expected<void, GenericError> AdminServiceClient::remove_runner(uint64_t run
     return m_client.del(std::format("/actions/runners/{}", runner_id)).transform([](const auto&) {});
 }
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

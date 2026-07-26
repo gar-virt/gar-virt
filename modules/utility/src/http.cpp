@@ -8,7 +8,7 @@
 #include <format>
 #include <mutex>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 namespace {
 size_t write_header_fn(const char* buffer, size_t size, size_t count, std::string* output) noexcept {
@@ -194,4 +194,4 @@ void HttpClient::add_request_middleware(HttpRequestMiddleware middleware) {
     m_req_middlewares.push_back(std::move(middleware));
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

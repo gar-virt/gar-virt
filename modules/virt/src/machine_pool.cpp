@@ -15,7 +15,7 @@
 #include <mutex>
 #include <queue>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class MachinePool::Impl final {
     struct MachineCounters {
@@ -289,4 +289,4 @@ void MachinePool::set_stats_callback(std::move_only_function<void(const MachineP
     m_impl->set_stats_callback(std::move(cb));
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

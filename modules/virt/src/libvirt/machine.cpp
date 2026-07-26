@@ -6,7 +6,7 @@
 #include <thread>
 #include <tuple>
 
-namespace ls_gitea_runner {
+namespace gv {
 namespace {
 std::expected<std::vector<std::string>, GenericError>
 add_command_output_redirection(const std::string& target_os, const std::vector<std::string>& args) {
@@ -126,4 +126,4 @@ std::expected<void, GenericError> LibvirtMachine::write_file_impl(const std::str
 
 const Machine::Info& LibvirtMachine::info() const { return m_impl->info(); }
 
-} // namespace ls_gitea_runner
+} // namespace gv

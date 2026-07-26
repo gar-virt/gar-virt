@@ -9,7 +9,7 @@
     template std::expected<std::vector<std::byte>, GenericError> encode_payload<T>(const T& msg);                      \
     template std::expected<T, GenericError> decode_payload<T>(const std::vector<std::byte>& payload);
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 
 template <typename T> std::expected<std::vector<std::byte>, GenericError> encode_payload(const T& msg) {
     const auto byte_size{msg.ByteSizeLong()};
@@ -121,4 +121,4 @@ GiteaRunnerServiceClient::update_log(const ::runner::v1::UpdateLogRequest& req) 
         m_client, "/runner.v1.RunnerService/UpdateLog", req);
 }
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

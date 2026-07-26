@@ -21,7 +21,7 @@
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
-namespace ls_gitea_runner::libvirt {
+namespace gv::libvirt {
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -824,4 +824,4 @@ std::expected<Hypervisor, GenericError> Hypervisor::connect(const std::string& u
 
 Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
 
-} // namespace ls_gitea_runner::libvirt
+} // namespace gv::libvirt

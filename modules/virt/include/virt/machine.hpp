@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 struct SpawnResult {
     int exit_code{};
@@ -51,4 +51,4 @@ protected:
                                                               std::span<const std::byte> content) = 0;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

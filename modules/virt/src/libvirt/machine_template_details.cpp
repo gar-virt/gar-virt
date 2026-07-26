@@ -4,7 +4,7 @@
 
 #include <format>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<LibvirtMachineTemplateDetails, GenericError>
 LibvirtMachineTemplateDetails::load(const std::string& details, const std::filesystem::path& config_dir) {
@@ -27,4 +27,4 @@ LibvirtMachineTemplateDetails::load(const std::string& details, const std::files
     }
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

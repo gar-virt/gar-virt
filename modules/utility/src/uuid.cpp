@@ -9,7 +9,7 @@
     #include <uuid/uuid.h>
 #endif
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 namespace {
 constexpr int uuid_length{36};
 }
@@ -50,4 +50,4 @@ std::string uuid() {
     return uuid_str;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

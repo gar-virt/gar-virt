@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <string_view>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 enum class LogLevel {
     none,
@@ -31,4 +31,4 @@ constexpr std::string_view get_log_level_name(LogLevel level) noexcept {
     std::abort();
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

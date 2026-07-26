@@ -7,7 +7,7 @@
 #include <utility/fs/filesystem.hpp>
 #include <utility/uuid.hpp>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class LibvirtMachineManager::Impl final {
 public:
@@ -53,4 +53,4 @@ LibvirtMachineManager::spawn(const Machine::Info& info, const std::string& seria
     return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

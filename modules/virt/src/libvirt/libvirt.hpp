@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner::libvirt {
+namespace gv::libvirt {
 
 struct SpawnOptions {
     std::string volume;
@@ -80,4 +80,4 @@ private:
     std::unique_ptr<HypervisorImpl> m_impl;
 };
 
-} // namespace ls_gitea_runner::libvirt
+} // namespace gv::libvirt

@@ -12,7 +12,7 @@
 #include <format>
 #include <fstream>
 
-namespace ls_gitea_runner::config {
+namespace gv::config {
 namespace {
 
 std::expected<YAML::Node, GenericError> load_yaml_file(const std::filesystem::path& file_path) {
@@ -187,4 +187,4 @@ std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& f
     }
 }
 
-} // namespace ls_gitea_runner::config
+} // namespace gv::config

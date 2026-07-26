@@ -2,7 +2,7 @@
 
 #include <streambuf>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 template <typename Char, typename Traits = std::char_traits<Char>>
 class MemoryStreambuf : public std::basic_streambuf<Char, Traits> {
@@ -44,4 +44,4 @@ public:
     }
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

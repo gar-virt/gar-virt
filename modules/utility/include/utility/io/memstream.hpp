@@ -4,7 +4,7 @@
 
 #include <istream>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 template <typename Char, typename Traits = std::char_traits<Char>>
 class MemoryInputStream : public std::basic_istream<Char, Traits> {
@@ -26,4 +26,4 @@ private:
     MemoryStreambuf<Char, Traits> m_buffer;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

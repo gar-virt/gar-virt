@@ -10,7 +10,7 @@
 #include <string_view>
 #include <time.h> // NOLINT(modernize-deprecated-headers): Conflicts with misc-include-cleaner
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 namespace {
 constexpr std::string_view utc_date_time_format{"yyyy-mm-ddThh:mm:ssZ"};
 constexpr std::string_view local_date_time_format{"yyyy-mm-dd hh:mm:ss"};
@@ -73,4 +73,4 @@ std::string format_date_for_display(const std::tm& time) {
     return result;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

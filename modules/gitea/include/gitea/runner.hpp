@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 
 struct RunnerOptions {
     std::string forge_uri;
@@ -65,4 +65,4 @@ private:
     std::shared_ptr<gitea::AdminServiceClient> m_admin;
 };
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

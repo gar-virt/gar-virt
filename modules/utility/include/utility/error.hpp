@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class GenericError : public std::runtime_error {
 public:
@@ -16,4 +16,4 @@ private:
     std::source_location m_sloc;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

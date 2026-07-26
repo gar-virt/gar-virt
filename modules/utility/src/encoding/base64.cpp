@@ -4,7 +4,7 @@
 
 #include <cppcodec/base64_rfc4648.hpp>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 std::string base64_encode(std::span<const std::byte> input) { return cppcodec::base64_rfc4648::encode(input); }
 
@@ -21,4 +21,4 @@ std::string base64_decode_to_string(std::string_view input) {
     return output;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

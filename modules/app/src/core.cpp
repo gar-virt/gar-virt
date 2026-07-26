@@ -24,7 +24,7 @@
 #include <optional>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 struct Injectables {
     std::string runner_state_json;
@@ -380,4 +380,4 @@ size_t count_max_concurrency(const config::MainConfig& main_config) noexcept {
     return count;
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

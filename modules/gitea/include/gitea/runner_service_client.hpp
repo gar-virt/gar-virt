@@ -8,7 +8,7 @@
 
 #include <expected>
 
-namespace ls_gitea_runner::gitea {
+namespace gv::gitea {
 
 template <typename T> std::expected<std::vector<std::byte>, GenericError> encode_payload(const T& msg);
 template <typename T> std::expected<T, GenericError> decode_payload(const std::vector<std::byte>& payload);
@@ -38,4 +38,4 @@ private:
     utility::HttpClient m_client;
 };
 
-} // namespace ls_gitea_runner::gitea
+} // namespace gv::gitea

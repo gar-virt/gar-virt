@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 enum class LogCapability { log_thread };
 
@@ -163,4 +163,4 @@ private:
     LogLine m_line;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

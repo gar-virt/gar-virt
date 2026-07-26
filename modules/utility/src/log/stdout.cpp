@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 namespace {
 
 struct PrintVisitor {
@@ -50,4 +50,4 @@ void StdOutLogger::print_impl(const LogRequest& req) {
     }
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

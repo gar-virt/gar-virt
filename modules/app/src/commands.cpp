@@ -8,7 +8,7 @@
 #include <expected>
 #include <thread>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) {
     using namespace std::chrono_literals;
@@ -44,4 +44,4 @@ std::expected<void, GenericError> cmd_daemon(config::MainConfig main_config) {
     return {};
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

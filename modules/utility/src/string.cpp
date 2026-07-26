@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 #if defined(_WIN32)
 // Converts a narrow (UTF-8-encoded) string into a wide (UTF-16-encoded) string.
@@ -241,4 +241,4 @@ std::string string_replace(std::string_view input, std::string_view pattern, std
     return result;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

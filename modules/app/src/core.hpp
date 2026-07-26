@@ -11,7 +11,7 @@
 #include <expected>
 #include <optional>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 struct TemplateState {
     utility::ShutdownSignal stop;
@@ -52,4 +52,4 @@ struct TemplateState {
 
 size_t count_max_concurrency(const config::MainConfig& main_config) noexcept;
 
-} // namespace ls_gitea_runner
+} // namespace gv

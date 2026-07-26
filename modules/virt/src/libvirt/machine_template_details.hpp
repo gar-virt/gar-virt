@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 struct LibvirtMachineTemplateDetails {
     std::filesystem::path domain_template_path;
@@ -17,4 +17,4 @@ struct LibvirtMachineTemplateDetails {
                                                                            const std::filesystem::path& config_dir);
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

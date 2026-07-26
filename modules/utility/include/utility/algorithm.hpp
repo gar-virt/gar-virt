@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 /// Safely convert integral value from one type to another type where both are
 /// either signed or unsigned.
@@ -72,4 +72,4 @@ constexpr Result ipow(Base base, Exponent exponent) noexcept {
 
 template <std::unsigned_integral T> constexpr T ipow2(T exponent) noexcept { return ipow(2U, exponent); }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

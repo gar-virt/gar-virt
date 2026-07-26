@@ -2,7 +2,7 @@
 
 #include <virt/machine_manager_factory.hpp>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class LibvirtMachineManagerFactory final : public MachineManagerFactory {
 public:
@@ -10,4 +10,4 @@ public:
     std::unique_ptr<MachineManager> create() override;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

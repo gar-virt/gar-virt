@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class LibvirtMachine final : public Machine {
 public:
@@ -29,4 +29,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

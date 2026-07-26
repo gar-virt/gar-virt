@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 class ShutdownSignal {
 public:
@@ -16,4 +16,4 @@ private:
     std::shared_ptr<State> m_state;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

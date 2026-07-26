@@ -12,7 +12,7 @@
 #include <streambuf>
 #include <string>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 class SharedStreamOperations {
 public:
@@ -367,4 +367,4 @@ inline std::optional<std::string> read_line(utility::InputStream& stream) {
     return line;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

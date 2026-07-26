@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace ls_gitea_runner::fs {
+namespace gv::fs {
 namespace detail {
 
 void read_file_into(std::span<std::byte> content, const std::filesystem::path& file_path) {
@@ -61,4 +61,4 @@ void write_file(const std::filesystem::path& file_path, std::span<const std::byt
                  utility::safe_cast_int<std::streamsize>(content.size()));
 }
 
-} // namespace ls_gitea_runner::fs
+} // namespace gv::fs

@@ -3,7 +3,7 @@
 #include <functional>
 #include <utility>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 class Deferred {
 public:
@@ -31,4 +31,4 @@ private:
     std::function<void()> m_fn;
 };
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

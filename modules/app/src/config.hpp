@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace ls_gitea_runner::config {
+namespace gv::config {
 
 struct MachineTemplateConfig {
     std::string os;
@@ -64,4 +64,4 @@ struct MainConfig {
 
 std::expected<MainConfig, GenericError> load_file(const std::filesystem::path& file_path);
 
-} // namespace ls_gitea_runner::config
+} // namespace gv::config

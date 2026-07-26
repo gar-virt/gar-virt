@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <string>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::string Machine::make_temp_path(const std::string& sub_path) const {
     const auto* const delimiter{utility::string_compare_ci(info().os, "windows") == 0 ? "\\" : "/"};
@@ -16,4 +16,4 @@ std::string Machine::make_temp_path(const std::string& sub_path) const {
     return result;
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

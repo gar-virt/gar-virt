@@ -6,8 +6,8 @@
 
 #include <expected>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<void, GenericError> cmd_daemon(config::MainConfig config);
 
-} // namespace ls_gitea_runner
+} // namespace gv

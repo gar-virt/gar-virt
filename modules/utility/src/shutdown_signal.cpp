@@ -4,7 +4,7 @@
 #include <memory>
 #include <mutex>
 
-namespace ls_gitea_runner::utility {
+namespace gv::utility {
 
 struct ShutdownSignal::State {
     std::mutex mutex;
@@ -33,4 +33,4 @@ ShutdownSignal ShutdownSignal::install() {
     return sig;
 }
 
-} // namespace ls_gitea_runner::utility
+} // namespace gv::utility

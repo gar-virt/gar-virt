@@ -6,7 +6,7 @@
 int main(int argc, char* argv[]) {
     try {
         try {
-            ls_gitea_runner::app_main(argc, argv);
+            gv::app_main(argc, argv);
             return 0;
         } catch (const std::exception& ex) {
             std::println(std::cerr, "Error: {}", ex.what());

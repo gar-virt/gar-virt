@@ -2,7 +2,7 @@
 #include <utility/log/log.hpp>
 #include <utility/log/stdout.hpp>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 utility::Logger& global_logger() noexcept {
     static std::unique_ptr<utility::StdOutLogger> shared_instance{[] {
@@ -13,4 +13,4 @@ utility::Logger& global_logger() noexcept {
     return *shared_instance;
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

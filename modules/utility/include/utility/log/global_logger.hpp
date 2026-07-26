@@ -2,8 +2,8 @@
 
 #include <utility/log/log.hpp>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 utility::Logger& global_logger() noexcept;
 
-} // namespace ls_gitea_runner
+} // namespace gv

@@ -8,7 +8,7 @@
 #include <expected>
 #include <memory>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 class LibvirtMachineManager final : public MachineManager {
 public:
@@ -25,4 +25,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace ls_gitea_runner
+} // namespace gv

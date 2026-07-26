@@ -13,7 +13,7 @@
 #include <optional>
 #include <utility>
 
-namespace ls_gitea_runner::fs {
+namespace gv::fs {
 
 class TemporaryFile {
 public:
@@ -99,4 +99,4 @@ private:
     bool m_moved{};
 };
 
-} // namespace ls_gitea_runner::fs
+} // namespace gv::fs

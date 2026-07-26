@@ -4,7 +4,7 @@
 
 #include <format>
 
-namespace ls_gitea_runner {
+namespace gv {
 
 std::expected<LibvirtMachinePoolDetails, GenericError>
 LibvirtMachinePoolDetails::load(const std::string& details) {
@@ -18,4 +18,4 @@ LibvirtMachinePoolDetails::load(const std::string& details) {
     }
 }
 
-} // namespace ls_gitea_runner
+} // namespace gv

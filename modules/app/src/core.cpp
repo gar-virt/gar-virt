@@ -31,7 +31,7 @@ struct Injectables {
     std::string runner_config_yaml;
     std::vector<std::byte> encoded_task;
 
-    static Result<Injectables> generate(const Machine& machine, const ::runner::v1::Task& task,
+    static Result<Injectables> generate(const virt::Machine& machine, const ::runner::v1::Task& task,
                                         const gitea::Runner& runner);
 };
 
@@ -43,7 +43,7 @@ void log_select(utility::LogLevel true_level, utility::LogLevel false_level, boo
     global_logger().log(cond ? true_level : false_level, std::move(format), std::forward<Args>(args)...);
 }
 
-Result<void> inject_runner_files(Machine& machine, Injectables injectables) {
+Result<void> inject_runner_files(virt::Machine& machine, Injectables injectables) {
     return machine.write_file(machine.make_temp_path("runner_config.yml"), injectables.runner_config_yaml)
         .and_then([&] { return machine.write_file(machine.make_temp_path(".runner"), injectables.runner_state_json); })
         .and_then([&] { return machine.write_file(machine.make_temp_path("runner_task"), injectables.encoded_task); });
@@ -79,7 +79,7 @@ Result<std::vector<std::string>> make_ping_command(const std::string& target_os,
     return cmd;
 }
 
-Result<void> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
+Result<void> wait_until_gitea_instance_available(virt::Machine& machine, const std::string& instance_url,
                                                  std::chrono::seconds timeout, const utility::ShutdownSignal& stop) {
     using namespace std::literals;
     const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
@@ -90,7 +90,7 @@ Result<void> wait_until_gitea_instance_available(Machine& machine, const std::st
         return std::unexpected{cmd.error()};
     }
 
-    SpawnResult spawn_res;
+    virt::SpawnResult spawn_res;
     auto start_time{std::chrono::steady_clock::now()};
     while (start_time - std::chrono::steady_clock::now() < timeout) {
         if (stop.is_signalled()) {
@@ -112,27 +112,27 @@ Result<void> wait_until_gitea_instance_available(Machine& machine, const std::st
                                              machine.get_id(), spawn_res.output)}};
 }
 
-Result<std::unique_ptr<Machine>> spawn_machine(const config::MainConfig& main_config,
-                                               const config::BackendConfig& backend_config,
-                                               const config::MachineTemplateConfig& template_config,
-                                               const utility::ShutdownSignal& stop) {
+Result<std::unique_ptr<virt::Machine>> spawn_machine(const config::MainConfig& main_config,
+                                                     const config::BackendConfig& backend_config,
+                                                     const config::MachineTemplateConfig& template_config,
+                                                     const utility::ShutdownSignal& stop) {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
 
-    auto machine_manager_factory_res{MachineManagerFactorySelector::get_factory(backend_type)};
+    auto machine_manager_factory_res{virt::MachineManagerFactorySelector::get_factory(backend_type)};
     if (!machine_manager_factory_res) {
         return std::unexpected{machine_manager_factory_res.error()};
     }
 
     auto machine_manager_factory{std::move(*machine_manager_factory_res)};
     auto machine_manager{machine_manager_factory->create()};
-    const auto arch_name{Arch::to_name(template_config.arch)};
+    const auto arch_name{virt::Arch::to_name(template_config.arch)};
 
     global_logger().debug("Spawning new {} machine: os = {}; arch = {}", backend_type, template_config.os, arch_name);
 
     auto machine_res{machine_manager->spawn(
-        Machine::Info{
+        virt::Machine::Info{
             .os = template_config.os,
             .arch = template_config.arch,
             .temp_dir = template_config.temp_dir,
@@ -168,7 +168,7 @@ Result<std::unique_ptr<Machine>> spawn_machine(const config::MainConfig& main_co
 }
 
 Result<void> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
-                                     const config::MachineTemplateConfig& config, Machine& machine) {
+                                     const config::MachineTemplateConfig& config, virt::Machine& machine) {
     using namespace std::literals;
     const auto id{task.id()};
 
@@ -193,7 +193,7 @@ Result<void> execute_task_in_machine(const ::runner::v1::Task& task, const gitea
 
 } // namespace
 
-Result<Injectables> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
+Result<Injectables> Injectables::generate(const virt::Machine& machine, const ::runner::v1::Task& task,
                                           const gitea::Runner& runner) {
     auto encode_payload{gitea::encode_payload(task)};
     if (!encode_payload) {
@@ -257,7 +257,7 @@ Result<::runner::v1::Task> TemplateState::fetch_task(const gitea::Runner& runner
     return *std::move(task);
 }
 
-Result<gitea::Runner> TemplateState::create_runner(const Machine& machine) {
+Result<gitea::Runner> TemplateState::create_runner(const virt::Machine& machine) {
     return gitea::Runner::connect(
         {
             .forge_uri = main_config->forge.uri,
@@ -348,10 +348,10 @@ Result<std::optional<::runner::v1::Task>> TemplateState::try_fetch_task(const gi
         [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }
 
-MachinePool TemplateState::create_pool() {
-    MachinePool machine_pool{template_config->idle_target, template_config->max_concurrency,
-                             [this] { return spawn_machine(*main_config, *backend_config, *template_config, stop); },
-                             stop};
+virt::MachinePool TemplateState::create_pool() {
+    virt::MachinePool machine_pool{
+        template_config->idle_target, template_config->max_concurrency,
+        [this] { return spawn_machine(*main_config, *backend_config, *template_config, stop); }, stop};
     machine_pool.set_stats_callback([this](const auto& stats) noexcept {
         global_logger().debug("{} stats: provisioned: {}; warming: {}; idle: {}; acquiring: {}; "
                               "acquired: {}; active: {}",

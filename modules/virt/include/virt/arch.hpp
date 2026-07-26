@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace gv {
+namespace gv::virt {
 
 struct Arch {
     enum Type { amd64, arm64 };
@@ -15,4 +15,4 @@ struct Arch {
     static std::string to_name(Arch::Type value);
 };
 
-} // namespace gv
+} // namespace gv::virt

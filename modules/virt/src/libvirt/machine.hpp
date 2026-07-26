@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace gv {
+namespace gv::virt {
 
 class LibvirtMachine final : public Machine {
 public:
@@ -27,4 +27,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace gv
+} // namespace gv::virt

@@ -4,7 +4,7 @@
 
 #include <memory>
 
-namespace gv {
+namespace gv::virt {
 
 class MachineManagerFactory {
 public:
@@ -12,4 +12,4 @@ public:
     virtual std::unique_ptr<MachineManager> create() = 0;
 };
 
-} // namespace gv
+} // namespace gv::virt

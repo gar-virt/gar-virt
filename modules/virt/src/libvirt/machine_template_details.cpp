@@ -4,7 +4,7 @@
 
 #include <format>
 
-namespace gv {
+namespace gv::virt {
 
 Result<LibvirtMachineTemplateDetails> LibvirtMachineTemplateDetails::load(const std::string& details,
                                                                           const std::filesystem::path& config_dir) {
@@ -27,4 +27,4 @@ Result<LibvirtMachineTemplateDetails> LibvirtMachineTemplateDetails::load(const 
     }
 }
 
-} // namespace gv
+} // namespace gv::virt

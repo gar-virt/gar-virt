@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gv::libvirt {
+namespace gv::virt::libvirt {
 
 struct SpawnOptions {
     std::string volume;
@@ -80,4 +80,4 @@ private:
     std::unique_ptr<HypervisorImpl> m_impl;
 };
 
-} // namespace gv::libvirt
+} // namespace gv::virt::libvirt

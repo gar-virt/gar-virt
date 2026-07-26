@@ -21,7 +21,7 @@
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
-namespace gv::libvirt {
+namespace gv::virt::libvirt {
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -820,4 +820,4 @@ Result<Hypervisor> Hypervisor::connect(const std::string& uri) {
 
 Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
 
-} // namespace gv::libvirt
+} // namespace gv::virt::libvirt

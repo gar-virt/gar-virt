@@ -2,7 +2,7 @@
 
 #include "libvirt/machine_manager_factory.hpp"
 
-namespace gv {
+namespace gv::virt {
 
 Result<std::unique_ptr<MachineManagerFactory>> MachineManagerFactorySelector::get_factory(const std::string& name) {
     if (name == "libvirt") {
@@ -11,4 +11,4 @@ Result<std::unique_ptr<MachineManagerFactory>> MachineManagerFactorySelector::ge
     return std::unexpected{Error{std::format("Invalid machine manager factory name: {}", name)}};
 }
 
-} // namespace gv
+} // namespace gv::virt

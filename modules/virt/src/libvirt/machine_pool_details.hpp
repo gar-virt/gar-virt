@@ -5,7 +5,7 @@
 #include <expected>
 #include <string>
 
-namespace gv {
+namespace gv::virt {
 
 struct LibvirtMachinePoolDetails {
     std::string hypervisor_uri;
@@ -13,4 +13,4 @@ struct LibvirtMachinePoolDetails {
     static Result<LibvirtMachinePoolDetails> load(const std::string& details);
 };
 
-} // namespace gv
+} // namespace gv::virt

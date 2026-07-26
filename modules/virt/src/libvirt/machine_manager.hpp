@@ -8,7 +8,7 @@
 #include <expected>
 #include <memory>
 
-namespace gv {
+namespace gv::virt {
 
 class LibvirtMachineManager final : public MachineManager {
 public:
@@ -24,4 +24,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace gv
+} // namespace gv::virt

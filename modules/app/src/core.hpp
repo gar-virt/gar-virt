@@ -19,7 +19,7 @@ struct TemplateState {
     std::shared_ptr<const config::BackendConfig> backend_config;
     std::shared_ptr<const config::MachineTemplateConfig> template_config;
     std::shared_ptr<gitea::AdminServiceClient> admin_service;
-    MachinePool machine_pool;
+    virt::MachinePool machine_pool;
 
     TemplateState(std::shared_ptr<const config::MainConfig> main_config,
                   std::shared_ptr<const config::BackendConfig> backend_config,
@@ -34,7 +34,7 @@ struct TemplateState {
 
     Result<::runner::v1::Task> fetch_task(const gitea::Runner& runner) const;
 
-    Result<gitea::Runner> create_runner(const Machine& machine);
+    Result<gitea::Runner> create_runner(const virt::Machine& machine);
 
     void runner_loop();
 
@@ -42,7 +42,7 @@ struct TemplateState {
 
     Result<std::optional<::runner::v1::Task>> static try_fetch_task(const gitea::Runner& runner);
 
-    MachinePool create_pool();
+    virt::MachinePool create_pool();
 
     static std::shared_ptr<TemplateState> create(std::shared_ptr<const config::MainConfig> main_config,
                                                  std::shared_ptr<const config::BackendConfig> backend_config,

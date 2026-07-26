@@ -5,11 +5,11 @@
 
 #include <memory>
 
-namespace gv {
+namespace gv::virt {
 
 class MachineManagerFactorySelector final {
 public:
     static Result<std::unique_ptr<MachineManagerFactory>> get_factory(const std::string& name);
 };
 
-} // namespace gv
+} // namespace gv::virt

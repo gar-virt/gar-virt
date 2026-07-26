@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gv {
+namespace gv::virt {
 
 struct SpawnResult {
     int exit_code{};
@@ -49,4 +49,4 @@ protected:
     virtual Result<void> write_file_impl(const std::string& remote_path, std::span<const std::byte> content) = 0;
 };
 
-} // namespace gv
+} // namespace gv::virt

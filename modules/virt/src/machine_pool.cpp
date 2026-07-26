@@ -15,7 +15,7 @@
 #include <mutex>
 #include <queue>
 
-namespace gv {
+namespace gv::virt {
 
 class MachinePool::Impl final {
     struct MachineCounters {
@@ -288,4 +288,4 @@ void MachinePool::set_stats_callback(std::move_only_function<void(const MachineP
     m_impl->set_stats_callback(std::move(cb));
 }
 
-} // namespace gv
+} // namespace gv::virt

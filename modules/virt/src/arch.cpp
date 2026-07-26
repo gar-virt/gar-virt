@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace gv {
+namespace gv::virt {
 
 Result<Arch::Type> Arch::from_name(std::string_view name) noexcept {
     using namespace std::literals;
@@ -40,4 +40,4 @@ std::string Arch::to_name(Arch::Type value) {
     std::abort();
 }
 
-} // namespace gv
+} // namespace gv::virt

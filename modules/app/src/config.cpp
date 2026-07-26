@@ -47,7 +47,7 @@ ForgeConfig load_forge(const YAML::Node& from) {
 }
 
 MachineTemplateConfig load_template(const YAML::Node& from) {
-    auto arch{Arch::from_name(from["arch"].as<std::string>())};
+    auto arch{virt::Arch::from_name(from["arch"].as<std::string>())};
     if (!arch) {
         throw std::move(arch).error();
     }

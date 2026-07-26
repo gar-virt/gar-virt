@@ -13,7 +13,7 @@ namespace gv::config {
 
 struct MachineTemplateConfig {
     std::string os;
-    Arch::Type arch{};
+    virt::Arch::Type arch{};
     std::string temp_dir;
     size_t idle_target{};
     size_t max_concurrency{};

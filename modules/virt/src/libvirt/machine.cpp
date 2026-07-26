@@ -6,7 +6,7 @@
 #include <thread>
 #include <tuple>
 
-namespace gv {
+namespace gv::virt {
 namespace {
 Result<std::vector<std::string>> add_command_output_redirection(const std::string& target_os,
                                                                 const std::vector<std::string>& args) {
@@ -121,4 +121,4 @@ Result<void> LibvirtMachine::write_file_impl(const std::string& remote_path, std
 
 const Machine::Info& LibvirtMachine::info() const { return m_impl->info(); }
 
-} // namespace gv
+} // namespace gv::virt

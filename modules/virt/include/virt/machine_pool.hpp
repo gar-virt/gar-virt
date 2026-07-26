@@ -11,7 +11,7 @@
 #include <functional>
 #include <memory>
 
-namespace gv {
+namespace gv::virt {
 
 struct MachinePoolStats {
     size_t provisioned{};
@@ -47,4 +47,4 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace gv
+} // namespace gv::virt

@@ -4,7 +4,7 @@
 
 #include <format>
 
-namespace gv {
+namespace gv::virt {
 
 Result<LibvirtMachinePoolDetails> LibvirtMachinePoolDetails::load(const std::string& details) {
     try {
@@ -17,4 +17,4 @@ Result<LibvirtMachinePoolDetails> LibvirtMachinePoolDetails::load(const std::str
     }
 }
 
-} // namespace gv
+} // namespace gv::virt

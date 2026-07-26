@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace gv {
+namespace gv::virt {
 
 class MachineManager {
 public:
@@ -19,4 +19,4 @@ public:
                                                    const std::filesystem::path& config_dir) = 0;
 };
 
-} // namespace gv
+} // namespace gv::virt

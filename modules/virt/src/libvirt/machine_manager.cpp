@@ -7,7 +7,7 @@
 #include <utility/fs/filesystem.hpp>
 #include <utility/uuid.hpp>
 
-namespace gv {
+namespace gv::virt {
 
 class LibvirtMachineManager::Impl final {
 public:
@@ -53,4 +53,4 @@ Result<std::unique_ptr<Machine>> LibvirtMachineManager::spawn(const Machine::Inf
     return m_impl->spawn(info, serialized_pool_details, serialized_template_details, config_dir);
 }
 
-} // namespace gv
+} // namespace gv::virt

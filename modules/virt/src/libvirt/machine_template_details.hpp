@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <string>
 
-namespace gv {
+namespace gv::virt {
 
 struct LibvirtMachineTemplateDetails {
     std::filesystem::path domain_template_path;
@@ -17,4 +17,4 @@ struct LibvirtMachineTemplateDetails {
                                                       const std::filesystem::path& config_dir);
 };
 
-} // namespace gv
+} // namespace gv::virt

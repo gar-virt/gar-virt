@@ -11,6 +11,7 @@ target_sources(utility PRIVATE
     src/env.cpp
     src/datetime.cpp
     src/fs/filesystem.cpp
+    src/fs/temporary_file.cpp
     src/http.cpp
     src/log/ansi.cpp
     src/log/global_logger.cpp

@@ -1,17 +1,17 @@
 find_package(Boost REQUIRED COMPONENTS json program_options url CONFIG)
 find_package(yaml-cpp REQUIRED CONFIG)
 
-add_executable(gar_virt)
-set_target_properties(gar_virt PROPERTIES
+add_executable(app)
+set_target_properties(app PROPERTIES
     OUTPUT_NAME gar-virt
 )
-target_sources(gar_virt PRIVATE
+target_sources(app PRIVATE
     src/commands.cpp
     src/config.cpp
     src/core.cpp
     src/main.cpp
 )
-target_link_libraries(gar_virt PRIVATE
+target_link_libraries(app PRIVATE
     Boost::json
     Boost::program_options
     Boost::url
@@ -22,4 +22,4 @@ target_link_libraries(gar_virt PRIVATE
     virt
 )
 
-install(TARGETS gar_virt RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS app RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

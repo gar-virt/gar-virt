@@ -1,4 +1,4 @@
-option(USE_EXPERIMENTAL_STD_MODULES ON)
+option(USE_EXPERIMENTAL_STD_MODULES "" ON)
 
 function(enable_experimental_import_std_module)
     if(NOT USE_EXPERIMENTAL_STD_MODULES)
@@ -28,16 +28,24 @@ endfunction()
 function(add_std_module)
     if(USE_EXPERIMENTAL_STD_MODULES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
         set(CMAKE_CXX_MODULE_STD ON PARENT_SCOPE)
+
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang$")
+            # Clang 20, CMake 4.4: error: 'std' is a reserved name for a module [-Werror,-Wreserved-module-identifier]
+            # We get this warning regardless of whether CMAKE_CXX_MODULE_STD is ON or create our own target for the std modules.
+            # Just disable the warning.
+            add_compile_options(-Wno-reserved-module-identifier)
+        endif()
+
         return()
     endif()
 
-    if(NOT LINUX OR NOT ((CMAKE_C_COMPILER_ID MATCHES "((^GNU)|Clang)$") OR (CMAKE_CXX_COMPILER_ID MATCHES "((^GNU)|Clang)$")))
+    if(NOT LINUX OR NOT (CMAKE_CXX_COMPILER_ID MATCHES "((^GNU)|Clang)$"))
         message(WARNING "Unsupported platform/compiler - will not generate std modules")
         return()
     endif()
 
     set(TARGETS std std.compat)
-    set(SUB_PATHS  bits/std.cc bits/std.compat.cc)
+    set(SUB_PATHS bits/std.cc bits/std.compat.cc)
 
     foreach(TARGET SUB_PATH IN ZIP_LISTS TARGETS SUB_PATHS)
         find_path(BASE_DIR "${SUB_PATH}" PATHS ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
@@ -46,9 +54,12 @@ function(add_std_module)
             continue()
         endif()
         add_library("${TARGET}" OBJECT)
-        target_compile_options("${TARGET}" PRIVATE -fmodules)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang$")
+            target_compile_options("${TARGET}" PRIVATE -Wno-reserved-module-identifier)
+        endif()
         set_source_files_properties("${BASE_DIR}/${SUB_PATH}" PROPERTIES LANGUAGE CXX)
         target_sources("${TARGET}" PUBLIC FILE_SET CXX_MODULES BASE_DIRS "${BASE_DIR}" FILES "${BASE_DIR}/${SUB_PATH}")
+        target_compile_features("${TARGET}" PUBLIC cxx_std_23)
         link_libraries("${TARGET}")
         message(STATUS "Added ${TARGET} module.")
     endforeach()

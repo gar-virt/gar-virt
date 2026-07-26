@@ -10,7 +10,7 @@ target_sources(utility PRIVATE
     src/error.cpp
     src/env.cpp
     src/datetime.cpp
-    src/filesystem.cpp
+    src/fs/filesystem.cpp
     src/http.cpp
     src/log/ansi.cpp
     src/log/global_logger.cpp

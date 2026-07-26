@@ -4,7 +4,7 @@
 #include "machine_pool_details.hpp"
 #include "machine_template_details.hpp"
 
-#include <utility/filesystem.hpp>
+#include <utility/fs/filesystem.hpp>
 #include <utility/uuid.hpp>
 
 namespace ls_gitea_runner {

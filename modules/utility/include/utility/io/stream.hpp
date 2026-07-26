@@ -1,7 +1,7 @@
 #pragma once
 
-#include "algorithm.hpp"
-#include "memstream.hpp"
+#include <utility/algorithm.hpp>
+#include <utility/io/memstream.hpp>
 
 #include <cstdint>
 #include <filesystem>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "filesystem.hpp"
-#include "stream.hpp"
+#include <utility/fs/filesystem.hpp>
+#include <utility/io/stream.hpp>
 
 #ifdef _WIN32
     #include "string.hpp"

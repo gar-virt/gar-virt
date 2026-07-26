@@ -1,6 +1,6 @@
 #pragma once
 
-#include "memstreambuf.hpp"
+#include <utility/io/memstreambuf.hpp>
 
 #include <istream>
 

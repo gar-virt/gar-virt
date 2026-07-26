@@ -6,6 +6,7 @@ set_target_properties(app PROPERTIES
     OUTPUT_NAME gar-virt
 )
 target_sources(app PRIVATE
+    src/app_main.cpp
     src/commands.cpp
     src/config.cpp
     src/core.cpp

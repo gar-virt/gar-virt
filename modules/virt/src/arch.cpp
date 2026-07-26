@@ -10,7 +10,7 @@
 
 namespace gv {
 
-std::expected<Arch::Type, Error> Arch::from_name(std::string_view name) noexcept {
+Result<Arch::Type> Arch::from_name(std::string_view name) noexcept {
     using namespace std::literals;
 
     constexpr static auto amd64_names = {"amd64"sv, "x64"sv, "x86_64"sv, "x86-64"sv};

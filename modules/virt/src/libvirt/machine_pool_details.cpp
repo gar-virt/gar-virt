@@ -6,7 +6,7 @@
 
 namespace gv {
 
-std::expected<LibvirtMachinePoolDetails, Error> LibvirtMachinePoolDetails::load(const std::string& details) {
+Result<LibvirtMachinePoolDetails> LibvirtMachinePoolDetails::load(const std::string& details) {
     try {
         const auto y{YAML::Load(details)};
         return LibvirtMachinePoolDetails{

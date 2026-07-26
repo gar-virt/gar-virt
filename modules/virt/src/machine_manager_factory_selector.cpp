@@ -4,8 +4,7 @@
 
 namespace gv {
 
-std::expected<std::unique_ptr<MachineManagerFactory>, Error>
-MachineManagerFactorySelector::get_factory(const std::string& name) {
+Result<std::unique_ptr<MachineManagerFactory>> MachineManagerFactorySelector::get_factory(const std::string& name) {
     if (name == "libvirt") {
         return std::make_unique<LibvirtMachineManagerFactory>();
     }

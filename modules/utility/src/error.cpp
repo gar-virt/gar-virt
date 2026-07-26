@@ -1,4 +1,4 @@
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 namespace gv {
 

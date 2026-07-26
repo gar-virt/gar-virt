@@ -1,7 +1,7 @@
 #pragma once
 
-#include <utility/error.hpp>
 #include <utility/http.hpp>
+#include <utility/result.hpp>
 
 #include <cstdint>
 #include <expected>
@@ -16,8 +16,8 @@ public:
     AdminServiceClient(const AdminServiceClient&) = delete;
     AdminServiceClient& operator=(const AdminServiceClient&) = delete;
 
-    std::expected<std::string, Error> get_registration_token() const;
-    std::expected<void, Error> remove_runner(uint64_t runner_id) const;
+    Result<std::string> get_registration_token() const;
+    Result<void> remove_runner(uint64_t runner_id) const;
 
 private:
     std::string m_token;

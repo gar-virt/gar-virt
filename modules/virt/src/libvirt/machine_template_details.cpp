@@ -6,8 +6,8 @@
 
 namespace gv {
 
-std::expected<LibvirtMachineTemplateDetails, Error>
-LibvirtMachineTemplateDetails::load(const std::string& details, const std::filesystem::path& config_dir) {
+Result<LibvirtMachineTemplateDetails> LibvirtMachineTemplateDetails::load(const std::string& details,
+                                                                          const std::filesystem::path& config_dir) {
     try {
         const auto y{YAML::Load(details)};
         LibvirtMachineTemplateDetails details{

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 #include <chrono>
 #include <cstddef>
@@ -39,16 +39,16 @@ public:
     Machine& operator=(Machine&&) noexcept;
 
     const std::string& get_name() const noexcept;
-    std::expected<void, Error> wait();
-    std::expected<void, Error> wait_for_guest_agent();
+    Result<void> wait();
+    Result<void> wait_for_guest_agent();
 
-    std::expected<void, Error> write_file(const std::string& file_path, std::span<const std::byte> content);
-    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                 const std::optional<std::chrono::seconds>& timeout);
+    Result<void> write_file(const std::string& file_path, std::span<const std::byte> content);
+    Result<SpawnResult> shell_exec(const std::vector<std::string>& cmd,
+                                   const std::optional<std::chrono::seconds>& timeout);
 
-    std::expected<void, Error> resume();
-    std::expected<void, Error> kill();
-    std::expected<bool, Error> is_ready() const;
+    Result<void> resume();
+    Result<void> kill();
+    Result<bool> is_ready() const;
 
 private:
     friend HypervisorImpl;
@@ -69,12 +69,12 @@ public:
     Hypervisor(Hypervisor&&) noexcept;
     Hypervisor& operator=(Hypervisor&&) noexcept;
 
-    // std::expected<void, Error> run() noexcept;
+    // Result<void> run() noexcept;
     // void stop() noexcept;
 
-    std::expected<std::shared_ptr<Machine>, Error> spawn(const SpawnOptions& options);
+    Result<std::shared_ptr<Machine>> spawn(const SpawnOptions& options);
 
-    static std::expected<Hypervisor, Error> connect(const std::string& uri);
+    static Result<Hypervisor> connect(const std::string& uri);
 
 private:
     std::unique_ptr<HypervisorImpl> m_impl;

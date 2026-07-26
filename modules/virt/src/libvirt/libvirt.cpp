@@ -113,7 +113,7 @@ public:
     ConnectionImpl(ConnectionImpl&&) noexcept = default;
     ConnectionImpl& operator=(ConnectionImpl&&) noexcept = default;
 
-    std::expected<virConnectPtr, Error> get() {
+    Result<virConnectPtr> get() {
         const std::scoped_lock lock{*m_mutex};
         if (m_conn) {
             return m_conn.get();
@@ -127,7 +127,7 @@ public:
     }
 
 private:
-    static std::expected<ConnectPtr, Error> connect(const std::string& uri) {
+    static Result<ConnectPtr> connect(const std::string& uri) {
         ConnectPtr conn{virConnectOpen(uri.c_str())};
         if (!conn) {
             return std::unexpected{Error{"Failed to connect to hypervisor"}};
@@ -135,7 +135,7 @@ private:
         return conn;
     }
 
-    static std::expected<void, Error> register_event_handlers(ConnectionImpl& self, ConnectPtr& conn) {
+    static Result<void> register_event_handlers(ConnectionImpl& self, ConnectPtr& conn) {
         if (virConnectRegisterCloseCallback(conn.get(), &ConnectionImpl::close_event_cb_internal, &self, nullptr) < 0) {
             return std::unexpected{Error{"Failed to register connection closed event handler"}};
         }
@@ -183,8 +183,8 @@ public:
 
     const std::string& get_name() const noexcept { return m_domain_name; }
 
-    std::expected<StorageVolPtr, Error> get_volume() {
-        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<StorageVolPtr, Error> {
+    Result<StorageVolPtr> get_volume() {
+        return m_conn->get().and_then([this](auto conn_ptr) -> Result<StorageVolPtr> {
             if (auto volume_ptr{virStorageVolLookupByKey(conn_ptr, m_volume_id.c_str())}) {
                 return StorageVolPtr{volume_ptr};
             }
@@ -192,8 +192,8 @@ public:
         });
     }
 
-    std::expected<DomainPtr, Error> get_domain() {
-        return m_conn->get().and_then([this](auto conn_ptr) -> std::expected<DomainPtr, Error> {
+    Result<DomainPtr> get_domain() {
+        return m_conn->get().and_then([this](auto conn_ptr) -> Result<DomainPtr> {
             if (auto volume_ptr{virDomainLookupByName(conn_ptr, m_domain_name.c_str())}) {
                 return DomainPtr{volume_ptr};
             }
@@ -201,13 +201,13 @@ public:
         });
     }
 
-    std::expected<void, Error> wait() {
+    Result<void> wait() {
         std::unique_lock lock{m_mutex};
         m_cv.wait(lock, [&] -> bool { return m_quit; });
         return {};
     }
 
-    std::expected<void, Error> wait_for_guest_agent() {
+    Result<void> wait_for_guest_agent() {
         std::unique_lock lock{m_mutex};
         if (m_ready) {
             return {};
@@ -220,8 +220,8 @@ public:
         return {};
     }
 
-    std::expected<void, Error> resume() {
-        return get_domain().and_then([this](auto domain) -> std::expected<void, Error> {
+    Result<void> resume() {
+        return get_domain().and_then([this](auto domain) -> Result<void> {
             if (virDomainResume(domain.get()) < 0) {
                 return std::unexpected{Error{std::format("Failed to resume domain \"{}\"", m_domain_name)}};
             }
@@ -229,8 +229,8 @@ public:
         });
     }
 
-    std::expected<void, Error> kill() {
-        return get_domain().and_then([this](auto domain) -> std::expected<void, Error> {
+    Result<void> kill() {
+        return get_domain().and_then([this](auto domain) -> Result<void> {
             if (virDomainDestroy(domain.get()) < 0) {
                 return std::unexpected{Error{std::format("Failed to kill domain \"{}\"", m_domain_name)}};
             }
@@ -238,14 +238,14 @@ public:
         });
     }
 
-    std::expected<bool, Error> is_ready() const {
+    Result<bool> is_ready() const {
         if (m_quit) {
             return std::unexpected{Error{std::format("Domain \"{}\" has decayed.", m_domain_name)}};
         }
         return m_ready;
     }
 
-    std::expected<void, Error> write_file(const std::string& file_path, std::span<const std::byte> content) {
+    Result<void> write_file(const std::string& file_path, std::span<const std::byte> content) {
         // TODO: timeouts
         std::optional<int> file_handle;
         std::optional<Error> error;
@@ -317,8 +317,8 @@ public:
         return {};
     }
 
-    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                 const std::optional<std::chrono::seconds>& timeout) {
+    Result<SpawnResult> shell_exec(const std::vector<std::string>& cmd,
+                                   const std::optional<std::chrono::seconds>& timeout) {
         using namespace std::chrono_literals;
         if (timeout && *timeout < 1s) {
             return std::unexpected{Error{"Timeout must be >= 1s"}};
@@ -428,25 +428,25 @@ Machine& Machine::operator=(Machine&&) noexcept = default;
 
 const std::string& Machine::get_name() const noexcept { return m_impl->get_name(); }
 
-std::expected<void, Error> Machine::wait() { return m_impl->wait(); }
+Result<void> Machine::wait() { return m_impl->wait(); }
 
-std::expected<void, Error> Machine::write_file(const std::string& file_path, std::span<const std::byte> content) {
+Result<void> Machine::write_file(const std::string& file_path, std::span<const std::byte> content) {
     return m_impl->write_file(file_path, content);
 }
 
-std::expected<SpawnResult, Error> Machine::shell_exec(const std::vector<std::string>& cmd,
-                                                      const std::optional<std::chrono::seconds>& timeout) {
+Result<SpawnResult> Machine::shell_exec(const std::vector<std::string>& cmd,
+                                        const std::optional<std::chrono::seconds>& timeout) {
     return m_impl->shell_exec(cmd, timeout);
 }
 
-std::expected<void, Error> Machine::resume() { return m_impl->resume(); }
-std::expected<void, Error> Machine::kill() { return m_impl->kill(); }
-std::expected<bool, Error> Machine::is_ready() const { return m_impl->is_ready(); }
+Result<void> Machine::resume() { return m_impl->resume(); }
+Result<void> Machine::kill() { return m_impl->kill(); }
+Result<bool> Machine::is_ready() const { return m_impl->is_ready(); }
 
 void Machine::notify_bad_state() { m_impl->notify_bad_state(); }
 void Machine::notify_ready() { m_impl->notify_ready(); }
 
-std::expected<void, Error> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
+Result<void> Machine::wait_for_guest_agent() { return m_impl->wait_for_guest_agent(); }
 
 class EventLoopImpl final {
 private:
@@ -469,7 +469,7 @@ public:
     EventLoopImpl& operator=(const EventLoopImpl&) = delete;
     EventLoopImpl& operator=(EventLoopImpl&&) = delete;
 
-    static std::expected<std::shared_ptr<EventLoopImpl>, Error> get() {
+    static Result<std::shared_ptr<EventLoopImpl>> get() {
         // Use weak pointer to allow the shared instance to be deleted sooner than app termination
         static std::weak_ptr<EventLoopImpl> weak_instance;
         static std::mutex m;
@@ -485,7 +485,7 @@ public:
     }
 
 private:
-    static std::expected<std::shared_ptr<EventLoopImpl>, Error> create() {
+    static Result<std::shared_ptr<EventLoopImpl>> create() {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
             virInitialize();
@@ -512,7 +512,7 @@ private:
         return impl;
     }
 
-    std::expected<void, Error> start() {
+    Result<void> start() {
         {
             const std::scoped_lock lock{m_run_loop_state_mutex};
             m_run_loop_state = RunLoopState::starting;
@@ -527,7 +527,7 @@ private:
         }
     }
 
-    std::expected<void, Error> register_event_handlers() {
+    Result<void> register_event_handlers() {
         constexpr auto cb{+[](int /*timer*/, void* /*opaque*/) {}};
         const auto id{virEventAddTimeout(1000, cb, nullptr, nullptr)};
         if (id < 0) {
@@ -605,7 +605,7 @@ public:
     HypervisorImpl& operator=(const HypervisorImpl&) = delete;
     HypervisorImpl& operator=(HypervisorImpl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, Error> spawn(const SpawnOptions& options) {
+    Result<std::shared_ptr<Machine>> spawn(const SpawnOptions& options) {
         const auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{conn_res.error()};
@@ -624,7 +624,7 @@ public:
         if (!volume) {
             return std::unexpected{volume.error()};
         }
-        auto volume_id{[&] -> std::expected<std::string, Error> {
+        auto volume_id{[&] -> Result<std::string> {
             const auto* key{virStorageVolGetKey(volume->get())};
             if (!key) {
                 return std::unexpected{Error{"Unable to get storage volume key"}};
@@ -670,7 +670,7 @@ public:
         return machine;
     }
 
-    static std::expected<std::unique_ptr<HypervisorImpl>, Error> create(const std::string& uri) {
+    static Result<std::unique_ptr<HypervisorImpl>> create(const std::string& uri) {
         auto loop_res{EventLoopImpl::get()};
         if (!loop_res) {
             return std::unexpected{loop_res.error()};
@@ -692,7 +692,7 @@ public:
     }
 
 private:
-    std::expected<StorageVolPtr, Error> create_volume(const std::string& volume_xml, const std::string& pool_name) {
+    Result<StorageVolPtr> create_volume(const std::string& volume_xml, const std::string& pool_name) {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{std::move(conn_res).error()};
@@ -718,7 +718,7 @@ private:
         return volume;
     }
 
-    std::expected<void, Error> register_event_handlers() {
+    Result<void> register_event_handlers() {
         auto conn_res{m_conn->get()};
         if (!conn_res) {
             return std::unexpected{std::move(conn_res).error()};
@@ -812,11 +812,9 @@ Hypervisor::~Hypervisor() = default;
 Hypervisor::Hypervisor(Hypervisor&&) noexcept = default;
 Hypervisor& Hypervisor::operator=(Hypervisor&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, Error> Hypervisor::spawn(const SpawnOptions& options) {
-    return m_impl->spawn(options);
-}
+Result<std::shared_ptr<Machine>> Hypervisor::spawn(const SpawnOptions& options) { return m_impl->spawn(options); }
 
-std::expected<Hypervisor, Error> Hypervisor::connect(const std::string& uri) {
+Result<Hypervisor> Hypervisor::connect(const std::string& uri) {
     return HypervisorImpl::create(uri).transform([](auto impl) { return Hypervisor{std::move(impl)}; });
 }
 

@@ -44,10 +44,9 @@ public:
     Runner& operator=(const Runner&) = delete;
     Runner& operator=(Runner&&) noexcept;
 
-    static std::expected<Runner, Error> connect(RunnerOptions options,
-                                                std::shared_ptr<gitea::AdminServiceClient> admin);
+    static Result<Runner> connect(RunnerOptions options, std::shared_ptr<gitea::AdminServiceClient> admin);
 
-    std::expected<::runner::v1::FetchTaskResponse, Error> fetch_task() const;
+    Result<::runner::v1::FetchTaskResponse> fetch_task() const;
     int64_t id() const noexcept;
     const gitea::GiteaRunnerCredentials& credentials() const noexcept;
     const gitea::GiteaRunnerServiceClient& client() const noexcept;

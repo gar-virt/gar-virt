@@ -3,8 +3,8 @@
 #include <utility/algorithm.hpp>
 #include <utility/concurrency/thread_pool_executor.hpp>
 #include <utility/defer.hpp>
-#include <utility/error.hpp>
 #include <utility/log/global_logger.hpp>
+#include <utility/result.hpp>
 
 #include <chrono>
 #include <condition_variable>
@@ -35,7 +35,7 @@ class MachinePool::Impl final {
 
 public:
     Impl(size_t idle_target, size_t max_concurrency,
-         std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
+         std::move_only_function<Result<std::unique_ptr<Machine>>()> machine_spawner,
          utility::ShutdownSignal shutdown_signal)
             : m_shutdown_signal{std::move(shutdown_signal)}, m_idle_target{idle_target},
               m_max_concurrency{max_concurrency}, m_machine_spawner{std::move(machine_spawner)},
@@ -49,7 +49,7 @@ public:
     Impl& operator=(const Impl&) = delete;
     Impl& operator=(Impl&&) = delete;
 
-    std::expected<std::shared_ptr<Machine>, Error> acquire(std::chrono::milliseconds timeout) {
+    Result<std::shared_ptr<Machine>> acquire(std::chrono::milliseconds timeout) {
         using namespace std::chrono_literals;
         std::unique_lock lock{m_mutex};
         ++m_machine_counters.acquiring;
@@ -172,7 +172,7 @@ private:
         notify();
     }
 
-    std::expected<void, Error> add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
+    Result<void> add_spawner(std::unique_lock<std::mutex>& acquired_lock) {
         ++m_machine_counters.warming;
         check_stats(acquired_lock);
         // TODO: Can we get rid of the try-catch?
@@ -257,13 +257,13 @@ private:
     std::condition_variable m_control_cv;
     MachinePoolStats m_stats;
     std::move_only_function<void(const MachinePoolStats&) noexcept> m_stats_cb;
-    std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> m_machine_spawner;
+    std::move_only_function<Result<std::unique_ptr<Machine>>()> m_machine_spawner;
     utility::ThreadPoolExecutor m_workers;
     std::jthread m_control_worker;
 };
 
 MachinePool::MachinePool(size_t idle_target, size_t max_concurrency,
-                         std::move_only_function<std::expected<std::unique_ptr<Machine>, Error>()> machine_spawner,
+                         std::move_only_function<Result<std::unique_ptr<Machine>>()> machine_spawner,
                          utility::ShutdownSignal shutdown_signal)
         : m_impl{std::make_unique<Impl>(idle_target, max_concurrency, std::move(machine_spawner),
                                         std::move(shutdown_signal))} {}
@@ -274,7 +274,7 @@ MachinePool::MachinePool(MachinePool&&) noexcept = default;
 
 MachinePool& MachinePool::operator=(MachinePool&&) noexcept = default;
 
-std::expected<std::shared_ptr<Machine>, Error> MachinePool::acquire(std::chrono::milliseconds timeout) {
+Result<std::shared_ptr<Machine>> MachinePool::acquire(std::chrono::milliseconds timeout) {
     return m_impl->acquire(timeout);
 }
 

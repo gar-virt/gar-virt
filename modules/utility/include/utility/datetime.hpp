@@ -1,6 +1,6 @@
 #pragma once
 
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 #include <ctime>
 #include <expected>
@@ -10,7 +10,7 @@ namespace gv::utility {
 
 std::tm utc_date();
 std::string utc_date_string(const std::tm& time);
-std::expected<std::tm, Error> parse_utc_date_string(const std::string& from);
+Result<std::tm> parse_utc_date_string(const std::string& from);
 std::tm utc_to_local_date(const std::tm& from);
 std::string format_date_for_display(const std::tm& time);
 

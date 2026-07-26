@@ -1,6 +1,6 @@
 #pragma once
 
-#include "error.hpp"
+#include <utility/result.hpp>
 
 #include <cstddef>
 #include <expected>
@@ -41,10 +41,10 @@ public:
     HttpClient& operator=(const HttpClient& other) = delete;
     HttpClient& operator=(HttpClient&& other) noexcept;
 
-    std::expected<HttpResponse, Error> send(HttpRequest req) const;
+    Result<HttpResponse> send(HttpRequest req) const;
 
-    std::expected<HttpResponse, Error> post(std::string path, std::vector<std::byte> payload) const;
-    std::expected<HttpResponse, Error> del(std::string path) const;
+    Result<HttpResponse> post(std::string path, std::vector<std::byte> payload) const;
+    Result<HttpResponse> del(std::string path) const;
 
     void add_request_middleware(HttpRequestMiddleware middleware);
 

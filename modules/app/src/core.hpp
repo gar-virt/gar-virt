@@ -32,15 +32,15 @@ struct TemplateState {
 
     ~TemplateState();
 
-    std::expected<::runner::v1::Task, Error> fetch_task(const gitea::Runner& runner) const;
+    Result<::runner::v1::Task> fetch_task(const gitea::Runner& runner) const;
 
-    std::expected<gitea::Runner, Error> create_runner(const Machine& machine);
+    Result<gitea::Runner> create_runner(const Machine& machine);
 
     void runner_loop();
 
-    std::expected<void, Error> runner_loop_iteration();
+    Result<void> runner_loop_iteration();
 
-    std::expected<std::optional<::runner::v1::Task>, Error> static try_fetch_task(const gitea::Runner& runner);
+    Result<std::optional<::runner::v1::Task>> static try_fetch_task(const gitea::Runner& runner);
 
     MachinePool create_pool();
 

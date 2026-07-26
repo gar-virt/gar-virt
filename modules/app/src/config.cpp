@@ -15,7 +15,7 @@
 namespace gv::config {
 namespace {
 
-std::expected<YAML::Node, Error> load_yaml_file(const std::filesystem::path& file_path) {
+Result<YAML::Node> load_yaml_file(const std::filesystem::path& file_path) {
     try {
         std::ifstream is{file_path, std::ios_base::binary};
         return YAML::Load(is);
@@ -163,7 +163,7 @@ void MainConfig::resolve(const std::filesystem::path& base_dir) {
     forge.resolve(base_dir);
 }
 
-std::expected<MainConfig, Error> load_file(const std::filesystem::path& file_path) {
+Result<MainConfig> load_file(const std::filesystem::path& file_path) {
     try {
         const auto base_dir{file_path.parent_path()};
         auto yaml_res{load_yaml_file(file_path)};

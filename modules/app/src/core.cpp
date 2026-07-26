@@ -31,8 +31,8 @@ struct Injectables {
     std::string runner_config_yaml;
     std::vector<std::byte> encoded_task;
 
-    static std::expected<Injectables, Error> generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                      const gitea::Runner& runner);
+    static Result<Injectables> generate(const Machine& machine, const ::runner::v1::Task& task,
+                                        const gitea::Runner& runner);
 };
 
 namespace {
@@ -43,14 +43,13 @@ void log_select(utility::LogLevel true_level, utility::LogLevel false_level, boo
     global_logger().log(cond ? true_level : false_level, std::move(format), std::forward<Args>(args)...);
 }
 
-std::expected<void, Error> inject_runner_files(Machine& machine, Injectables injectables) {
+Result<void> inject_runner_files(Machine& machine, Injectables injectables) {
     return machine.write_file(machine.make_temp_path("runner_config.yml"), injectables.runner_config_yaml)
         .and_then([&] { return machine.write_file(machine.make_temp_path(".runner"), injectables.runner_state_json); })
         .and_then([&] { return machine.write_file(machine.make_temp_path("runner_task"), injectables.encoded_task); });
 }
 
-std::expected<std::vector<std::string>, Error> make_ping_command(const std::string& target_os,
-                                                                 const std::string& host) {
+Result<std::vector<std::string>> make_ping_command(const std::string& target_os, const std::string& host) {
     std::vector<std::string> cmd = {"ping"};
     if (utility::string_compare_ci(target_os, "linux") == 0) {
         // Count
@@ -80,9 +79,8 @@ std::expected<std::vector<std::string>, Error> make_ping_command(const std::stri
     return cmd;
 }
 
-std::expected<void, Error> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
-                                                               std::chrono::seconds timeout,
-                                                               const utility::ShutdownSignal& stop) {
+Result<void> wait_until_gitea_instance_available(Machine& machine, const std::string& instance_url,
+                                                 std::chrono::seconds timeout, const utility::ShutdownSignal& stop) {
     using namespace std::literals;
     const auto parsed_instance_url{boost::urls::parse_uri(instance_url)};
     const auto& host{parsed_instance_url->host()};
@@ -114,10 +112,10 @@ std::expected<void, Error> wait_until_gitea_instance_available(Machine& machine,
                                              machine.get_id(), spawn_res.output)}};
 }
 
-std::expected<std::unique_ptr<Machine>, Error> spawn_machine(const config::MainConfig& main_config,
-                                                             const config::BackendConfig& backend_config,
-                                                             const config::MachineTemplateConfig& template_config,
-                                                             const utility::ShutdownSignal& stop) {
+Result<std::unique_ptr<Machine>> spawn_machine(const config::MainConfig& main_config,
+                                               const config::BackendConfig& backend_config,
+                                               const config::MachineTemplateConfig& template_config,
+                                               const utility::ShutdownSignal& stop) {
     using namespace std::literals;
 
     const auto& backend_type{backend_config.type};
@@ -169,8 +167,8 @@ std::expected<std::unique_ptr<Machine>, Error> spawn_machine(const config::MainC
     return machine;
 }
 
-std::expected<void, Error> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
-                                                   const config::MachineTemplateConfig& config, Machine& machine) {
+Result<void> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
+                                     const config::MachineTemplateConfig& config, Machine& machine) {
     using namespace std::literals;
     const auto id{task.id()};
 
@@ -185,7 +183,7 @@ std::expected<void, Error> execute_task_in_machine(const ::runner::v1::Task& tas
                              machine.make_temp_path("runner_config.yml"), "--task",
                              machine.make_temp_path("runner_task")},
                             3h) // TODO: configurable timeout
-                .and_then([&](auto res) -> std::expected<void, Error> {
+                .and_then([&](auto res) -> Result<void> {
                     log_select(utility::LogLevel::debug, utility::LogLevel::error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", id, res.exit_code, res.output);
                     return {};
@@ -195,8 +193,8 @@ std::expected<void, Error> execute_task_in_machine(const ::runner::v1::Task& tas
 
 } // namespace
 
-std::expected<Injectables, Error> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
-                                                        const gitea::Runner& runner) {
+Result<Injectables> Injectables::generate(const Machine& machine, const ::runner::v1::Task& task,
+                                          const gitea::Runner& runner) {
     auto encode_payload{gitea::encode_payload(task)};
     if (!encode_payload) {
         return std::unexpected{encode_payload.error()};
@@ -237,7 +235,7 @@ TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_conf
 
 TemplateState::~TemplateState() { machine_pool.stop(); }
 
-std::expected<::runner::v1::Task, Error> TemplateState::fetch_task(const gitea::Runner& runner) const {
+Result<::runner::v1::Task> TemplateState::fetch_task(const gitea::Runner& runner) const {
     using namespace std::literals;
     std::optional<::runner::v1::Task> task;
     while (!stop.is_signalled() && !task.has_value()) {
@@ -259,7 +257,7 @@ std::expected<::runner::v1::Task, Error> TemplateState::fetch_task(const gitea::
     return *std::move(task);
 }
 
-std::expected<gitea::Runner, Error> TemplateState::create_runner(const Machine& machine) {
+Result<gitea::Runner> TemplateState::create_runner(const Machine& machine) {
     return gitea::Runner::connect(
         {
             .forge_uri = main_config->forge.uri,
@@ -278,7 +276,7 @@ void TemplateState::runner_loop() {
     }
 }
 
-std::expected<void, Error> TemplateState::runner_loop_iteration() {
+Result<void> TemplateState::runner_loop_iteration() {
     using namespace std::literals;
 
     // FIXME: configurable timeout
@@ -333,11 +331,11 @@ std::expected<void, Error> TemplateState::runner_loop_iteration() {
     machine_pool.activate(machine);
     const utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
 
-    auto exec_res{execute_task_in_machine(task, runner, *template_config, *machine)
-                      .or_else([&](const auto&) -> std::expected<void, Error> {
-                          runner.set_task_failed(task);
-                          return {};
-                      })};
+    auto exec_res{
+        execute_task_in_machine(task, runner, *template_config, *machine).or_else([&](const auto&) -> Result<void> {
+            runner.set_task_failed(task);
+            return {};
+        })};
     if (!exec_res) {
         return std::unexpected{exec_res.error()};
     }
@@ -345,7 +343,7 @@ std::expected<void, Error> TemplateState::runner_loop_iteration() {
     return {};
 }
 
-std::expected<std::optional<::runner::v1::Task>, Error> TemplateState::try_fetch_task(const gitea::Runner& runner) {
+Result<std::optional<::runner::v1::Task>> TemplateState::try_fetch_task(const gitea::Runner& runner) {
     return runner.fetch_task().transform(
         [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }

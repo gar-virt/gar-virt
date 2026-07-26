@@ -8,8 +8,8 @@
 
 namespace gv {
 namespace {
-std::expected<std::vector<std::string>, Error> add_command_output_redirection(const std::string& target_os,
-                                                                              const std::vector<std::string>& args) {
+Result<std::vector<std::string>> add_command_output_redirection(const std::string& target_os,
+                                                                const std::vector<std::string>& args) {
     std::vector<std::string> cmd;
     if (utility::string_compare_ci(target_os, "linux") == 0 || utility::string_compare_ci(target_os, "macos") == 0) {
         cmd.emplace_back("sh");
@@ -51,10 +51,10 @@ public:
 
     const std::string& get_id() const { return m_id; }
 
-    std::expected<void, Error> terminate() { return m_underlying_machine->kill(); }
+    Result<void> terminate() { return m_underlying_machine->kill(); }
 
-    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                 const std::optional<std::chrono::seconds>& timeout) const {
+    Result<SpawnResult> shell_exec(const std::vector<std::string>& cmd,
+                                   const std::optional<std::chrono::seconds>& timeout) const {
 
         const auto fixed_cmd{add_command_output_redirection(m_info.os, cmd)};
         return m_underlying_machine->shell_exec(cmd, timeout).transform([](auto res) {
@@ -62,8 +62,7 @@ public:
         });
     }
 
-    std::expected<void, Error> wait_for_guest_agent(std::chrono::milliseconds timeout,
-                                                    const utility::ShutdownSignal& stop) {
+    Result<void> wait_for_guest_agent(std::chrono::milliseconds timeout, const utility::ShutdownSignal& stop) {
         using namespace std::literals;
         const auto start_time{std::chrono::steady_clock::now()};
         while (true) {
@@ -85,7 +84,7 @@ public:
         return std::unexpected{Error{std::format("Timed out while waiting for machine {} guest agent.", get_id())}};
     }
 
-    std::expected<void, Error> write_file(const std::string& remote_path, std::span<const std::byte> content) {
+    Result<void> write_file(const std::string& remote_path, std::span<const std::byte> content) {
         return m_underlying_machine->write_file(remote_path, content);
     }
 
@@ -105,20 +104,18 @@ LibvirtMachine::~LibvirtMachine() = default;
 
 const std::string& LibvirtMachine::get_id() const { return m_impl->get_id(); }
 
-std::expected<void, Error> LibvirtMachine::terminate() { return m_impl->terminate(); }
+Result<void> LibvirtMachine::terminate() { return m_impl->terminate(); }
 
-std::expected<SpawnResult, Error> LibvirtMachine::shell_exec(const std::vector<std::string>& cmd,
-                                                             const std::optional<std::chrono::seconds>& timeout) const {
+Result<SpawnResult> LibvirtMachine::shell_exec(const std::vector<std::string>& cmd,
+                                               const std::optional<std::chrono::seconds>& timeout) const {
     return m_impl->shell_exec(cmd, timeout);
 }
 
-std::expected<void, Error> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout,
-                                                                const utility::ShutdownSignal& stop) {
+Result<void> LibvirtMachine::wait_for_guest_agent(std::chrono::seconds timeout, const utility::ShutdownSignal& stop) {
     return m_impl->wait_for_guest_agent(timeout, stop);
 }
 
-std::expected<void, Error> LibvirtMachine::write_file_impl(const std::string& remote_path,
-                                                           std::span<const std::byte> content) {
+Result<void> LibvirtMachine::write_file_impl(const std::string& remote_path, std::span<const std::byte> content) {
     return m_impl->write_file(remote_path, content);
 }
 

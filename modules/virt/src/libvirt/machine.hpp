@@ -14,15 +14,14 @@ public:
     ~LibvirtMachine();
 
     const std::string& get_id() const override;
-    std::expected<void, Error> terminate() override;
-    std::expected<SpawnResult, Error> shell_exec(const std::vector<std::string>& cmd,
-                                                 const std::optional<std::chrono::seconds>& timeout) const override;
-    std::expected<void, Error> wait_for_guest_agent(std::chrono::seconds timeout,
-                                                    const utility::ShutdownSignal& stop) override;
+    Result<void> terminate() override;
+    Result<SpawnResult> shell_exec(const std::vector<std::string>& cmd,
+                                   const std::optional<std::chrono::seconds>& timeout) const override;
+    Result<void> wait_for_guest_agent(std::chrono::seconds timeout, const utility::ShutdownSignal& stop) override;
     const Info& info() const override;
 
 private:
-    std::expected<void, Error> write_file_impl(const std::string& remote_path, std::span<const std::byte>) override;
+    Result<void> write_file_impl(const std::string& remote_path, std::span<const std::byte>) override;
 
     class Impl;
     std::unique_ptr<Impl> m_impl;

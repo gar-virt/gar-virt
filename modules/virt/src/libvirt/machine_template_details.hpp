@@ -1,6 +1,6 @@
 #pragma once
 
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 #include <expected>
 #include <filesystem>
@@ -13,8 +13,8 @@ struct LibvirtMachineTemplateDetails {
     std::filesystem::path volume_template_path;
     std::string storage_pool_name;
 
-    static std::expected<LibvirtMachineTemplateDetails, Error> load(const std::string& details,
-                                                                    const std::filesystem::path& config_dir);
+    static Result<LibvirtMachineTemplateDetails> load(const std::string& details,
+                                                      const std::filesystem::path& config_dir);
 };
 
 } // namespace gv

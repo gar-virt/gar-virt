@@ -15,8 +15,8 @@
 namespace gv::gitea {
 namespace {
 
-std::expected<::ping::v1::PingResponse, Error> ping_internal(const gitea::GiteaRunnerServiceClient& client,
-                                                             const RunnerOptions& options) {
+Result<::ping::v1::PingResponse> ping_internal(const gitea::GiteaRunnerServiceClient& client,
+                                               const RunnerOptions& options) {
     auto ping_request{::ping::v1::PingRequest{}};
     ping_request.set_data(options.name);
     auto ping_response{client.ping(ping_request)};
@@ -26,9 +26,8 @@ std::expected<::ping::v1::PingResponse, Error> ping_internal(const gitea::GiteaR
     return *ping_response;
 }
 
-std::expected<::runner::v1::RegisterResponse, Error> register_internal(const gitea::GiteaRunnerServiceClient& client,
-                                                                       const RunnerOptions& options,
-                                                                       const std::string& reg_token) {
+Result<::runner::v1::RegisterResponse> register_internal(const gitea::GiteaRunnerServiceClient& client,
+                                                         const RunnerOptions& options, const std::string& reg_token) {
     auto reqister_request{::runner::v1::RegisterRequest{}};
     reqister_request.set_name(options.name);
     reqister_request.set_token(reg_token);
@@ -44,8 +43,8 @@ std::expected<::runner::v1::RegisterResponse, Error> register_internal(const git
     return *register_response;
 }
 
-std::expected<::runner::v1::DeclareResponse, Error> declare_internal(const gitea::GiteaRunnerServiceClient& client,
-                                                                     const RunnerOptions& options) {
+Result<::runner::v1::DeclareResponse> declare_internal(const gitea::GiteaRunnerServiceClient& client,
+                                                       const RunnerOptions& options) {
     auto declare_request{::runner::v1::DeclareRequest{}};
     declare_request.set_version(options.version);
     for (auto& label : options.get_label_names()) {
@@ -58,8 +57,7 @@ std::expected<::runner::v1::DeclareResponse, Error> declare_internal(const gitea
     return declare_response;
 }
 
-std::expected<::runner::v1::FetchTaskResponse, Error>
-fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
+Result<::runner::v1::FetchTaskResponse> fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
     auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
     auto fetch_task_response = client.fetch_task(fetch_task_request);
     if (!fetch_task_response) {
@@ -106,7 +104,7 @@ Runner& Runner::operator=(Runner&& other) noexcept {
     return *this;
 }
 
-std::expected<Runner, Error> Runner::connect(RunnerOptions options, std::shared_ptr<gitea::AdminServiceClient> admin) {
+Result<Runner> Runner::connect(RunnerOptions options, std::shared_ptr<gitea::AdminServiceClient> admin) {
     const auto reg_token(admin->get_registration_token());
     if (!reg_token) {
         return std::unexpected{reg_token.error()};
@@ -139,9 +137,7 @@ std::expected<Runner, Error> Runner::connect(RunnerOptions options, std::shared_
                   std::move(client), std::move(admin)};
 }
 
-std::expected<::runner::v1::FetchTaskResponse, Error> Runner::fetch_task() const {
-    return fetch_task_internal(*m_client);
-}
+Result<::runner::v1::FetchTaskResponse> Runner::fetch_task() const { return fetch_task_internal(*m_client); }
 
 int64_t Runner::id() const noexcept { return m_id; }
 const gitea::GiteaRunnerCredentials& Runner::credentials() const noexcept { return m_credentials; }

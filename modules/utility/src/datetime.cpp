@@ -1,5 +1,5 @@
 #include <utility/datetime.hpp>
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 #include <concepts>
 #include <cstdio>
@@ -35,7 +35,7 @@ std::string utc_date_string(const std::tm& time) {
     return result;
 }
 
-std::expected<std::tm, Error> parse_utc_date_string(const std::string& from) {
+Result<std::tm> parse_utc_date_string(const std::string& from) {
     std::tm time{};
     time.tm_isdst = -1;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)

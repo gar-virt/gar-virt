@@ -2,12 +2,12 @@
 
 #include "config.hpp"
 
-#include <utility/error.hpp>
+#include <utility/result.hpp>
 
 #include <expected>
 
 namespace gv {
 
-std::expected<void, Error> cmd_daemon(config::MainConfig config);
+Result<void> cmd_daemon(config::MainConfig config);
 
 } // namespace gv

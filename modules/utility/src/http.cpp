@@ -108,7 +108,7 @@ HttpClient& HttpClient::operator=(HttpClient&& other) noexcept {
     return *this;
 }
 
-std::expected<HttpResponse, Error> HttpClient::send(HttpRequest req) const {
+Result<HttpResponse> HttpClient::send(HttpRequest req) const {
     for (const auto& req_middleware : m_req_middlewares) {
         if (!req_middleware(req)) {
             break;
@@ -175,7 +175,7 @@ std::expected<HttpResponse, Error> HttpClient::send(HttpRequest req) const {
     return HttpResponse{.status = utility::safe_cast_int<int>(status_code), .body = response_body};
 }
 
-std::expected<HttpResponse, Error> HttpClient::post(std::string path, std::vector<std::byte> payload) const {
+Result<HttpResponse> HttpClient::post(std::string path, std::vector<std::byte> payload) const {
     return send(HttpRequest{
         .method = HttpMethod::post,
         .path = std::move(path),
@@ -183,7 +183,7 @@ std::expected<HttpResponse, Error> HttpClient::post(std::string path, std::vecto
     });
 }
 
-std::expected<HttpResponse, Error> HttpClient::del(std::string path) const {
+Result<HttpResponse> HttpClient::del(std::string path) const {
     return send(HttpRequest{
         .method = HttpMethod::del,
         .path = std::move(path),

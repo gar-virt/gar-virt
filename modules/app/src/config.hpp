@@ -1,7 +1,7 @@
 #pragma once
 
-#include <utility/error.hpp>
 #include <utility/log/log.hpp>
+#include <utility/result.hpp>
 #include <virt/arch.hpp>
 
 #include <expected>
@@ -62,6 +62,6 @@ struct MainConfig {
     void resolve(const std::filesystem::path& base_dir);
 };
 
-std::expected<MainConfig, Error> load_file(const std::filesystem::path& file_path);
+Result<MainConfig> load_file(const std::filesystem::path& file_path);
 
 } // namespace gv::config

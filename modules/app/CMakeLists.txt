@@ -1,4 +1,4 @@
-find_package(Boost REQUIRED COMPONENTS json program_options url CONFIG)
+find_package(Boost REQUIRED COMPONENTS program_options url CONFIG)
 find_package(yaml-cpp REQUIRED CONFIG)
 
 add_executable(app)
@@ -13,7 +13,6 @@ target_sources(app PRIVATE
     src/main.cpp
 )
 target_link_libraries(app PRIVATE
-    Boost::json
     Boost::program_options
     Boost::url
     yaml-cpp::yaml-cpp

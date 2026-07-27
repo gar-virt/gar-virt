@@ -31,7 +31,32 @@ struct Injectables {
     std::vector<std::byte> encoded_task;
 
     static Result<Injectables> generate(const virt::Machine& machine, const ::runner::v1::Task& task,
-                                        const gitea::Runner& runner);
+                                        const gitea::Runner& runner) {
+        auto encode_payload{gitea::encode_payload(task)};
+        if (!encode_payload) {
+            return std::unexpected{encode_payload.error()};
+        }
+        boost::json::array labels;
+        for (const auto& label : runner.labels()) {
+            labels.emplace_back(label);
+        }
+        return Injectables{
+            .runner_state_json = boost::json::serialize(boost::json::object{
+                {"id", runner.id()},
+                {"uuid", runner.credentials().uuid},
+                {"token", runner.credentials().token},
+                {"address", runner.forge_uri()},
+                {"labels", labels},
+                {"ephemeral", true},
+            }),
+            // TODO: Allow user-provided Gitea Runner config
+            .runner_config_yaml = std::format(R"(runner:
+  file: {}
+)",
+                                              machine.make_temp_path(".runner")),
+            .encoded_task = *encode_payload,
+        };
+    }
 };
 
 namespace {
@@ -190,34 +215,6 @@ Result<void> execute_task_in_machine(const ::runner::v1::Task& task, const gitea
 }
 
 } // namespace
-
-Result<Injectables> Injectables::generate(const virt::Machine& machine, const ::runner::v1::Task& task,
-                                          const gitea::Runner& runner) {
-    auto encode_payload{gitea::encode_payload(task)};
-    if (!encode_payload) {
-        return std::unexpected{encode_payload.error()};
-    }
-    boost::json::array labels;
-    for (const auto& label : runner.labels()) {
-        labels.emplace_back(label);
-    }
-    return Injectables{
-        .runner_state_json = boost::json::serialize(boost::json::object{
-            {"id", runner.id()},
-            {"uuid", runner.credentials().uuid},
-            {"token", runner.credentials().token},
-            {"address", runner.forge_uri()},
-            {"labels", labels},
-            {"ephemeral", true},
-        }),
-        // TODO: Allow user-provided Gitea Runner config
-        .runner_config_yaml = std::format(R"(runner:
-  file: {}
-)",
-                                          machine.make_temp_path(".runner")),
-        .encoded_task = *encode_payload,
-    };
-}
 
 TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_config_,
                              std::shared_ptr<const config::BackendConfig> backend_config,

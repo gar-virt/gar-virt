@@ -5,7 +5,6 @@
 
 #include <gitea/admin_service_client.hpp>
 #include <gitea/runner.hpp>
-#include <gitea/runner_types.hpp>
 #include <utility/algorithm.hpp>
 #include <utility/concurrency/thread_pool_executor.hpp>
 #include <utility/defer.hpp>

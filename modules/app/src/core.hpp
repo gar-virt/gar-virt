@@ -4,7 +4,6 @@
 
 #include <gitea/admin_service_client.hpp>
 #include <gitea/runner.hpp>
-#include <gitea/runner_types.hpp>
 #include <utility/shutdown_signal.hpp>
 #include <virt/api.hpp>
 

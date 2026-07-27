@@ -2,10 +2,11 @@
 
 #include <gitea/fwd.hpp>
 #include <gitea/runner_credentials.hpp>
-#include <gitea/runner_types.hpp>
 
 #include <utility/result.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -13,6 +14,11 @@
 #include <vector>
 
 namespace gv::gitea {
+
+struct TaskParcel {
+    std::int64_t id{};
+    std::vector<std::byte> data;
+};
 
 struct RunnerOptions {
     std::string forge_uri;

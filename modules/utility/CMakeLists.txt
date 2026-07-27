@@ -1,3 +1,5 @@
+find_package(CURL REQUIRED)
+
 if(WIN32)
     set(UUID_LIBRARIES rpcrt4)
 elseif(UNIX)
@@ -24,6 +26,7 @@ target_sources(utility PRIVATE
 target_include_directories(utility PUBLIC include)
 target_link_libraries(utility PRIVATE
     ${UUID_LIBRARIES}
+    CURL::libcurl
     cppcodec
     checks
 )

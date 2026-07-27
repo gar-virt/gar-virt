@@ -1,11 +1,14 @@
 #pragma once
 
-#include <gitea/admin_service_client.hpp>
-#include <gitea/runner_service_client.hpp>
-#include <runner/v1/messages.pb.h>
+#include <gitea/fwd.hpp>
+#include <gitea/runner_credentials.hpp>
+#include <gitea/runner_types.hpp>
+
+#include <utility/result.hpp>
 
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -17,17 +20,7 @@ struct RunnerOptions {
     std::vector<std::string> labels;
     std::string version;
 
-    std::vector<std::string> get_label_names() const {
-        std::vector<std::string> items;
-        for (auto label : labels) {
-            auto pos{label.find_first_of(':')};
-            if (pos != std::string::npos) {
-                label = label.substr(0, pos);
-            }
-            items.push_back(std::move(label));
-        }
-        return items;
-    }
+    std::vector<std::string> get_label_names() const;
 };
 
 class Runner final {
@@ -46,13 +39,13 @@ public:
 
     static Result<Runner> connect(RunnerOptions options, std::shared_ptr<gitea::AdminServiceClient> admin);
 
-    Result<::runner::v1::FetchTaskResponse> fetch_task() const;
+    Result<std::optional<TaskParcel>> fetch_task() const;
     int64_t id() const noexcept;
     const gitea::GiteaRunnerCredentials& credentials() const noexcept;
     const gitea::GiteaRunnerServiceClient& client() const noexcept;
     const std::vector<std::string>& labels() const noexcept;
     const std::string& forge_uri() const noexcept;
-    void set_task_failed(const ::runner::v1::Task& task);
+    void set_task_failed(const TaskParcel& task_parcel);
 
 private:
     bool m_moved{};

@@ -10,8 +10,6 @@ target_sources(gitea PRIVATE
 )
 target_include_directories(gitea PUBLIC include)
 target_link_libraries(gitea
-    PUBLIC
-        proto_objects
     PRIVATE
         protobuf::libprotobuf
         gRPC::grpc
@@ -19,4 +17,5 @@ target_link_libraries(gitea
         CURL::libcurl
         checks
         utility
+        proto_objects
 )

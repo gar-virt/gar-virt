@@ -5,8 +5,7 @@
 
 #include <gitea/admin_service_client.hpp>
 #include <gitea/runner.hpp>
-#include <gitea/runner_service_client.hpp>
-#include <runner/v1/messages.pb.h>
+#include <gitea/runner_types.hpp>
 #include <utility/algorithm.hpp>
 #include <utility/concurrency/thread_pool_executor.hpp>
 #include <utility/defer.hpp>
@@ -30,12 +29,8 @@ struct Injectables {
     std::string runner_config_yaml;
     std::vector<std::byte> encoded_task;
 
-    static Result<Injectables> generate(const virt::Machine& machine, const ::runner::v1::Task& task,
+    static Result<Injectables> generate(const virt::Machine& machine, const gitea::TaskParcel& task,
                                         const gitea::Runner& runner) {
-        auto encode_payload{gitea::encode_payload(task)};
-        if (!encode_payload) {
-            return std::unexpected{encode_payload.error()};
-        }
         boost::json::array labels;
         for (const auto& label : runner.labels()) {
             labels.emplace_back(label);
@@ -54,7 +49,7 @@ struct Injectables {
   file: {}
 )",
                                               machine.make_temp_path(".runner")),
-            .encoded_task = *encode_payload,
+            .encoded_task = task.data,
         };
     }
 };
@@ -190,10 +185,10 @@ Result<std::unique_ptr<virt::Machine>> spawn_machine(const config::MainConfig& m
     return machine;
 }
 
-Result<void> execute_task_in_machine(const ::runner::v1::Task& task, const gitea::Runner& runner,
+Result<void> execute_task_in_machine(const gitea::TaskParcel& task, const gitea::Runner& runner,
                                      const config::MachineTemplateConfig& config, virt::Machine& machine) {
     using namespace std::literals;
-    const auto id{task.id()};
+    const auto id{task.id};
 
     global_logger().debug("Preparing environment for machine {}.", machine.get_id());
 
@@ -230,11 +225,11 @@ TemplateState::TemplateState(std::shared_ptr<const config::MainConfig> main_conf
 
 TemplateState::~TemplateState() { machine_pool.stop(); }
 
-Result<::runner::v1::Task> TemplateState::fetch_task(const gitea::Runner& runner) const {
+Result<gitea::TaskParcel> TemplateState::fetch_task(const gitea::Runner& runner) const {
     using namespace std::literals;
-    std::optional<::runner::v1::Task> task;
+    std::optional<gitea::TaskParcel> task;
     while (!stop.is_signalled() && !task.has_value()) {
-        auto res{try_fetch_task(runner)};
+        auto res{runner.fetch_task()};
         if (!res) {
             return std::unexpected{res.error()};
         }
@@ -310,37 +305,33 @@ Result<void> TemplateState::runner_loop_iteration() {
         return std::unexpected{Error{"Runner loop shutting down"}};
     }
 
-    auto task_res{fetch_task(runner)};
-    if (!task_res) {
-        return std::unexpected{task_res.error()};
+    auto task_parcel_res{fetch_task(runner)};
+    if (!task_parcel_res) {
+        return std::unexpected{std::move(task_parcel_res).error()};
     }
-    auto task{*std::move(task_res)};
 
-    global_logger().debug("Runner {} fetched task with ID {}.", runner.id(), task.id());
+    auto task_parcel{*std::move(task_parcel_res)};
+
+    global_logger().debug("Runner {} fetched task with ID {}.", runner.id(), task_parcel.id);
 
     if (stop.is_signalled()) {
-        runner.set_task_failed(task);
+        runner.set_task_failed(task_parcel);
         return std::unexpected{Error{"Runner loop shutting down"}};
     }
 
     machine_pool.activate(machine);
     const utility::Deferred machine_deactivator{[&] { machine_pool.deactivate(machine); }};
 
-    auto exec_res{
-        execute_task_in_machine(task, runner, *template_config, *machine).or_else([&](const auto&) -> Result<void> {
-            runner.set_task_failed(task);
-            return {};
-        })};
+    auto exec_res{execute_task_in_machine(task_parcel, runner, *template_config, *machine)
+                      .or_else([&](const auto&) -> Result<void> {
+                          runner.set_task_failed(task_parcel);
+                          return {};
+                      })};
     if (!exec_res) {
         return std::unexpected{exec_res.error()};
     }
 
     return {};
-}
-
-Result<std::optional<::runner::v1::Task>> TemplateState::try_fetch_task(const gitea::Runner& runner) {
-    return runner.fetch_task().transform(
-        [](const auto& res) { return res.has_task() ? std::make_optional(res.task()) : std::nullopt; });
 }
 
 virt::MachinePool TemplateState::create_pool() {

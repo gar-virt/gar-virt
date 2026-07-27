@@ -4,12 +4,11 @@
 
 #include <gitea/admin_service_client.hpp>
 #include <gitea/runner.hpp>
-#include <runner/v1/messages.pb.h>
+#include <gitea/runner_types.hpp>
 #include <utility/shutdown_signal.hpp>
 #include <virt/api.hpp>
 
 #include <expected>
-#include <optional>
 
 namespace gv {
 
@@ -32,15 +31,13 @@ struct TemplateState {
 
     ~TemplateState();
 
-    Result<::runner::v1::Task> fetch_task(const gitea::Runner& runner) const;
+    Result<gitea::TaskParcel> fetch_task(const gitea::Runner& runner) const;
 
     Result<gitea::Runner> create_runner(const virt::Machine& machine);
 
     void runner_loop();
 
     Result<void> runner_loop_iteration();
-
-    Result<std::optional<::runner::v1::Task>> static try_fetch_task(const gitea::Runner& runner);
 
     virt::MachinePool create_pool();
 

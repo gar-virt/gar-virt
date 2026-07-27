@@ -1,7 +1,7 @@
 #include <gitea/runner.hpp>
 
+#include "runner_service_client.hpp"
 #include <gitea/admin_service_client.hpp>
-#include <gitea/runner_service_client.hpp>
 #include <ping/v1/messages.pb.h>
 #include <runner/v1/messages.pb.h>
 
@@ -57,17 +57,36 @@ Result<::runner::v1::DeclareResponse> declare_internal(const gitea::GiteaRunnerS
     return declare_response;
 }
 
-Result<::runner::v1::FetchTaskResponse> fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
+Result<std::optional<TaskParcel>> fetch_task_internal(const gitea::GiteaRunnerServiceClient& client) {
     auto fetch_task_request{::runner::v1::FetchTaskRequest{}};
     auto fetch_task_response = client.fetch_task(fetch_task_request);
     if (!fetch_task_response) {
         return std::unexpected{
             Error{std::format("Failed to fetch any new tasks: {}", fetch_task_response.error().what())}};
     }
-    return *fetch_task_response;
+    if (!fetch_task_response->has_task()) {
+        return std::nullopt;
+    }
+    auto encoded{encode_payload(fetch_task_response->task())};
+    if (!encoded) {
+        return std::unexpected{std::move(encoded).error()};
+    }
+    return TaskParcel{.id = fetch_task_response->task().id(), .data = *std::move(encoded)};
 }
 
 } // namespace
+
+std::vector<std::string> RunnerOptions::get_label_names() const {
+    std::vector<std::string> items;
+    for (auto label : labels) {
+        auto pos{label.find_first_of(':')};
+        if (pos != std::string::npos) {
+            label = label.substr(0, pos);
+        }
+        items.push_back(std::move(label));
+    }
+    return items;
+}
 
 Runner::Runner(int64_t id, std::vector<std::string> labels, std::string forge_uri,
                gitea::GiteaRunnerCredentials credentials, std::shared_ptr<gitea::GiteaRunnerServiceClient> client,
@@ -137,7 +156,7 @@ Result<Runner> Runner::connect(RunnerOptions options, std::shared_ptr<gitea::Adm
                   std::move(client), std::move(admin)};
 }
 
-Result<::runner::v1::FetchTaskResponse> Runner::fetch_task() const { return fetch_task_internal(*m_client); }
+Result<std::optional<TaskParcel>> Runner::fetch_task() const { return fetch_task_internal(*m_client); }
 
 int64_t Runner::id() const noexcept { return m_id; }
 const gitea::GiteaRunnerCredentials& Runner::credentials() const noexcept { return m_credentials; }
@@ -145,10 +164,10 @@ const gitea::GiteaRunnerServiceClient& Runner::client() const noexcept { return 
 const std::vector<std::string>& Runner::labels() const noexcept { return m_labels; }
 const std::string& Runner::forge_uri() const noexcept { return m_forge_uri; }
 
-void Runner::set_task_failed(const ::runner::v1::Task& task) {
+void Runner::set_task_failed(const TaskParcel& task_parcel) {
     ::runner::v1::UpdateTaskRequest update_req;
     auto& task_state{*update_req.mutable_state()};
-    task_state.set_id(task.id());
+    task_state.set_id(task_parcel.id);
     task_state.set_result(::runner::v1::RESULT_FAILURE);
     std::ignore = m_client->update_task(update_req);
 }

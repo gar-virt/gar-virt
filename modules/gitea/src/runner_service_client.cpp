@@ -1,4 +1,4 @@
-#include <gitea/runner_service_client.hpp>
+#include "runner_service_client.hpp"
 
 #include <cstddef>
 #include <string>

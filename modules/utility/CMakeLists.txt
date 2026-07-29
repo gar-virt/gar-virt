@@ -1,10 +1,5 @@
+find_package(Boost REQUIRED)
 find_package(CURL REQUIRED)
-
-if(WIN32)
-    set(UUID_LIBRARIES rpcrt4)
-elseif(UNIX)
-    find_library(UUID_LIBRARIES uuid REQUIRED)
-endif()
 
 add_library(utility)
 target_sources(utility PRIVATE
@@ -25,7 +20,7 @@ target_sources(utility PRIVATE
 )
 target_include_directories(utility PUBLIC include)
 target_link_libraries(utility PRIVATE
-    ${UUID_LIBRARIES}
+    Boost::headers
     CURL::libcurl
     cppcodec
     checks

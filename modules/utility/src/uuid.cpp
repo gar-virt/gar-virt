@@ -1,53 +1,41 @@
 #include <utility/uuid.hpp>
 
-#ifdef _WIN32
-    #include <rpc.h>
-    #include <strsafe.h>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/version.hpp>
 
-    #include <stdexcept>
+#if BOOST_VERSION >= 109000 // Boost 1.90+:
+    #include <boost/uuid/generators.hpp>
 #else
-    #include <uuid/uuid.h>
+    #include <boost/uuid/uuid_generators.hpp>
+#endif
+
+#include <random>
+
+// A notable implementation where std::random_device is deterministic in old versions of MinGW-w64 (bug 338, fixed since
+// GCC 9.2). The latest MinGW-w64 versions can be downloaded from GCC with the MCF thread model.
+// Source: https://en.cppreference.com/cpp/numeric/random/random_device
+// Bug: https://sourceforge.net/p/mingw-w64/bugs/338/
+// Git commit: 0e7ffed96cfdde1f9c37fb9305785b507141047b (git://gcc.gnu.org/git/gcc.git)
+
+#if defined(__MINGW32__) && ((__GNUC__ < 9) || (__GNUC__ == 9 && __GNUC_MINOR__ < 2))
+    #error "MinGW GCC < 9.2 has deterministic std::random_device (PR libstdc++/85494). Please upgrade your toolchain."
 #endif
 
 namespace gv::utility {
-namespace {
-constexpr int uuid_length{36};
-}
 
 std::string uuid() {
-    std::string uuid_str(uuid_length, '\0');
-
-#ifdef _WIN32
-    UUID uuid{};
-    bool ok{};
-    RPC_CSTR uuid_ucstr{};
-
-    do {
-        if (ok = ::UuidCreate(&uuid) == RPC_S_OK; !ok) {
-            break;
-        }
-
-        if (ok = ::UuidToStringA(&uuid, &uuid_ucstr) == RPC_S_OK; !ok) {
-            break;
-        }
-    } while (false);
-
-    if (uuid_ucstr) {
-        ok = SUCCEEDED(
-            ::StringCchCopyA(uuid_str.data(), uuid_str.size() + 1, reinterpret_cast<const char*>(uuid_ucstr)));
-        ::RpcStringFreeA(&uuid_ucstr);
-    }
-
-    if (!ok) {
-        throw std::runtime_error{"UUID creation failed"};
-    }
+#if BOOST_VERSION >= 108600 // Boost 1.86+:
+    // random_generator uses a cryptographically strong pseudorandom number generator (ChaCha20/12), seeded with entropy
+    // from std::random_device.
+    using random_generator = boost::uuids::random_generator;
 #else
-    uuid_t uuid{};
-    ::uuid_generate(uuid);                       // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
-    ::uuid_unparse_lower(uuid, uuid_str.data()); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+    // Fallback: Source random bytes from std::random_device. Discouraged both for performance reasons and because it
+    // isn't guaranteed to produce non-deterministic numbers when a non-deterministic source is unavailable.
+    using random_generator = boost::uuids::basic_random_generator<std::random_device>;
 #endif
-
-    return uuid_str;
+    thread_local random_generator rng; // NOLINT(misc-use-internal-linkage): False positive
+    return boost::uuids::to_string(rng());
 }
 
 } // namespace gv::utility

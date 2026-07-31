@@ -7,7 +7,7 @@ namespace gv::utility {
 
 class Deferred {
 public:
-    template <typename T> Deferred(T fn) : m_fn{std::move(fn)} {};
+    template <typename T> Deferred(T fn) : m_fn{std::move(fn)} {}
 
     ~Deferred() {
         if (m_fn) {

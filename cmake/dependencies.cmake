@@ -1,3 +1,4 @@
+include_guard()
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)

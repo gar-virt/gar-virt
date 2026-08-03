@@ -1,3 +1,4 @@
+include_guard()
 include("${CMAKE_CURRENT_LIST_DIR}/options.cmake")
 
 if(GARVIRT_ENABLE_SAN)

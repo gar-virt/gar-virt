@@ -1,7 +1,6 @@
 find_package(gRPC REQUIRED)
 find_program(GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
 find_package(Protobuf REQUIRED)
-find_package(CURL REQUIRED)
 
 add_library(proto_objects OBJECT)
 target_sources(proto_objects PRIVATE

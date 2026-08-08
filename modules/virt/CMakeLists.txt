@@ -1,4 +1,6 @@
-find_package(Boost REQUIRED COMPONENTS json CONFIG)
+find_package(Boost REQUIRED COMPONENTS filesystem json CONFIG)
+
+set(LIBVIRT_HEADER_ONLY TRUE)
 find_package(libvirt REQUIRED)
 
 add_library(virt)
@@ -12,9 +14,11 @@ target_sources(virt PRIVATE
 )
 target_include_directories(virt PUBLIC include)
 target_link_libraries(virt PRIVATE
+    Boost::headers
+    Boost::filesystem
     Boost::json
-    libvirt::virt
-    libvirt::qemu
+    libvirt::virt_headers
+    libvirt::qemu_headers
     checks
     utility
 )

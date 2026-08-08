@@ -10,18 +10,53 @@
 #include <condition_variable>
 #include <cstdlib>
 #include <format>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
 
+#include <boost/dll.hpp>
 #include <boost/json.hpp>
 #include <libvirt/libvirt-qemu.h>
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 
 namespace gv::virt::libvirt {
+
+class SharedLibrary {
+public:
+    SharedLibrary(const char* name) : m_lib{name, boost::dll::load_mode::search_system_folders} {}
+
+    template <typename Sym> auto invoke(const std::string& name, auto&&... args) const {
+        const auto fn{m_lib.get<Sym>(name)};
+        return fn(std::forward<decltype(args)>(args)...);
+    }
+
+private:
+    boost::dll::shared_library m_lib;
+};
+
+class LibvirtLibrary : public SharedLibrary {
+public:
+    LibvirtLibrary() : SharedLibrary{"libvirt.so.0"} {}
+
+    static std::shared_ptr<LibvirtLibrary> get() {
+        static auto instance{std::make_shared<LibvirtLibrary>()};
+        return instance;
+    }
+};
+
+class LibvirtQemuLibrary : public SharedLibrary {
+public:
+    LibvirtQemuLibrary() : SharedLibrary{"libvirt-qemu.so.0"} {}
+
+    static std::shared_ptr<LibvirtQemuLibrary> get() {
+        static auto instance{std::make_shared<LibvirtQemuLibrary>()};
+        return instance;
+    };
+};
 
 struct ConnectDeleter {
     void operator()(virConnectPtr p) { virConnectClose(p); }
@@ -826,4 +861,158 @@ Result<Hypervisor> Hypervisor::connect(const std::string& uri) {
 
 Hypervisor::Hypervisor(std::unique_ptr<HypervisorImpl> impl) : m_impl{std::move(impl)} {}
 
-} // namespace gv::libvirt
+} // namespace gv::virt::libvirt
+
+using namespace gv::virt::libvirt;
+
+extern "C" {
+int virConnectClose(virConnectPtr conn) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectClose)>("virConnectClose", conn);
+}
+
+int virStoragePoolFree(virStoragePoolPtr pool) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStoragePoolFree)>("virStoragePoolFree", pool);
+}
+
+int virStorageVolFree(virStorageVolPtr vol) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStorageVolFree)>("virStorageVolFree", vol);
+}
+
+int virStorageVolDelete(virStorageVolPtr vol, unsigned int flags) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStorageVolDelete)>("virStorageVolDelete", vol, flags);
+}
+
+int virDomainFree(virDomainPtr domain) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainFree)>("virDomainFree", domain);
+}
+
+virErrorPtr virGetLastError() {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virGetLastError)>("virGetLastError");
+}
+
+int virDomainSetLifecycleAction(virDomainPtr domain, unsigned int type, unsigned int action, unsigned int flags) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainSetLifecycleAction)>("virDomainSetLifecycleAction", domain, type, action,
+                                                              flags);
+}
+
+virDomainPtr virDomainCreateXML(virConnectPtr conn, const char* xmlDesc, unsigned int flags) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainCreateXML)>("virDomainCreateXML", conn, xmlDesc, flags);
+}
+
+int virDomainResume(virDomainPtr domain) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainResume)>("virDomainResume", domain);
+}
+
+int virDomainDestroy(virDomainPtr domain) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainDestroy)>("virDomainDestroy", domain);
+}
+
+virDomainPtr virDomainLookupByName(virConnectPtr conn, const char* name) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainLookupByName)>("virDomainLookupByName", conn, name);
+}
+
+const char* virDomainGetName(virDomainPtr domain) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virDomainGetName)>("virDomainGetName", domain);
+}
+
+char* virDomainQemuAgentCommand(virDomainPtr domain, const char* cmd, int timeout, unsigned int flags) {
+    auto lib{LibvirtQemuLibrary::get()};
+    return lib->invoke<decltype(virDomainQemuAgentCommand)>("virDomainQemuAgentCommand", domain, cmd, timeout, flags);
+}
+
+const char* virStorageVolGetKey(virStorageVolPtr vol) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStorageVolGetKey)>("virStorageVolGetKey", vol);
+}
+
+virStorageVolPtr virStorageVolLookupByKey(virConnectPtr conn, const char* key) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStorageVolLookupByKey)>("virStorageVolLookupByKey", conn, key);
+}
+
+virStorageVolPtr virStorageVolCreateXML(virStoragePoolPtr pool, const char* xmldesc, unsigned int flags) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStorageVolCreateXML)>("virStorageVolCreateXML", pool, xmldesc, flags);
+}
+
+int virStoragePoolRefresh(virStoragePoolPtr pool, unsigned int flags) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStoragePoolRefresh)>("virStoragePoolRefresh", pool, flags);
+}
+
+virStoragePoolPtr virStoragePoolLookupByName(virConnectPtr conn, const char* name) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virStoragePoolLookupByName)>("virStoragePoolLookupByName", conn, name);
+}
+
+int virEventAddTimeout(int frequency, virEventTimeoutCallback cb, void* opaque, virFreeCallback ff) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virEventAddTimeout)>("virEventAddTimeout", frequency, cb, opaque, ff);
+}
+
+int virInitialize() {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virInitialize)>("virInitialize");
+}
+
+int virEventRegisterDefaultImpl() {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virEventRegisterDefaultImpl)>("virEventRegisterDefaultImpl");
+}
+
+int virEventRunDefaultImpl() {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virEventRunDefaultImpl)>("virEventRunDefaultImpl");
+}
+
+int virEventRemoveTimeout(int timer) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virEventRemoveTimeout)>("virEventRemoveTimeout", timer);
+}
+
+virConnectPtr virConnectOpen(const char* name) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectOpen)>("virConnectOpen", name);
+}
+
+int virConnectDomainEventRegisterAny(virConnectPtr conn, virDomainPtr dom, int eventID,
+                                     virConnectDomainEventGenericCallback cb, void* opaque, virFreeCallback freecb) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectDomainEventRegisterAny)>("virConnectDomainEventRegisterAny", conn, dom,
+                                                                   eventID, cb, opaque, freecb);
+}
+
+int virConnectDomainEventDeregisterAny(virConnectPtr conn, int callbackID) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectDomainEventDeregisterAny)>("virConnectDomainEventDeregisterAny", conn,
+                                                                     callbackID);
+}
+
+int virConnectRegisterCloseCallback(virConnectPtr conn, virConnectCloseFunc cb, void* opaque, virFreeCallback freecb) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectRegisterCloseCallback)>("virConnectRegisterCloseCallback", conn, cb, opaque,
+                                                                  freecb);
+}
+
+int virConnectUnregisterCloseCallback(virConnectPtr conn, virConnectCloseFunc cb) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectUnregisterCloseCallback)>("virConnectUnregisterCloseCallback", conn, cb);
+}
+
+int virConnectGetVersion(virConnectPtr conn, unsigned long* hvVer) {
+    auto lib{LibvirtLibrary::get()};
+    return lib->invoke<decltype(virConnectGetVersion)>("virConnectGetVersion", conn, hvVer);
+}
+}

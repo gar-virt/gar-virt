@@ -636,8 +636,14 @@ public:
         }
 
         const auto domain_xml{expand_libvirt_xml_template(options.domain, xml_template_params)};
+        unsigned int domain_create_flags{VIR_DOMAIN_START_PAUSED};
 
-        auto domain_create_flags{VIR_DOMAIN_START_PAUSED | VIR_DOMAIN_START_RESET_NVRAM};
+        unsigned long libvirt_version{};
+        virConnectGetVersion(conn, &libvirt_version);
+        if (libvirt_version >= 8001000) {
+            domain_create_flags |= 1 << 5; // VIR_DOMAIN_START_RESET_NVRAM
+        }
+
         const DomainPtr domain{virDomainCreateXML(conn, domain_xml.c_str(), domain_create_flags)};
         if (!domain) {
             return std::unexpected{Error{std::format("Failed to create domain \"{}\"", domain_name)}};

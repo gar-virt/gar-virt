@@ -3,15 +3,22 @@
 set -e
 . "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/_core.sh"
 
+static_runtime_flags='-static-libgcc -static-libstdc++'
+
 dep_init \
     --cmake-arg -DBUILD_SHARED_LIBS=OFF \
     --cmake-arg -DBUILD_TESTING=OFF \
     --cmake-arg -DCMAKE_BUILD_TYPE=Release \
+    --cmake-arg -DCMAKE_C_FLAGS="${static_runtime_flags}" \
     --cmake-arg -DCMAKE_C_STANDARD_REQUIRED=TRUE \
     --cmake-arg -DCMAKE_C_STANDARD=99 \
+    --cmake-arg -DCMAKE_CXX_FLAGS="${static_runtime_flags}" \
     --cmake-arg -DCMAKE_CXX_STANDARD_REQUIRED=TRUE \
     --cmake-arg -DCMAKE_CXX_STANDARD=23 \
+    --cmake-arg -DCMAKE_EXE_LINKER_FLAGS="${static_runtime_flags}" \
     --cmake-arg -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE \
+    --cmake-arg -DCMAKE_MODULE_LINKER_FLAGS="${static_runtime_flags}" \
+    --cmake-arg -DCMAKE_SHARED_LINKER_FLAGS="${static_runtime_flags}" \
     --cmake-arg -DOPENSSL_USE_STATIC_LIBS=ON \
     --cmake-arg -DZLIB_USE_STATIC_LIBS=ON
 

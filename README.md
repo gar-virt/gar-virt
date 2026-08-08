@@ -35,13 +35,30 @@ gar-virt uses the [official Gitea Runner][gitea-runner], but [with some patches]
 
 This project originally had a simple runner implementation in C++ with workflow execution, but it was scrapped as I couldn't easily see where the project's scope would end. Offloading the workflow execution to the official Gitea Runner keeps the project scope to a maintainable level.
 
-## Requirements
+## Common Requirements
 
-* Linux host (tested: Ubuntu 24.04, Alpine 3.24)
-* Libvirt (tested: 10.0)
-* QEMU (tested: 8.2)
-* Development: C++23 compiler (GCC >= 14, Clang >= 19), CMake >= 3.28, Ninja >= 1.11
-* Refer to `docker/<variant>/Dockerfile` for the full list of dependencies.
+* Linux host:
+  * Alpine >= 3.21
+  * Ubuntu >= 18.04
+* Libvirt >= 4.0
+
+## Build Requirements
+
+* System packages:
+  * Alpine: `apk add libvirt-dev`
+  * Debian: `apt install libvirt-dev`
+* For libraries built from source, run `./deps/fetch.sh --list`.
+* Tools:
+  * C++23 compiler (GCC >= 14, Clang >= 19)
+  * CMake >= 3.28
+  * Ninja >= 1.11
+  * Docker (optional)
+
+## Runtime Requirements
+
+* System packages:
+  * Alpine: `libssh libvirt openssh-client-default`
+  * Debian: `apt install ca-certificates libssh-4 libvirt0 openssh-client`
 
 Gitea versions known to work:
 * Gitea 1.26.4, Gitea Runner 1.0.8
@@ -50,10 +67,14 @@ Gitea versions known to work:
 ## Building
 
 ```sh
-cmake -G Ninja -B build -S . -D CMAKE_BUILD_TYPE=Release
-cmake --build build
-cpack -B build/dist --config build/CPackConfig.cmake
+docker build --tag gar-virt-builder --file docker/portable/Dockerfile .
+docker run --rm --volume "$(pwd):/source" gar-virt-builder scripts/build.sh
+scripts/check_exe_portability.sh $(find build/modules -type f -executable)
 ```
+
+If you don't need a portable binary then you can run `scripts/build.sh` directly.
+
+If you instead want to use your favorite code editor's CMake integration, you should at the very least run `deps/fetch.sh` (see `deps/fetch.sh --help` for options).
 
 Special build types: `ASan`, `TSan`
 

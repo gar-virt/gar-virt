@@ -6,14 +6,11 @@ project(gar_virt
     HOMEPAGE_URL "https://github.com/gar-virt/gar-virt"
     LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_CXX_EXTENSIONS FALSE)
-
 include(GNUInstallDirs)
+include(cmake/project_settings.cmake)
+include(cmake/static_linking.cmake)
 include(cmake/checks.cmake)
 include(cmake/sanitizers.cmake)
-include(cmake/dependencies.cmake)
 
 add_subdirectory(modules)
 add_subdirectory(packaging)

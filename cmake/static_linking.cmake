@@ -1,0 +1,4 @@
+include_guard()
+
+set(OPENSSL_USE_STATIC_LIBS ON)
+set(ZLIB_USE_STATIC_LIBS ON)

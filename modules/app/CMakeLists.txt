@@ -22,4 +22,4 @@ target_link_libraries(app PRIVATE
     virt
 )
 
-install(TARGETS app RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS app RUNTIME DESTINATION . COMPONENT app_archive)

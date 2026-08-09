@@ -25,7 +25,7 @@ void app_main(int argc, const char* const* argv) {
     options_desc.add_options()                                                           //
         ("help", "show help message")                                                    //
         ("config-file", po::value<std::string>()->required(), "configuration file path") //
-        ("verbose", po::bool_switch(), "Verbose logging");
+        ("verbose", po::bool_switch(), "verbose logging");
 
     po::positional_options_description positional_desc;
     positional_desc.add("command", 1);

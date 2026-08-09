@@ -22,5 +22,8 @@ target_link_libraries(app PRIVATE
     virt
 )
 
+configure_file(src/version.hpp.in generated/version.hpp @ONLY)
+target_include_directories(app PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 install(TARGETS app RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT app_package)
 install(TARGETS app RUNTIME DESTINATION . COMPONENT app_archive)

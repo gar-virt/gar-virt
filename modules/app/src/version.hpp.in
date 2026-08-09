@@ -1,0 +1,9 @@
+#pragma once
+
+#include <string_view>
+
+namespace gv {
+
+constexpr auto runner_version{std::string_view{"@PROJECT_VERSION@"}};
+
+}

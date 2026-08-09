@@ -1,5 +1,6 @@
 #include "commands.hpp"
 #include "config.hpp"
+#include "version.hpp"
 
 #include <utility/log/global_logger.hpp>
 #include <utility/string.hpp>
@@ -25,7 +26,8 @@ void app_main(int argc, const char* const* argv) {
     options_desc.add_options()                                                           //
         ("help", "show help message")                                                    //
         ("config-file", po::value<std::string>()->required(), "configuration file path") //
-        ("verbose", po::bool_switch(), "verbose logging");
+        ("verbose", po::bool_switch(), "verbose logging")                                //
+        ("version", "show program version");
 
     po::positional_options_description positional_desc;
     positional_desc.add("command", 1);
@@ -39,6 +41,11 @@ void app_main(int argc, const char* const* argv) {
 
     if (vm.contains("help")) {
         std::cout << "Usage: program [options]\n" << options_desc << '\n';
+        return;
+    }
+
+    if (vm.contains("version")) {
+        std::cout << "gar-virt " << runner_version << '\n';
         return;
     }
 

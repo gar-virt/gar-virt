@@ -1,10 +1,10 @@
 #include "core.hpp"
 
 #include "config.hpp"
-#include "version.hpp"
 
 #include <gitea/admin_service_client.hpp>
 #include <gitea/runner.hpp>
+#include <project/meta.hpp>
 #include <utility/algorithm.hpp>
 #include <utility/concurrency/thread_pool_executor.hpp>
 #include <utility/defer.hpp>
@@ -252,7 +252,7 @@ Result<gitea::Runner> TemplateState::create_runner(const virt::Machine& machine)
             .forge_uri = main_config->forge.uri,
             .name = std::format("{}-{}", main_config->name, machine.get_id()),
             .labels = template_config->labels,
-            .version = std::string{runner_version},
+            .version = std::string{project::get_version()},
         },
         admin_service);
 }

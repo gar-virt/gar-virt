@@ -1,7 +1,7 @@
 #include "commands.hpp"
 #include "config.hpp"
-#include "version.hpp"
 
+#include <project/meta.hpp>
 #include <utility/log/global_logger.hpp>
 #include <utility/string.hpp>
 
@@ -45,7 +45,7 @@ void app_main(int argc, const char* const* argv) {
     }
 
     if (vm.contains("version")) {
-        std::cout << "gar-virt " << runner_version << '\n';
+        std::cout << "gar-virt " << project::get_version() '\n';
         return;
     }
 

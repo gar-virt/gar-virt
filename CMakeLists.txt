@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...4.3)
 
-project(gar_virt
+project(gar-virt
     VERSION 0.1.0
     DESCRIPTION "A simple Gitea Actions runner controller/orchestrator for self-hosted runner autoscaling with local and remote libvirt/QEMU support."
     HOMEPAGE_URL "https://github.com/gar-virt/gar-virt"

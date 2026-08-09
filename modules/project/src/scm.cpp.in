@@ -1,0 +1,9 @@
+#include <project/meta.hpp>
+
+#include <string_view>
+
+namespace gv::project {
+
+std::string_view get_scm_version() { return "@PROJECT_SCM_VERSION@"; }
+
+} // namespace gv::project

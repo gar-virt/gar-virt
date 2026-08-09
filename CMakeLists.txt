@@ -7,6 +7,7 @@ project(gar-virt
     LANGUAGES CXX)
 
 include(GNUInstallDirs)
+include(cmake/scm.cmake)
 include(cmake/project_settings.cmake)
 include(cmake/static_linking.cmake)
 include(cmake/checks.cmake)

@@ -45,7 +45,7 @@ void app_main(int argc, const char* const* argv) {
     }
 
     if (vm.contains("version")) {
-        std::cout << "gar-virt " << project::get_version() '\n';
+        std::cout << "gar-virt " << project::get_version() << " (" << project::get_scm_version() << ")\n";
         return;
     }
 

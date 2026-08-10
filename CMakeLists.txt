@@ -12,6 +12,7 @@ include(cmake/project_settings.cmake)
 include(cmake/static_linking.cmake)
 include(cmake/checks.cmake)
 include(cmake/sanitizers.cmake)
+include(modules/test_driver/cmake/discovery.cmake)
 
 add_subdirectory(modules)
 add_subdirectory(packaging)

@@ -1,4 +1,5 @@
 add_subdirectory(project)
+add_subdirectory(test_driver)
 add_subdirectory(utility)
 add_subdirectory(gitea_proto)
 add_subdirectory(gitea)

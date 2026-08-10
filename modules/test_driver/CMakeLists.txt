@@ -1,0 +1,3 @@
+add_library(garvirt_test_driver STATIC src/test_driver.cpp)
+target_include_directories(garvirt_test_driver PUBLIC include)
+target_compile_features(garvirt_test_driver PRIVATE cxx_std_11)

@@ -327,14 +327,15 @@ public:
 
             if (res) {
                 file_handle = std::make_optional(boost::json::parse(res).as_object().at("return").as_int64());
-                req = boost::json::serialize(boost::json::value{{"execute", "guest-file-write"},
-                                                                {
-                                                                    "arguments",
-                                                                    {
-                                                                        {"handle", *file_handle},
-                                                                        {"buf-b64", utility::base64_encode(content)},
-                                                                    },
-                                                                }});
+                req = boost::json::serialize(
+                    boost::json::value{{"execute", "guest-file-write"},
+                                       {
+                                           "arguments",
+                                           {
+                                               {"handle", *file_handle},
+                                               {"buf-b64", utility::base64_encode_return<std::string>(content)},
+                                           },
+                                       }});
                 res = virDomainQemuAgentCommand(domain->get(), req.c_str(), VIR_DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, 0);
                 if (!res) {
                     error = std::make_optional<Error>("Failed to write file to machine");
@@ -422,7 +423,7 @@ public:
                     if (!output.empty()) {
                         output += ": ";
                     }
-                    output = utility::base64_decode_to_string(status_res.at("out-data").as_string());
+                    output = utility::base64_decode_return<std::string>(status_res.at("out-data").as_string());
                 }
             }
 

@@ -1,12 +1,9 @@
 find_package(Boost REQUIRED)
 find_package(CURL REQUIRED)
 
-find_path(CPPCODEC_INCLUDE_DIRS "cppcodec/base64_rfc4648.hpp")
-
 add_library(utility)
 target_sources(utility PRIVATE
     src/concurrency/thread_pool_executor.cpp
-    src/encoding/base64.cpp
     src/error.cpp
     src/env.cpp
     src/datetime.cpp
@@ -20,9 +17,13 @@ target_sources(utility PRIVATE
     src/string.cpp
     src/uuid.cpp
 )
-target_include_directories(utility PUBLIC include PRIVATE ${CPPCODEC_INCLUDE_DIRS})
+target_include_directories(utility PUBLIC include)
 target_link_libraries(utility PRIVATE
     Boost::headers
     CURL::libcurl
     checks
 )
+
+if(GARVIRT_BUILD_TESTS)
+    add_subdirectory(test)
+endif()

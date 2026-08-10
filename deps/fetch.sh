@@ -39,16 +39,6 @@ dep_add \
     --cmake-arg -DBoost_USE_STATIC_LIBS=ON
 
 dep_add \
-    --name cppcodec \
-    --version 8019b8b580f8573c33c50372baec7039dfe5a8ce \
-    --hash-sha256 2547d492dfc32bdd3e12674114d52f054efa0b6acbf3bbff679f94ef1cbcf844 \
-    --url https://github.com/tplgy/cppcodec/archive/8019b8b580f8573c33c50372baec7039dfe5a8ce.tar.gz \
-    --subdir cppcodec-8019b8b580f8573c33c50372baec7039dfe5a8ce \
-    --cmake-arg -DCPPCODEC_BUILD_EXAMPLES=OFF \
-    --cmake-arg -DCPPCODEC_BUILD_TESTING=OFF \
-    --cmake-arg -DCPPCODEC_BUILD_TOOLS=OFF
-
-dep_add \
     --name yaml-cpp \
     --version 0.9.0 \
     --hash-sha256 298593d9c440fd9034b8b193d96318b76d49bc97c6ceadb7b0836edf0b6d7539 \

@@ -152,7 +152,7 @@ To avoid libvirt socket permission issues, container-to-host connection issues a
 When using SSH connections, you can avoid SSH key file permission issues by mounting your config directory at `/run/gar-virt-config` in the container. Doing so will copy the files to `/etc/gar-virt` and replace ownership of the copied files.
 
 ```sh
-docker run --rm \
+docker run --rm --tty \
     --volume "$(pwd)/.config:/run/gar-virt-config:ro" \
     gar-virt:ubuntu --config-file /etc/gar-virt/config.yaml --verbose
 ```

@@ -44,3 +44,55 @@ TEST_CASE("base64_decode_return<u8string>") {
 TEST_CASE("base64_decode_return<vector<uint8_t>>") { test_base64_decode_to_bytes<uint8_t>(); }
 
 TEST_CASE("base64_decode_return<vector<byte>>") { test_base64_decode_to_bytes<byte>(); }
+
+TEST_CASE("base64_decode - invalid input") {
+    std::vector<std::byte> output;
+    SECTION("Invalid input length") {
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AA"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AAA"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "=="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "==="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AA="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A=A"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A=="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A===="); });
+    }
+    SECTION("Invalid padding") {
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "===="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A==="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AAAA===="); });
+    }
+    SECTION("Junk after padding") {
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A=AA"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AA=A"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zg==Zg=="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zm8=Zm8="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zm9vYg==Zm9vYg=="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zm9vYmE=Zm9vYmE="); });
+    }
+    SECTION("Invalid characters") {
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "!AAA"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "A!AA"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AA!A"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "AAA!"); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, " Z=="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Z =="); });
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zg= "); });
+    }
+    // Certain characters are allowed in conforming decoders, but we don't currently allow them.
+    // These can currently be different errors such as invalid input, invalid length, etc.
+    SECTION("Valid input that we don't allow") {
+        // Newline characters are not allowed but this is a length violation
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zg==\n"); });
+
+        // URL-safe characters are not allowed
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zm9vYj8_"); }); // "foob??"
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "Zm9vYj8-"); }); // "foob?>"
+        REQUIRE_THROW(std::runtime_error, [&] { base64_decode(output, "PHg_Zg=="); }); // "<x?f"
+    }
+    // Keep this section last
+    SECTION("Unmodified output after failure") { REQUIRE(output.empty()); }
+}

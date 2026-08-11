@@ -86,12 +86,17 @@ struct auto_test_reg {
 #define REQUIRE_THROW(exception, ...)                                                                                  \
     {                                                                                                                  \
         bool did_throw{};                                                                                              \
+        bool unexpected_exception_thrown{};                                                                            \
         try {                                                                                                          \
             (__VA_ARGS__)();                                                                                           \
         } catch (const exception&) {                                                                                   \
             did_throw = true;                                                                                          \
+        } catch (...) {                                                                                                \
+            did_throw = true;                                                                                          \
+            unexpected_exception_thrown = true;                                                                        \
         }                                                                                                              \
         REQUIRE(did_throw);                                                                                            \
+        REQUIRE(!unexpected_exception_thrown);                                                                         \
     }
 
 #define REQUIRE_NOTHROW(...)                                                                                           \

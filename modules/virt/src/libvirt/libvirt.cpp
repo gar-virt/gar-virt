@@ -416,7 +416,7 @@ public:
                 if (status_res.contains("exitcode")) {
                     exit_code = static_cast<int>(status_res.at("exitcode").as_int64());
                 } else {
-                    output = "Abnormal process termination";
+                    return std::unexpected{Error{"Abnormal process termination"}};
                 }
 
                 if (status_res.contains("out-data")) {

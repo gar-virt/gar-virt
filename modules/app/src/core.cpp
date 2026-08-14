@@ -203,6 +203,9 @@ Result<void> execute_task_in_machine(const gitea::TaskParcel& task, const gitea:
                 .and_then([&](auto res) -> Result<void> {
                     log_select(utility::LogLevel::debug, utility::LogLevel::error, res.exit_code == 0,
                                "Task #{} execution exited with code {} and output: {}", id, res.exit_code, res.output);
+                    if (res.exit_code != 0) {
+                        return std::unexpected{Error{std::format("Treating non-zero exit code as an error")}};
+                    }
                     return {};
                 });
         });

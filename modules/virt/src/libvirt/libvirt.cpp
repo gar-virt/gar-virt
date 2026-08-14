@@ -420,10 +420,15 @@ public:
                 }
 
                 if (status_res.contains("out-data")) {
+                    output += utility::base64_decode_return<std::string>(status_res.at("out-data").as_string());
+                }
+
+                if (status_res.contains("err-data")) {
                     if (!output.empty()) {
-                        output += ": ";
+                        output += "; ";
                     }
-                    output = utility::base64_decode_return<std::string>(status_res.at("out-data").as_string());
+                    output += "stderr: ";
+                    output += utility::base64_decode_return<std::string>(status_res.at("err-data").as_string());
                 }
             }
 

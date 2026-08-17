@@ -50,17 +50,18 @@ apt-get install --yes --no-install-recommends \
 
 # Development dependencies
 apt-get install --yes --no-install-recommends \
+    libboost-dev \
+    libboost-filesystem-dev \
     libboost-json-dev \
     libboost-program-options-dev \
     libboost-url-dev \
     libcurl4-openssl-dev \
     libgrpc++-dev \
     libprotobuf-dev \
-    libyaml-cpp-dev \
     libvirt-dev \
+    libyaml-cpp-dev \
     protobuf-compiler \
-    protobuf-compiler-grpc \
-    uuid-dev
+    protobuf-compiler-grpc
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
@@ -76,7 +77,7 @@ COPY . .
 RUN <<EOF
 set -e
 . /tmp/compile_env.txt
-cmake -G "Ninja Multi-Config" -B /build -S .
+cmake -G "Ninja Multi-Config" -B /build -S . -DGARVIRT_ENABLE_STATIC_LINKING=OFF
 cmake --build /build --config "${BUILD_TYPE}"
 EOF
 
@@ -122,12 +123,15 @@ apt-get update
 # Runtime libraries
 apt-get install --yes --no-install-recommends \
     ca-certificates \
+    libboost-filesystem1.83.0 \
+    libboost-json1.83.0 \
+    libboost-program-options1.83.0 \
+    libboost-url1.83.0 \
     libcurl4t64 \
     libgrpc++1.51t64 \
     libprotobuf-c1 \
-    libuuid1 \
-    libyaml-cpp0.8 \
-    libvirt0
+    libvirt0 \
+    libyaml-cpp0.8
 # SSH support via OpenSSH and libssh
 apt-get install --yes --no-install-recommends \
     openssh-client \

@@ -6,14 +6,14 @@ set -e
 # Toolchain
 apk add --no-cache \
     cmake \
-    ninja-build \
-    ninja-is-really-ninja \
+    g++ \
     gcc \
-    g++
+    git \
+    ninja-build \
+    ninja-is-really-ninja
 # Development dependencies
 apk add --no-cache \
     boost1.84-dev \
-    boost1.84-static \
     curl-dev \
     grpc-dev \
     grpc-plugins \
@@ -31,7 +31,7 @@ COPY . .
 
 RUN <<EOF
 set -e
-cmake -G "Ninja Multi-Config" -B /build -S .
+cmake -G "Ninja Multi-Config" -B /build -S . -DGARVIRT_ENABLE_STATIC_LINKING=OFF
 cmake --build /build --config "${BUILD_TYPE}"
 EOF
 
@@ -70,6 +70,8 @@ EOF
 
 RUN <<EOF
 set -e
+# Install and use setpriv from util-linux instead of BusyBox
+apk add --no-cache setpriv
 # Runtime libraries
 apk add --no-cache \
     boost1.84 \
@@ -77,8 +79,7 @@ apk add --no-cache \
     libgrpc \
     libvirt \
     libprotobuf \
-    yaml-cpp  \
-    util-linux
+    yaml-cpp
 # SSH support via OpenSSH and libssh
 apk add --no-cache \
     openssh-client-default \
@@ -96,7 +97,7 @@ if [ -d /run/gar-virt-config ]; then
     chown -R "${USERNAME}:${USERNAME}" /etc/gar-virt/
 fi
 
-exec setpriv --reuid "${USERNAME}" --regid "${USERNAME}" --init-groups /usr/local/bin/gar-virt "\$@"
+exec /bin/setpriv --reuid "${USERNAME}" --regid "${USERNAME}" --init-groups /usr/local/bin/gar-virt "\$@"
 EOF
 
 RUN chmod 555 /usr/local/bin/docker-entrypoint.sh

@@ -57,12 +57,12 @@ This project originally had a simple runner implementation in C++ with workflow 
 ## Runtime Requirements
 
 * System packages:
-  * Alpine: `libssh libvirt openssh-client-default`
+  * Alpine: `apk add libssh libvirt openssh-client-default`
   * Debian: `apt install ca-certificates libssh-4 libvirt0 openssh-client`
 
 Gitea versions known to work:
 * Gitea 1.26.4, Gitea Runner 1.0.8
-* Gitea 1.27.0, Gitea Runner 2.0.1
+* Gitea 1.27, Gitea Runner 2.x–3.1
 
 ## Building
 

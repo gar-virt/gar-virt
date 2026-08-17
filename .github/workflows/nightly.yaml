@@ -1,8 +1,7 @@
-name: Build
+name: Nightly
 on:
-  push:
-  pull_request:
-    branches: [master]
+  schedule:
+    - cron: "0 0 * * *"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,6 +19,6 @@ jobs:
       - name: Fetch and build dependencies
         run: docker run --rm --volume "$(pwd):/source" --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" gar-virt-builder scripts/build.sh --only-deps
       - name: Build
-        run: docker run --rm --volume "$(pwd):/source" --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" gar-virt-builder scripts/build.sh --only-main
+        run: docker run --rm --volume "$(pwd):/source" --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" gar-virt-builder scripts/build.sh --only-main --nightly
       - name: Check portability
         run: scripts/check_exe_portability.sh $(find build/modules -type f -executable)

@@ -17,8 +17,10 @@ add_library(checks INTERFACE)
 if(GARVIRT_ENABLE_CXX_WARN)
     # Enable compiler warnings
     if((CMAKE_C_COMPILER_ID MATCHES "((^GNU)|Clang)$") OR (CMAKE_CXX_COMPILER_ID MATCHES "((^GNU)|Clang)$"))
+        if(GARVIRT_FAIL_ON_WARN)
+            target_compile_options(checks INTERFACE -Werror)
+        endif()
         target_compile_options(checks INTERFACE
-            -Werror
             -Wall
             -Wextra
             -Wpedantic

@@ -1,0 +1,23 @@
+name: Build
+on:
+  push:
+  pull_request:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache
+        id: cache-deps
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/deps
+          key: ${{runner.os}}-portable-deps-${{ hashFiles('deps/fetch.sh') }}
+      - name: Prepare builder
+        run: docker build --tag gar-virt-builder --file docker/portable/Dockerfile .
+      - name: Build
+        run: docker run --rm --volume "$(pwd):/source" --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" gar-virt-builder scripts/build.sh
+      - name: Check portability
+        run: scripts/check_exe_portability.sh $(find build/modules -type f -executable)

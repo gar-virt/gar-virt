@@ -2,7 +2,7 @@ FROM ghcr.io/steffenl/cxx-builder:1.3 AS builder
 
 RUN <<EOF
 #!/usr/bin/env sh
-set -e
+set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install --yes --no-install-recommends p7zip-full ca-certificates curl patch setpriv xz-utils
@@ -18,7 +18,7 @@ ARG GID=1000
 
 RUN <<EOF
 #!/usr/bin/env sh
-set -e
+set -eu
 groupadd --gid "${GID}" "${USERNAME}"
 useradd \
     --uid "${UID}" \
@@ -33,7 +33,7 @@ EOF
 
 RUN tee /usr/local/bin/docker-entrypoint.sh <<'EOF'
 #!/usr/bin/env sh
-set -e
+set -eu
 . /tmp/env.txt
 uid=${HOST_UID:-$(id -u "${USERNAME}")}
 gid=${HOST_GID:-$(id -g "${USERNAME}")}

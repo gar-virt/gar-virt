@@ -35,10 +35,19 @@ RUN tee /usr/local/bin/docker-entrypoint.sh <<'EOF'
 #!/usr/bin/env sh
 set -eu
 . /tmp/env.txt
-uid=${HOST_UID:-$(id -u "${USERNAME}")}
-gid=${HOST_GID:-$(id -g "${USERNAME}")}
+current_uid=$(id -u "${USERNAME}")
+current_gid=$(id -g "${USERNAME}")
+uid=${HOST_UID:-${current_uid}}
+gid=${HOST_GID:-${current_gid}}
+if [ "${uid}" != "${current_gid}" ]; then
+    usermod --uid "${uid}" "${USERNAME}"
+fi
+if [ "${gid}" != "${current_gid}" ]; then
+    group_name=$(id --group --name "${USERNAME}")
+    groupmod --gid "${gid}" "${group_name}"
+fi
 # Avoid error: bash: /root/.bashrc: Permission denied
-export HOME="/home/${USERNAME}"
+export HOME=$(getent passwd "${USERNAME}" | cut -d: -f6)
 exec setpriv --reuid "${uid}" --regid "${gid}" --init-groups "${@}"
 EOF
 

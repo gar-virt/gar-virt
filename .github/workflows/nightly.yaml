@@ -5,6 +5,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -22,3 +24,7 @@ jobs:
         run: docker run --rm --volume "$(pwd):/source" --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" gar-virt-builder scripts/build.sh --only-main --nightly
       - name: Check portability
         run: scripts/check_exe_portability.sh $(find build/modules -type f -executable)
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/gh_release.sh --confirm
